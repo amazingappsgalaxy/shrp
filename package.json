@@ -14,7 +14,9 @@
     "verify": "node scripts/verify-build.js",
     "clean": "rm -rf .next out node_modules/.cache",
     "analyze": "ANALYZE=true npm run build",
-    "export": "next export"
+    "export": "next export",
+    "build:netlify": "next build",
+    "deploy:netlify": "npm run build:netlify && netlify deploy --prod"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

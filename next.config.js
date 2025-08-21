@@ -5,6 +5,10 @@ const nextConfig = {
     scrollRestoration: true,
   },
   
+  // Netlify deployment settings
+  trailingSlash: false,
+  output: 'standalone',
+  
   // Image optimization
   images: {
     formats: ['image/avif', 'image/webp'],
