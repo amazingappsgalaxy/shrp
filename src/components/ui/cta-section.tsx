@@ -21,7 +21,7 @@ export function CTASection() {
       {/* Background Image */}
       <div className="absolute inset-0 opacity-10">
         <Image
-          src="/testpics/b-roll.jpeg"
+          src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/b-roll.jpeg"
           alt="Background"
           fill
           className="object-cover"

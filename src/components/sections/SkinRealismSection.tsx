@@ -102,7 +102,7 @@ export function SkinRealismSection() {
                 {/* Main Image Container - Clean, no overlays */}
                 <div className="relative rounded-3xl overflow-hidden glass-premium mb-8">
                   <Image
-                    src="/testpics/Face+1+After.png"
+                    src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png"
                     alt="Enhanced Portrait Skin Quality"
                     width={600}
                     height={750}
@@ -141,7 +141,7 @@ export function SkinRealismSection() {
                 {/* Main Image Container - Clean, no overlays */}
                 <div className="relative rounded-3xl overflow-hidden glass-premium mb-8">
                   <Image
-                    src="/testpics/Girl+1+After.png"
+                    src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png"
                     alt="Fashion Photography Skin Enhancement"
                     width={600}
                     height={750}

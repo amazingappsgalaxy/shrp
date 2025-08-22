@@ -114,7 +114,7 @@ export function ComparisonSection() {
   }
 
   return (
-    <section className="content-section py-24 lg:py-32 relative overflow-hidden">
+    <section id="comparison-section" className="content-section py-24 lg:py-32 relative overflow-hidden">
       {/* Animated Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-surface/50 to-background" />
       <div className="absolute inset-0">

@@ -167,8 +167,8 @@ const SimpleImageTransition = ({ beforeImage, afterImage, isVisible }: {
 }
 
 export default function MagicalPortraitSection({
-  beforeImage = "/testpics/Girl+1+Before.jpg",
-  afterImage = "/testpics/Girl+1+After.png",
+  beforeImage = "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+  afterImage = "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
   className = ""
 }: MagicalPortraitSectionProps) {
   const [isPlaying, setIsPlaying] = useState(false)
@@ -269,7 +269,7 @@ export default function MagicalPortraitSection({
   }, [isInView])
 
   return (
-    <section className={`py-24 relative overflow-hidden bg-black ${className}`}>
+    <section id="magical-portrait-section" className={`py-24 relative overflow-hidden bg-black ${className}`}>
       {/* Black Background with Dot Pattern */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-black" />

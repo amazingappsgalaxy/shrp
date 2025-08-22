@@ -132,7 +132,7 @@ export function IncrediblePowerSection() {
           <motion.div variants={itemVariants} className="order-2 lg:order-1">
             <div className="relative rounded-3xl overflow-hidden">
               <Image
-                src="/testpics/Girl+1+After.png"
+                src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png"
                 alt="Enhanced Portrait"
                 width={600}
                 height={750}

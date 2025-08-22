@@ -105,7 +105,7 @@ const TestimonialsColumn = (props: {
                 <div className="p-6 rounded-3xl glass-premium max-w-xs w-full" key={i}>
                   <div className="flex items-center gap-4 mb-4">
                     <img 
-                      src={props.testimonials.find(t => t.name === name)?.imageSrc || '/testpics/Face+1+After.png'} 
+                      src={props.testimonials.find(t => t.name === name)?.imageSrc || 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png'} 
                       alt={name}
                       className="w-12 h-12 rounded-full object-cover"
                     />

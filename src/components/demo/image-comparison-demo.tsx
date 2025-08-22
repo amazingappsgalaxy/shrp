@@ -8,12 +8,12 @@ export default function ImageComparisonDemo() {
   return (
     <ImageComparison className="aspect-16/9 w-full rounded-lg glass" enableHover>
       <ImageComparisonImage
-        src="/testpics/Girl+1+Before.jpg"
+        src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg"
         alt="Original Image"
         position="left"
       />
       <ImageComparisonImage
-        src="/testpics/Girl+1+After.png"
+        src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png"
         alt="AI Enhanced Image"
         position="right"
       />

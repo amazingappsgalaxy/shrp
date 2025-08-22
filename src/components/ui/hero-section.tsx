@@ -1,23 +1,23 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, Variants } from "framer-motion"
 import Link from "next/link"
 import { ArrowRight, Play, Sparkles } from "lucide-react"
 import Image from "next/image"
 
 import { Button } from "./button"
 import { SparklesText } from "./sparkles-text"
-import { AwardBadge, AWARD_PRESETS } from "./award-badge"
+
 import { staggerContainerVariants } from "@/lib/animations"
 
-const fadeInVariants = {
+const fadeInVariants: Variants = {
   hidden: { opacity: 0, y: 30 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
       duration: 0.6,
-      ease: [0, 0, 0.2, 1]
+      ease: [0.25, 0.46, 0.45, 0.94]
     }
   }
 }
@@ -34,7 +34,7 @@ export function HeroSection() {
           transition={{ duration: 1.5, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
           <Image
-            src="/testpics/herodesktop.jpeg"
+            src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/herodesktop.jpeg"
             alt="AI Image Enhancement Hero"
             fill
             className="object-cover"
@@ -47,7 +47,7 @@ export function HeroSection() {
         {/* Texture Overlay */}
         <div className="absolute inset-0 opacity-30">
           <Image
-            src="/testpics/imageskintexturebackground.jpg"
+            src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/imageskintexturebackground.jpg"
             alt="Texture Background"
             fill
             className="object-cover mix-blend-overlay"
@@ -130,68 +130,7 @@ export function HeroSection() {
             </Button>
           </motion.div>
 
-          {/* Stats */}
-          <motion.div
-            variants={fadeInVariants}
-            className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto mb-12"
-          >
-            <div className="text-center">
-              <div className="text-2xl md:text-3xl font-bold text-gradient-neon mb-1">
-                10M+
-              </div>
-              <div className="text-sm text-text-muted">Images Enhanced</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl md:text-3xl font-bold text-gradient-neon mb-1">
-                99.9%
-              </div>
-              <div className="text-sm text-text-muted">Accuracy Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl md:text-3xl font-bold text-gradient-neon mb-1">
-                &lt;30s
-              </div>
-              <div className="text-sm text-text-muted">Processing Time</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl md:text-3xl font-bold text-gradient-neon mb-1">
-                8K
-              </div>
-              <div className="text-sm text-text-muted">Max Resolution</div>
-            </div>
-          </motion.div>
 
-          {/* Award Badges */}
-          <motion.div
-            variants={{
-              hidden: { opacity: 0, y: 30 },
-              visible: {
-                opacity: 1,
-                y: 0,
-                transition: {
-                  duration: 0.6,
-                  ease: [0, 0, 0.2, 1]
-                }
-              }
-            }}
-            className="flex flex-wrap items-center justify-center gap-4"
-          >
-            <AwardBadge
-              {...AWARD_PRESETS.aiExcellence}
-              size="md"
-              animated={true}
-            />
-            <AwardBadge
-              {...AWARD_PRESETS.customerChoice}
-              size="md"
-              animated={true}
-            />
-            <AwardBadge
-              {...AWARD_PRESETS.innovation}
-              size="md"
-              animated={true}
-            />
-          </motion.div>
         </motion.div>
       </div>
 

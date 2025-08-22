@@ -417,7 +417,7 @@ export function UnifiedEnhancementSection() {
                 <div className="relative">
                   <div className="aspect-square rounded-2xl overflow-hidden bg-black/20 backdrop-blur-md border border-white/10">
                     <Image
-                      src="/testpics/Girl+1+Before.jpg"
+                      src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg"
                       alt="Before Enhancement"
                       width={400}
                       height={400}
@@ -432,7 +432,7 @@ export function UnifiedEnhancementSection() {
                 <div className="relative">
                   <div className="aspect-square rounded-2xl overflow-hidden bg-black/20 backdrop-blur-md border border-white/10">
                     <Image
-                      src="/testpics/Girl+1+After.png"
+                      src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png"
                       alt="After Enhancement"
                       width={400}
                       height={400}

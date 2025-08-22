@@ -424,26 +424,26 @@ export default function PortraitEnhancementSuite({
   // Sample images for the suite
   const sampleImages = [
     { 
-      before: "/testpics/Girl+1+Before.jpg", 
-      after: "/testpics/Girl+1+After.png", 
+      before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg", 
+      after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png", 
       title: "Natural Beauty",
       category: "Portrait"
     },
     { 
-      before: "/testpics/Asian+Girl+7+before.jpg", 
-      after: "/testpics/Asian+Girl+7+after.png", 
+      before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg", 
+      after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png", 
       title: "Professional",
       category: "Business"
     },
     { 
-      before: "/testpics/Black+Man+1+Before.jpg", 
-      after: "/testpics/Black+Man+1+After.png", 
+      before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+Before.jpg", 
+      after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+After.png", 
       title: "Executive",
       category: "Corporate"
     },
     { 
-      before: "/testpics/White+Man+1+Before.jpg", 
-      after: "/testpics/White+Man+1+After.png", 
+      before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg", 
+      after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png", 
       title: "Creative",
       category: "Artistic"
     }

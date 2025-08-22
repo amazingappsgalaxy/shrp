@@ -136,19 +136,19 @@ function ItemContent({
 
 // Preset configurations for common use cases
 export const PARTNER_LOGOS: SliderItem[] = [
-  { id: '1', name: 'Adobe', image: '/testpics/Adobe Firefly.png' },
-  { id: '2', name: 'DALL-E', image: '/testpics/Dalle.png' },
-  { id: '3', name: 'Flux', image: '/testpics/Flux.png' },
-  { id: '4', name: 'Midjourney', image: '/testpics/Midjourney2.png' },
-  { id: '5', name: 'Stability AI', image: '/testpics/stability.png' },
-  { id: '6', name: 'Grok', image: '/testpics/grok.png' },
+  { id: '1', name: 'Adobe', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Adobe Firefly.png' },
+  { id: '2', name: 'DALL-E', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Dalle.png' },
+  { id: '3', name: 'Flux', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Flux.png' },
+  { id: '4', name: 'Midjourney', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Midjourney2.png' },
+  { id: '5', name: 'Stability AI', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/stability.png' },
+  { id: '6', name: 'Grok', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/grok.png' },
 ]
 
 export const FEATURED_RESULTS: SliderItem[] = [
-  { id: '1', name: 'Portrait Enhancement', image: '/testpics/Tove1.png' },
-  { id: '2', name: 'Professional Headshot', image: '/testpics/Tove2.png' },
-  { id: '3', name: 'Creative Portrait', image: '/testpics/Tove3.png' },
-  { id: '4', name: 'Artistic Enhancement', image: '/testpics/Tove4.png' },
-  { id: '5', name: 'High Resolution', image: '/testpics/4kresolution.png' },
-  { id: '6', name: 'Beauty Enhancement', image: '/testpics/ladypink.png' },
+  { id: '1', name: 'Portrait Enhancement', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove1.png' },
+  { id: '2', name: 'Professional Headshot', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove2.png' },
+  { id: '3', name: 'Creative Portrait', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove3.png' },
+  { id: '4', name: 'Artistic Enhancement', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove4.png' },
+  { id: '5', name: 'High Resolution', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/4kresolution.png' },
+  { id: '6', name: 'Beauty Enhancement', image: 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/ladypink.png' },
 ]

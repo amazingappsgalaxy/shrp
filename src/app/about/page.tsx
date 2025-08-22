@@ -230,10 +230,14 @@ export default function AboutPage() {
               <h2 className="text-3xl lg:text-4xl font-bold mb-8 bg-gradient-to-r from-accent-blue to-accent-purple bg-clip-text text-transparent">
                 Get in Touch
               </h2>
-              <div className="grid md:grid-cols-3 gap-8 max-w-3xl mx-auto">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-4xl mx-auto">
                 <div className="flex items-center gap-3 justify-center">
                   <Mail className="h-5 w-5 text-accent-neon" />
                   <span className="text-text-secondary">dopestarstudios@gmail.com</span>
+                </div>
+                <div className="flex items-center gap-3 justify-center">
+                  <Mail className="h-5 w-5 text-accent-neon" />
+                  <span className="text-text-secondary">sharpiiaiweb@gmail.com</span>
                 </div>
                 <div className="flex items-center gap-3 justify-center">
                   <MapPin className="h-5 w-5 text-accent-neon" />

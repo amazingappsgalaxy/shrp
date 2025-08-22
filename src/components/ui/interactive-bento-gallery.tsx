@@ -21,8 +21,8 @@ const galleryItems: GalleryItem[] = [
     id: 1,
     title: "Portrait Enhancement",
     description: "Professional skin smoothing and detail enhancement",
-    beforeImage: "/testpics/Girl+1+Before.jpg",
-    afterImage: "/testpics/Girl+1+After.png",
+    beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+    afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
     category: "Portrait",
     size: "large"
   },
@@ -30,8 +30,8 @@ const galleryItems: GalleryItem[] = [
     id: 2,
     title: "Asian Portrait",
     description: "Advanced texture recovery and sharpening",
-    beforeImage: "/testpics/Asian+Girl+7+before.jpg",
-    afterImage: "/testpics/Asian+Girl+7+after.png",
+    beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+    afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
     category: "Portrait",
     size: "medium"
   },
@@ -39,8 +39,8 @@ const galleryItems: GalleryItem[] = [
     id: 3,
     title: "Professional Male",
     description: "AI-powered skin enhancement and detail boost",
-    beforeImage: "/testpics/Asian+Man+1+Before.jpg",
-    afterImage: "/testpics/Asian+Man+1+After.png",
+    beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+Before.jpg",
+    afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+After.png",
     category: "Professional",
     size: "medium"
   },
@@ -48,8 +48,8 @@ const galleryItems: GalleryItem[] = [
     id: 4,
     title: "Detail Enhancement",
     description: "Micro-detail recovery and clarity boost",
-    beforeImage: "/testpics/Face+1+Before.jpg",
-    afterImage: "/testpics/Face+1+After.png",
+    beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+Before.jpg",
+    afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png",
     category: "Detail",
     size: "small"
   },
@@ -57,8 +57,8 @@ const galleryItems: GalleryItem[] = [
     id: 5,
     title: "Skin Perfection",
     description: "Advanced skin smoothing while preserving natural texture",
-    beforeImage: "/testpics/White+Girl+6+before.jpg",
-    afterImage: "/testpics/White+Girl+6+after.jpg",
+    beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+before.jpg",
+    afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+after.jpg",
     category: "Beauty",
     size: "small"
   },
@@ -66,8 +66,8 @@ const galleryItems: GalleryItem[] = [
     id: 6,
     title: "Professional Headshot",
     description: "Studio-quality enhancement for business portraits",
-    beforeImage: "/testpics/White+Man+1+Before.jpg",
-    afterImage: "/testpics/White+Man+1+After.png",
+    beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+    afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
     category: "Business",
     size: "large"
   }

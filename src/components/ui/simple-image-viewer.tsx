@@ -33,24 +33,24 @@ interface SimpleImageViewerProps {
 
 const defaultPairs: ComparisonPair[] = [
   {
-    before: "/testpics/Girl+1+Before.jpg",
-    after: "/testpics/Girl+1+After.png",
+    before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+    after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
     title: "Portrait Enhancement",
     description: "Professional skin smoothing with natural texture preservation",
     improvement: "94%",
     processingTime: "28s"
   },
   {
-    before: "/testpics/Asian+Girl+7+before.jpg",
-    after: "/testpics/Asian+Girl+7+after.png",
+    before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+    after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
     title: "Detail Recovery",
     description: "Advanced AI reconstruction of facial features",
     improvement: "91%",
     processingTime: "32s"
   },
   {
-    before: "/testpics/White+Man+1+Before.jpg",
-    after: "/testpics/White+Man+1+After.png",
+    before: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+    after: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
     title: "Professional Headshot",
     description: "Studio-quality enhancement for business portraits",
     improvement: "96%",

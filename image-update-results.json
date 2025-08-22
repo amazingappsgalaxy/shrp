@@ -1,0 +1,1112 @@
+{
+  "timestamp": "2025-08-22T13:30:58.501Z",
+  "baseUrl": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home",
+  "summary": {
+    "filesProcessed": 100,
+    "filesUpdated": 20,
+    "totalReplacements": 120,
+    "errors": 0
+  },
+  "results": [
+    {
+      "file": "src/components/ui/unified-image-viewer.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/testimonials.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/testimonials-section.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/testimonials-columns-1.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/tebi-dashboard.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/tabs.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/stats-section.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/stars-background.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/star-border.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/sparkles-text.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/slider.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/simple-image-viewer.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/select.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/scroll-x-carousel.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/progress.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/pricing-tab.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/pricing-section.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/pricing-section-new.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/pricing-card.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/portrait-enhancement-suite.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/navigation.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/navigation-hero4.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/my-popup-view.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/logo-animation.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/label.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/interactive-bento-gallery.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Face+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Face+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Girl+6+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Girl+6+after.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+after.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/input.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/infinite-slider-horizontal.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Adobe Firefly.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Adobe Firefly.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Dalle.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Dalle.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Flux.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Flux.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Midjourney2.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Midjourney2.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/stability.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/stability.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/grok.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/grok.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove1.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove1.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove2.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove2.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove3.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove3.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove4.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove4.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/4kresolution.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/4kresolution.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/ladypink.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/ladypink.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/image-zoom.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/image-modal.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/image-comparison.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/image-comparison-redesigned.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/image-comparison-horizontal.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/image-comparison-demo.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/highlight-text.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/hero-section.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/herodesktop.jpeg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/herodesktop.jpeg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/imageskintexturebackground.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/imageskintexturebackground.jpg",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/hero-2-1.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/grid-motion.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/gallery-modal.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/footer.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/features-section.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/faq-chat-accordion.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/enhancement-gallery-modal.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/enhanced-image-modal.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/enhanced-image-comparison.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/cta-section.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/b-roll.jpeg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/b-roll.jpeg",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/ui/checkbox.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/card.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/badge.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/award-badge.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/ui/aurora-background.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/upload-box.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/preset-carousel.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/navigation.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/before-after-slider.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/ScrollAnimations.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/ParallaxContainer.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/shared/LazyImage.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/sections/WorkflowSection.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/sections/UnifiedEnhancementSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/TestimonialsSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Face+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/SkinRealismSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Face+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/ShowcaseSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Black+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Face+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Girl+6+after.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+after.jpg",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/PortraitEnhancementSuite.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Black+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Black+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/MagicalPortraitSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/IncrediblePowerSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/GallerySection.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/sections/FAQSection.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/sections/EnhancedPortraitSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/sections/CostOptimizationSection.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/sections/ComparisonSection.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/sections/AIInfluencerSection.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Black+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Black+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+2+Before (1).jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+2+Before (1).jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+2+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+2+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/components/pricing/EnhancorPricingTable.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/demo/image-comparison-demo.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/app/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/layout.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/upload/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/tebi-settings/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/tebi-demo/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/magical-portrait/page.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/app/jobs/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/gallery/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/editor/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/demo-enhancement/page.tsx",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/app/debug/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/dashboard/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/auth/signup/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/auth/signin/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/ai-image-enhancement/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/app/about/page.tsx",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/utils.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/types.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/tebi.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/constants.ts",
+      "updated": true,
+      "replacements": [
+        {
+          "from": "/testpics/Girl+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
+          "count": 2
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Girl+7+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Girl+7+after.png",
+          "count": 2
+        },
+        {
+          "from": "/testpics/Asian+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Asian+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Asian+Man+1+After.png",
+          "count": 2
+        },
+        {
+          "from": "/testpics/Black+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Black+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+After.png",
+          "count": 2
+        },
+        {
+          "from": "/testpics/Face+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Face+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+2+Before (1).jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+2+Before (1).jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Girl+2+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+2+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Girl+6+before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Girl+6+after.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Girl+6+after.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+Before.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+Before.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/White+Man+1+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/White+Man+1+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/LilMiquela+before.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/LilMiquela+before.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/LilMiquela+after.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/LilMiquela+after.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Anita+Before.jpg.webp",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Anita+Before.jpg.webp",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Anita+After.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Anita+After.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Adobe Firefly.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Adobe Firefly.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Dalle.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Dalle.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Flux.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Flux.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Midjourney2.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/Midjourney2.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/stability.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/stability.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/grok.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/ai-tools/grok.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove1.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove1.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove2.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove2.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove3.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove3.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/Tove4.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/portfolio/Tove4.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/herodesktop.jpeg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/herodesktop.jpeg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/imageskintexturebackground.jpg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/imageskintexturebackground.jpg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/b-roll.jpeg",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/hero/b-roll.jpeg",
+          "count": 1
+        },
+        {
+          "from": "/testpics/4kresolution.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/4kresolution.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/ladypink.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/ladypink.png",
+          "count": 1
+        },
+        {
+          "from": "/testpics/lipme.png",
+          "to": "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/demos/lipme.png",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "src/lib/animations.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/hooks/use-tebi.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/api/tebi.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/lib/api/mock.ts",
+      "updated": false,
+      "replacements": []
+    },
+    {
+      "file": "src/components/index.ts",
+      "updated": false,
+      "replacements": []
+    }
+  ]
+}

@@ -8,9 +8,7 @@ import { cn } from '@/lib/utils'
 import { Menu, X, Sparkles } from 'lucide-react'
 
 const menuItems = [
-  { name: 'Features', href: '/features' },
-  { name: 'Gallery', href: '/gallery' },
-
+  { name: 'Gallery', href: '#comparison-section' },
   { name: 'Pricing', href: '/#pricing-section' },
   { name: 'About', href: '/about' },
 ]

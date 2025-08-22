@@ -44,8 +44,8 @@ export function AIInfluencerSection() {
       name: "Aria Chen",
       username: "@aria_ai",
       category: "Fashion & Lifestyle",
-      beforeImage: "/testpics/Girl+1+Before.jpg",
-      afterImage: "/testpics/Girl+1+After.png",
+      beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+Before.jpg",
+      afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png",
       metrics: {
         engagement: "+127%",
         followers: "2.4M",
@@ -59,8 +59,8 @@ export function AIInfluencerSection() {
       name: "Marcus Digital",
       username: "@marcus_digi", 
       category: "Tech & Innovation",
-      beforeImage: "/testpics/Black+Man+1+Before.jpg",
-      afterImage: "/testpics/Black+Man+1+After.png",
+      beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+Before.jpg",
+      afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Black+Man+1+After.png",
       metrics: {
         engagement: "+156%",
         followers: "1.8M",
@@ -74,8 +74,8 @@ export function AIInfluencerSection() {
       name: "Sophia AI",
       username: "@sophia_ai",
       category: "Art & Creativity",
-      beforeImage: "/testpics/Girl+2+Before (1).jpg",
-      afterImage: "/testpics/Girl+2+After.png",
+      beforeImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+2+Before (1).jpg",
+      afterImage: "https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+2+After.png",
       metrics: {
         engagement: "+180%",
         followers: "3.1M",
