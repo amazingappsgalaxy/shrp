@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       },
       webhookSetup: {
         requiredUrl: 'https://view-ambassador-sorry-soc.trycloudflare.com/api/payments/webhook',
-        secret: 'whsec_CvW8M/rIMpywMbLC0HGysKxFXf2RrcRP',
+        secret: process.env.DODO_WEBHOOK_SECRET ? '[configured]' : '[not set]',
         events: [
           'payment.succeeded',
           'payment.completed', 
