@@ -16,19 +16,18 @@ export function TestimonialsSection() {
         key={i}
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={{ 
-          delay: i * 0.1, 
+        transition={{
+          delay: i * 0.1,
           duration: 0.3,
           type: "spring",
-          stiffness: 200 
+          stiffness: 200
         }}
       >
-        <Star 
-          className={`w-4 h-4 ${
-            i < rating 
-              ? 'fill-accent-neon text-accent-neon' 
+        <Star
+          className={`w-4 h-4 ${i < rating
+              ? 'fill-accent-neon text-accent-neon'
               : 'text-text-muted'
-          }`} 
+            }`}
         />
       </motion.div>
     ))
@@ -75,7 +74,7 @@ export function TestimonialsSection() {
             variants={fadeInVariants}
             className="text-lg text-text-secondary max-w-2xl mx-auto"
           >
-            See what photographers, studios, and agencies are saying about 
+            See what photographers, studios, and agencies are saying about
             the transformative power of Sharpii.ai
           </motion.p>
         </motion.div>
@@ -185,9 +184,9 @@ export function TestimonialsSection() {
               </div>
               <div className="text-sm text-text-muted">Happy Customers</div>
             </div>
-            
+
             <div className="w-px h-12 bg-glass-border" />
-            
+
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <Star className="w-5 h-5 text-accent-neon mr-2 fill-current" />
@@ -197,9 +196,9 @@ export function TestimonialsSection() {
               </div>
               <div className="text-sm text-text-muted">Average Rating</div>
             </div>
-            
+
             <div className="w-px h-12 bg-glass-border" />
-            
+
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <TrendingUp className="w-5 h-5 text-accent-neon mr-2" />
@@ -225,7 +224,7 @@ export function TestimonialsSection() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <span className="relative z-10">Join Thousands of Satisfied Users</span>
+            <span className="relative z-10">Trusted by Professionals</span>
           </motion.button>
         </motion.div>
       </div>

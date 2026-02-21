@@ -101,7 +101,7 @@ export function AwardBadge({
       rotateY: 0,
       transition: {
         duration: 0.6,
-        ease: [0.25, 0.46, 0.45, 0.94]
+        ease: [0.25, 0.46, 0.45, 0.94] as const
       }
     },
     hover: {
@@ -109,7 +109,7 @@ export function AwardBadge({
       rotateY: 5,
       transition: {
         duration: 0.3,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     }
   }
@@ -124,7 +124,7 @@ export function AwardBadge({
       transition: {
         duration: 2,
         repeat: Infinity,
-        ease: "easeInOut"
+        ease: [0.25, 0.46, 0.45, 0.94] as const
       }
     }
   }
@@ -160,7 +160,7 @@ export function AwardBadge({
         transition={animated ? {
           duration: 2,
           repeat: Infinity,
-          ease: "easeInOut",
+          ease: [0.25, 0.46, 0.45, 0.94] as const,
           delay: 0.5
         } : undefined}
       >
@@ -199,7 +199,7 @@ export function AwardBadge({
                 duration: 1.5,
                 delay: i * 0.3,
                 repeat: Infinity,
-                ease: "easeInOut",
+                ease: [0.25, 0.46, 0.45, 0.94] as const,
               }}
             />
           ))}

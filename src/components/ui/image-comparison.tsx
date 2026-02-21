@@ -49,12 +49,44 @@ function ImageComparison({
     const containerRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const x =
       "touches" in event
-        ? event.touches[0].clientX - containerRect.left
+        ? (() => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return undefined;
+            return touch.clientX - containerRect.left;
+          })()
         : (event as React.MouseEvent).clientX - containerRect.left;
+
+    if (typeof x !== 'number') return;
 
     const percentage = Math.min(Math.max((x / containerRect.width) * 100, 0), 100);
     motionValue.set(percentage);
     setSliderPosition(percentage);
+  };
+
+  const handleMouseDown = (event: React.MouseEvent) => {
+    if (!enableHover) {
+      setIsDragging(true);
+      handleDrag(event);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (!enableHover) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleTouchStart = (event: React.TouchEvent) => {
+    if (!enableHover) {
+      setIsDragging(true);
+      handleDrag(event);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!enableHover) {
+      setIsDragging(false);
+    }
   };
 
   return (
@@ -67,12 +99,12 @@ function ImageComparison({
           className
         )}
         onMouseMove={handleDrag}
-        onMouseDown={() => !enableHover && setIsDragging(true)}
-        onMouseUp={() => !enableHover && setIsDragging(false)}
-        onMouseLeave={() => !enableHover && setIsDragging(false)}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onTouchMove={handleDrag}
-        onTouchStart={() => !enableHover && setIsDragging(true)}
-        onTouchEnd={() => !enableHover && setIsDragging(false)}>
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}>
         {children}
       </div>
     </ImageComparisonContext.Provider>

@@ -32,7 +32,13 @@ export function ImageComparisonHorizontal({
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Guard against empty pairs to satisfy TS and avoid runtime errors
+  if (!pairs || pairs.length === 0) {
+    return null
+  }
+
   const currentPair = pairs[currentIndex]
+  if (!currentPair) return null
 
   // Auto-play functionality
   useEffect(() => {
@@ -77,7 +83,8 @@ export function ImageComparisonHorizontal({
   const handleTouchStart = (e: React.TouchEvent) => {
     setIsDragging(true)
     setIsPlaying(false)
-    const touch = e.touches[0]
+    const touch = e.touches?.[0]
+    if (!touch) return
     updateSliderPosition(touch.clientX)
   }
 
@@ -103,7 +110,8 @@ export function ImageComparisonHorizontal({
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
       if (isDragging) {
-        const touch = e.touches[0]
+        const touch = e.touches?.[0]
+        if (!touch) return
         updateSliderPosition(touch.clientX)
       }
     }
@@ -258,19 +266,6 @@ export function ImageComparisonHorizontal({
           ))}
         </div>
       </div>
-
-      {/* Progress Bar */}
-      {isPlaying && (
-        <div className="mt-4 w-full h-1 bg-surface-elevated rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-gradient-to-r from-accent-neon to-accent-blue"
-            initial={{ width: "0%" }}
-            animate={{ width: "100%" }}
-            transition={{ duration: autoPlayInterval / 1000, ease: "linear" }}
-            key={currentIndex}
-          />
-        </div>
-      )}
     </div>
   )
 }

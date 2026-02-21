@@ -1,0 +1,71 @@
+Smart Upscale Disabled workflow: https://www.runninghub.ai/workflow/2023005806844710914
+Smart Upscale Enabled workflow: https://www.runninghub.ai/workflow/2023026925354094594
+Model name: Skin Editor
+
+Task timer (approximate backend duration for loading animation only):
+  Smart Upscale OFF: 70 seconds
+  Smart Upscale ON:  160 seconds
+Note: task timer is used only to calibrate the loading progress animation speed.
+      If the backend responds earlier the task is immediately marked complete.
+
+Workflow nodes mapped from frontend settings:
+#97 Input Image (image)
+#140 Prompt (text)
+#90 Denoise (denoise)
+#167 Max Shift (max_shift)
+#85 Megapixels (megapixels)
+#88 Guidance (guidance)
+#166 Style (lora_name)
+#138 Area Protection toggles (skin, mouth, u_lip, l_lip, nose, eye_g, r_eye, l_eye, r_brow, l_brow, hair, cloth, background, neck)
+
+Frontend ranges:
+#90 denoise: 0.1 to 0.38 (range slider)
+#167 maxshift: 0.8 to 1.2 (range slider)
+#85 megapixels: 2 to 10 (range slider)
+
+Default UI state:
+Mode: Subtle
+Area Protection: all false by default
+
+Smart Upscale:
+If smart upscale is false: output node is #136
+If smart upscale is true:
+- 4k: #213 scale_by = 2, #214 width = 4096, #214 height = 4096
+- 8k: #213 scale_by = 4, #214 width = 8192, #214 height = 8192
+Outputs when smart upscale is true: #215 (first output) and #136 (second output)
+
+Modes:
+Subtle
+#140 prompt: visible natural pore scars embedded into the skin geometry on face near forehead and cheeks, uneven skin topology, natural scars skin topology, multiple natural scars on face, Ultra-high-definition professional photograph, 8K resolution, crystal-clear sharpness, do not add too many blemishes, apply this texture only for skin, apply this texture only for face and skin and not on hair or dress, skin texture creates subtle micro-shadows and highlights under lighting
+#90 denoise: 0.20
+#167 maxshift: 1
+#85 megapixels: 4
+#88 guidance: 80
+
+Clear
+#140 prompt: Silky smooth skin, beautiful smooth skin, perfect skin, enhance skin, realistice skin, visible skin texture, ultra realistic, Ultra-high-definition professional photograph, 8K resolution, crystal-clear sharpness, lifelike details, studio-grade image quality, no blurring or distortion, sublty reduce existing blemishes, sublty soften existing blemishes, do not remove blemishes just soften them and reduce the opacity of all the blemishes, apply skin texture only for skin, apply skin texture only for face and skin and not on hair or dress strictly, skin texture creates subtle micro-shadows and highlights under lighting
+#90 denoise: 0.35
+#167 maxshift: 1.2
+#85 megapixels: 4
+#88 guidance: 100
+
+Pimples
+#140 prompt: subtle soft natural pimples on nose and cheeks, 100+ multple pimples on face, huge pimples, natural skin pattern, majar intense acne, acne scars, lots of acne, surface marks, acne covering whole face, acne, covering the whole face without any gap, acne marks should be of the same color as the skin, no dark acne, acne marks same skin color, light color acne marks, apply skin texture only for skin, apply skin texture only for face and skin and not on hair or dress, skin texture creates subtle micro-shadows and highlights under lighting
+#90 denoise: 0.37
+#167 maxshift: 1.2
+#85 megapixels: 2
+#88 guidance: 100
+
+Freckles
+#140 prompt: intense freckles on nose and cheeks, multple freckles on nose and cheeks, extreme freckles on nose and cheeks, countless large number frekles, natural skin pattern, natural freckle size and arrangement matching face, freckles are evenly arranged naturally on the face, apply freckles only for skin, apply freckles only for face and skin and not on hair or dress, skin texture creates subtle micro-shadows and highlights under lighting
+#90 denoise: 0.37
+#167 maxshift: 1.2
+#85 megapixels: 2
+#88 guidance: 100
+
+Custom
+#140 prompt: (custom prompt) + apply skin texture only for skin, apply skin texture only for face and skin and not on hair or dress, skin texture creates subtle micro-shadows and highlights under lighting
+#90 denoise: 0.24
+#167 maxshift: 1
+#85 megapixels: 4
+#88 guidance: 100

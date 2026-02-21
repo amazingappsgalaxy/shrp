@@ -2,8 +2,9 @@
 
 import React from "react"
 import { motion } from "framer-motion"
-import { Star } from "lucide-react"
+import { Star, Quote } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 interface Testimonial {
   id: number
@@ -17,7 +18,7 @@ const testimonials: Testimonial[] = [
   {
     id: 1,
     text: "SharpII has revolutionized our workflow. The AI enhancement quality is incredible, and it saves us hours of manual editing.",
-    imageSrc: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=150&h=150&fit=crop&crop=face",
+    imageSrc: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
     name: "Sarah Chen",
     username: "@sarahc_design"
   },
@@ -101,31 +102,36 @@ const TestimonialsColumn = (props: {
         {[
           ...new Array(2).fill(0).map((_, index) => (
             <React.Fragment key={index}>
-              {props.testimonials.map(({ text, name, username }, i) => (
-                <div className="p-6 rounded-3xl glass-premium max-w-xs w-full" key={i}>
-                  <div className="flex items-center gap-4 mb-4">
-                    <img 
-                      src={props.testimonials.find(t => t.name === name)?.imageSrc || 'https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Face+1+After.png'} 
-                      alt={name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div>
-                      <h4 className="font-semibold text-white">{name}</h4>
-                      <p className="text-sm text-text-secondary">{username}</p>
+              {props.testimonials.map(({ text, name, username, imageSrc }, i) => (
+                <div className="p-8 rounded-3xl glass-card border border-white/5 hover:border-white/20 transition-all cursor-default group" key={i}>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-accent-blue to-accent-purple blur-md opacity-50 group-hover:opacity-100 transition-opacity" />
+                      <Image
+                        src={imageSrc}
+                        alt={name}
+                        width={56}
+                        height={56}
+                        className="w-14 h-14 rounded-full object-cover border-2 border-white/10 relative z-10"
+                      />
                     </div>
+                    <div>
+                      <h4 className="font-bold text-white text-lg">{name}</h4>
+                      <p className="text-sm text-accent-blue">{username}</p>
+                    </div>
+                    <Quote className="ml-auto w-8 h-8 text-white/5" />
                   </div>
-                  <p className="text-text-secondary mb-4 leading-relaxed">
-                    {text}
+                  <p className="text-white/70 mb-6 leading-relaxed">
+                    "{text}"
                   </p>
                   <div className="flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        className={`w-4 h-4 ${
-                          i < 5
-                            ? "text-yellow-400 fill-current"
-                            : "text-gray-400"
-                        }`}
+                        className={`w-4 h-4 ${i < 5
+                            ? "text-yellow-400 fill-yellow-400"
+                            : "text-gray-600"
+                          }`}
                       />
                     ))}
                   </div>
@@ -146,39 +152,45 @@ const thirdColumn = testimonials.slice(6, 9)
 
 export function TestimonialsSection() {
   return (
-    <section className="py-12 relative overflow-hidden">
+    <section className="py-24 relative overflow-hidden bg-black">
       {/* Background Elements */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-purple/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-blue/30 rounded-full blur-3xl" />
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,_rgba(76,29,149,0.1),transparent_70%)]" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-purple/20 rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-blue/20 rounded-full blur-[100px]" />
       </div>
 
       <div className="container mx-auto px-4 lg:px-6 relative z-10">
         {/* Section Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           viewport={{ once: true }}
-          className="flex flex-col items-center justify-center max-w-[540px] mx-auto mb-10"
+          className="flex flex-col items-center justify-center max-w-3xl mx-auto mb-16 text-center"
         >
-          <div className="flex justify-center">
-            <div className="border py-1 px-4 rounded-lg text-sm text-text-secondary">Testimonials</div>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle border border-white/10 mb-6">
+            <Star className="w-4 h-4 text-accent-neon fill-accent-neon" />
+            <span className="text-sm font-bold text-white uppercase tracking-wider">Trusted by Professionals</span>
           </div>
 
-          <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold tracking-tighter mt-5 text-center">
-            <span className="text-gradient-neon">What our users say</span>
+          <h2 className="font-heading text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 text-white">
+            Loved solely by <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-blue via-accent-purple to-accent-pink">
+              Creators Worldwide
+            </span>
           </h2>
-          <p className="text-center mt-5 opacity-75 text-text-secondary">
-            See what our customers have to say about us.
+          <p className="text-lg text-white/60 max-w-2xl mx-auto">
+            Join thousands of photographers, designers, and creators who trust SharpII
+            to enhance their visual content.
           </p>
         </motion.div>
 
         {/* Testimonials Columns */}
-        <div className="flex justify-center gap-6 [mask-image:linear-gradient(to_bottom,transparent,black_25%,black_75%,transparent)] max-h-[740px] overflow-hidden">
-          <TestimonialsColumn testimonials={firstColumn} duration={15} />
-          <TestimonialsColumn testimonials={secondColumn} className="hidden md:block" duration={19} />
-          <TestimonialsColumn testimonials={thirdColumn} className="hidden lg:block" duration={17} />
+        <div className="flex justify-center gap-6 [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)] max-h-[800px] overflow-hidden -mx-4 sm:mx-0">
+          <TestimonialsColumn testimonials={firstColumn} duration={40} className="w-full sm:w-1/2 lg:w-1/3" />
+          <TestimonialsColumn testimonials={secondColumn} duration={35} className="hidden sm:block sm:w-1/2 lg:w-1/3" />
+          <TestimonialsColumn testimonials={thirdColumn} duration={45} className="hidden lg:block lg:w-1/3" />
         </div>
       </div>
     </section>

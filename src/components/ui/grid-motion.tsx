@@ -67,8 +67,8 @@ export function GridMotion() {
   }
 
   const itemVariants = {
-    hidden: { 
-      opacity: 0, 
+    hidden: {
+      opacity: 0,
       y: 50,
       scale: 0.9
     },
@@ -99,7 +99,7 @@ export function GridMotion() {
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold font-heading mb-6">
             <span className="text-gradient-neon">Powered by Leading AI Models</span>
           </h2>
           <p className="text-lg text-text-secondary max-w-2xl mx-auto">
@@ -125,7 +125,7 @@ export function GridMotion() {
               <div className="card-premium h-full p-8 relative overflow-hidden">
                 {/* Gradient Background */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-500`} />
-                
+
                 {/* Icon */}
                 <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.gradient} mb-6 relative z-10`}>
                   <div className="text-white">
@@ -135,7 +135,7 @@ export function GridMotion() {
 
                 {/* Content */}
                 <div className="relative z-10">
-                  <h3 className="text-xl font-semibold mb-3 text-text-primary group-hover:text-gradient-neon transition-all duration-300">
+                  <h3 className="text-xl font-semibold font-heading mb-3 text-text-primary group-hover:text-gradient-neon transition-all duration-300">
                     {feature.title}
                   </h3>
                   <p className="text-text-secondary leading-relaxed">

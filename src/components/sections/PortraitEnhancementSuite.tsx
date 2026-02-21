@@ -547,7 +547,7 @@ export default function PortraitEnhancementSuite({
     setProcessingStep(0)
   }
 
-  const currentImage = sampleImages[currentImageIndex]
+  const currentImage = sampleImages[currentImageIndex] ?? sampleImages[0]
 
   return (
     <section className={`py-32 relative overflow-hidden bg-black ${className}`}>
@@ -986,7 +986,7 @@ export default function PortraitEnhancementSuite({
 
                 {/* Interactive Canvas */}
                 <InteractiveCanvas
-                  currentImage={isComplete ? currentImage.after : currentImage.before}
+                  currentImage={(isComplete ? currentImage?.after : currentImage?.before) ?? ""}
                   activeTool={activeTool}
                   isProcessing={isProcessing}
                   processingStep={processingStep}
@@ -1010,7 +1010,7 @@ export default function PortraitEnhancementSuite({
                   
                   <div className="flex items-center gap-4">
                     <span className="text-white/70 text-sm">
-                      {currentImage.title} • {currentImage.category}
+                      {(currentImage?.title ?? "") + " • " + (currentImage?.category ?? "")}
                     </span>
                     <div className="flex gap-2">
                       <motion.button
@@ -1209,8 +1209,8 @@ export default function PortraitEnhancementSuite({
             </div>
 
             <ResultsComparison
-              beforeImage={currentImage.before}
-              afterImage={currentImage.after}
+              beforeImage={currentImage?.before ?? ""}
+              afterImage={currentImage?.after ?? ""}
               isVisible={isComplete}
             />
           </motion.div>

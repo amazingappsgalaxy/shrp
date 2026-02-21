@@ -1,0 +1,1068 @@
+{
+  "13": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "DualCLIPLoader"
+    }
+  },
+  "14": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "19": {
+    "inputs": {
+      "padding": 256,
+      "tiles": [
+        "94",
+        0
+      ],
+      "positions": [
+        "52",
+        1
+      ],
+      "original_size": [
+        "52",
+        2
+      ],
+      "grid_size": [
+        "52",
+        3
+      ]
+    },
+    "class_type": "TTP_Image_Assy",
+    "_meta": {
+      "title": "TTP_Image_Assy"
+    }
+  },
+  "52": {
+    "inputs": {
+      "tile_width": [
+        "82",
+        0
+      ],
+      "tile_height": [
+        "82",
+        1
+      ],
+      "image": [
+        "85",
+        0
+      ]
+    },
+    "class_type": "TTP_Image_Tile_Batch",
+    "_meta": {
+      "title": "TTP_Image_Tile_Batch"
+    }
+  },
+  "82": {
+    "inputs": {
+      "width_factor": 3,
+      "height_factor": 3,
+      "overlap_rate": 0.2,
+      "image": [
+        "85",
+        0
+      ]
+    },
+    "class_type": "TTP_Tile_image_size",
+    "_meta": {
+      "title": "TTP_Tile_image_size"
+    }
+  },
+  "83": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "84": {
+    "inputs": {
+      "upscale_model": [
+        "83",
+        0
+      ],
+      "image": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "85": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "megapixels": 2.0000000000000004,
+      "resolution_steps": 1,
+      "image": [
+        "84",
+        0
+      ]
+    },
+    "class_type": "ImageScaleToTotalPixels",
+    "_meta": {
+      "title": "Scale Image to Total Pixels"
+    }
+  },
+  "86": {
+    "inputs": {
+      "text": "Hyper-realistic ultra-portrait, exact face identity preservation from reference, strict facial geometry lock with identical bone structure, jawline, nose shape, cheekbones, eye shape, lip proportions, hairline, ear position, chin curve, skull proportions, and landmark distances, no distortion of unique facial traits, perfect structural fidelity with natural micro asymmetry.\n\nUltra-ultra-high-detail skin texture magnification across entire face and body — visible enlarged pores, deep epidermal grain, realistic micro wrinkles, tiny creases, faint freckles, scattered moles, faint pimples, healed acne scars, natural blemishes, subtle redness, fine capillaries, authentic beauty marks, light peach fuzz hair, baby hairs at the hairline, natural oil film with specular shine, realistic subsurface scattering revealing translucent glow under thin skin, tonal variations, patchy undertones, micro-skin scaling and tiny irregularities, delicate unevenness around nose and cheeks, subtle shadowing from pore depth, fine epidermal sheen, hyper-defined lip micro-creases with moist texture and gloss reflection, sharp eyelash root definition, natural eyelash separation with subtle curl, crisp eyebrow hairs with random stray strands, delicate eyelid folds and micro-texture.\n\nFull-body if visible — ultra-detailed skin realism: muscle definition, tiny bumps, pores following natural skin patterns, realistic arm hair shimmering in directional light, textured knuckles, lifelike fingernail beds with translucent detail, faint veins under skin, natural skin folds, body hair softness with true light scatter.\n\nCinematic soft directional lighting with high-end beauty retouch feel but without smoothing — every skin imperfection and texture enhanced instead of blurred. Professional 85mm DSLR prime lens depth of field, ultra-clean RAW dynamic range, extreme clarity with lifelike bokeh, sharpest focal lock on eyes with ultra-crisp iris patterns, subtle iris reflections, cinematic bloom in highlights, organic shadow falloff, realistic HDR color grading.\n\nUltra-consistent hair structure preserved exactly as reference — identical strands, flow, thickness, and volume, individual strands visible in ultra-sharp clarity, baby hairs around hairline naturally illuminated, fine frizz strands visible against light.\n\n8K master-grade ultra-resolution — studio-level hyper-realism, maximum visible texture fidelity, photorealistic beyond photographic realism.",
+      "clip": [
+        "166",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "87": {
+    "inputs": {
+      "sampler_name": "dpmpp_2m"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "88": {
+    "inputs": {
+      "guidance": 20,
+      "conditioning": [
+        "140",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  },
+  "89": {
+    "inputs": {
+      "noise_seed": 921687945196596
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "90": {
+    "inputs": {
+      "scheduler": "sgm_uniform",
+      "steps": 5,
+      "denoise": 0.25000000000000006,
+      "model": [
+        "167",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "91": {
+    "inputs": {
+      "pixels": [
+        "95",
+        0
+      ],
+      "vae": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "92": {
+    "inputs": {
+      "noise": [
+        "89",
+        0
+      ],
+      "guider": [
+        "93",
+        0
+      ],
+      "sampler": [
+        "87",
+        0
+      ],
+      "sigmas": [
+        "90",
+        0
+      ],
+      "latent_image": [
+        "91",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "93": {
+    "inputs": {
+      "model": [
+        "167",
+        0
+      ],
+      "conditioning": [
+        "88",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider"
+    }
+  },
+  "94": {
+    "inputs": {
+      "images": [
+        "106",
+        0
+      ]
+    },
+    "class_type": "ImageListToImageBatch",
+    "_meta": {
+      "title": "Image List to Image Batch"
+    }
+  },
+  "95": {
+    "inputs": {
+      "image": [
+        "52",
+        0
+      ]
+    },
+    "class_type": "easy imageBatchToImageList",
+    "_meta": {
+      "title": "Image Batch To Image List"
+    }
+  },
+  "96": {
+    "inputs": {
+      "unet_name": "墨沫深空_z-lmage_turbo-bf16_v1.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "97": {
+    "inputs": {
+      "image": "8f2ab52f0be95cff866d7e19f398b23554f40439a3b2df810331071326670858.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "98": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/view?filename=rgthree.compare._temp_qbyyg_00003_tfkip_1771044108.jpg&type=temp&subfolder=&rand=0.5909118058673251&Rh-Comfy-Auth=eyJ1c2VySWQiOiI5MTFiNzE5ZmQ3OTMzODljMzJkMGJjNjAwY2UzN2M1NSIsInNpZ25FeHBpcmUiOjE3NzE2NDg3ODE1OTAsInRzIjoxNzcxMDQzOTgxNTkwLCJzaWduIjoiNDNiZjZkZGU0ODY3MmY3MmQ5MjgzMzVlMmQzNjAxYTIifQ==&Rh-Identify=911b719fd793389c32d0bc600ce37c55"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/view?filename=rgthree.compare._temp_qbyyg_00004_rvnmh_1771044110.jpg&type=temp&subfolder=&rand=0.8996580757104242&Rh-Comfy-Auth=eyJ1c2VySWQiOiI5MTFiNzE5ZmQ3OTMzODljMzJkMGJjNjAwY2UzN2M1NSIsInNpZ25FeHBpcmUiOjE3NzE2NDg3ODE1OTAsInRzIjoxNzcxMDQzOTgxNTkwLCJzaWduIjoiNDNiZjZkZGU0ODY3MmY3MmQ5MjgzMzVlMmQzNjAxYTIifQ==&Rh-Identify=911b719fd793389c32d0bc600ce37c55"
+          }
+        ]
+      },
+      "image_a": [
+        "19",
+        0
+      ],
+      "image_b": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "102": {
+    "inputs": {
+      "image": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "easy imageSizeByLongerSide",
+    "_meta": {
+      "title": "ImageSize (LongerSide)"
+    }
+  },
+  "106": {
+    "inputs": {
+      "tile_size": [
+        "102",
+        0
+      ],
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8,
+      "samples": [
+        "92",
+        0
+      ],
+      "vae": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "VAE Decode (Tiled)"
+    }
+  },
+  "127": {
+    "inputs": {
+      "device": "cuda"
+    },
+    "class_type": "FaceParsingModelLoader(FaceParsing)",
+    "_meta": {
+      "title": "FaceParsingModelLoader(FaceParsing)"
+    }
+  },
+  "128": {
+    "inputs": {},
+    "class_type": "FaceParsingProcessorLoader(FaceParsing)",
+    "_meta": {
+      "title": "FaceParsingProcessorLoader(FaceParsing)"
+    }
+  },
+  "129": {
+    "inputs": {
+      "model": [
+        "127",
+        0
+      ],
+      "processor": [
+        "128",
+        0
+      ],
+      "image": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "FaceParse(FaceParsing)",
+    "_meta": {
+      "title": "FaceParse(FaceParsing)"
+    }
+  },
+  "130": {
+    "inputs": {
+      "expand": 15,
+      "incremental_expandrate": 0,
+      "tapered_corners": true,
+      "flip_input": false,
+      "blur_radius": 4,
+      "lerp_alpha": 1,
+      "decay_factor": 1,
+      "fill_holes": false,
+      "mask": [
+        "138",
+        0
+      ]
+    },
+    "class_type": "GrowMaskWithBlur",
+    "_meta": {
+      "title": "Grow Mask With Blur"
+    }
+  },
+  "131": {
+    "inputs": {
+      "mask": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "Convert Mask to Image"
+    }
+  },
+  "132": {
+    "inputs": {
+      "force_resize_width": 0,
+      "force_resize_height": 0,
+      "image": [
+        "19",
+        0
+      ],
+      "mask": [
+        "131",
+        0
+      ]
+    },
+    "class_type": "Cut By Mask",
+    "_meta": {
+      "title": "Cut By Mask"
+    }
+  },
+  "135": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": true,
+      "destination": [
+        "19",
+        0
+      ],
+      "source": [
+        "97",
+        0
+      ],
+      "mask": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "ImageCompositeMasked"
+    }
+  },
+  "136": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "135",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Final Save Image"
+    }
+  },
+  "137": {
+    "inputs": {
+      "images": [
+        "129",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "138": {
+    "inputs": {
+      "background": false,
+      "skin": false,
+      "nose": false,
+      "eye_g": false,
+      "r_eye": true,
+      "l_eye": true,
+      "r_brow": false,
+      "l_brow": false,
+      "r_ear": false,
+      "l_ear": false,
+      "mouth": false,
+      "u_lip": true,
+      "l_lip": true,
+      "hair": false,
+      "hat": false,
+      "ear_r": false,
+      "neck_l": false,
+      "neck": false,
+      "cloth": false,
+      "result": [
+        "129",
+        1
+      ]
+    },
+    "class_type": "FaceParsingResultsParser(FaceParsing)",
+    "_meta": {
+      "title": "EXCLUSION"
+    }
+  },
+  "139": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/view?filename=rgthree.compare._temp_veobc_00003_pgnae_1771044115.jpg&type=temp&subfolder=&rand=0.6904895677771891&Rh-Comfy-Auth=eyJ1c2VySWQiOiI5MTFiNzE5ZmQ3OTMzODljMzJkMGJjNjAwY2UzN2M1NSIsInNpZ25FeHBpcmUiOjE3NzE2NDg3ODE1OTAsInRzIjoxNzcxMDQzOTgxNTkwLCJzaWduIjoiNDNiZjZkZGU0ODY3MmY3MmQ5MjgzMzVlMmQzNjAxYTIifQ==&Rh-Identify=911b719fd793389c32d0bc600ce37c55"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/view?filename=rgthree.compare._temp_veobc_00004_djpha_1771044117.jpg&type=temp&subfolder=&rand=0.6241728113752821&Rh-Comfy-Auth=eyJ1c2VySWQiOiI5MTFiNzE5ZmQ3OTMzODljMzJkMGJjNjAwY2UzN2M1NSIsInNpZ25FeHBpcmUiOjE3NzE2NDg3ODE1OTAsInRzIjoxNzcxMDQzOTgxNTkwLCJzaWduIjoiNDNiZjZkZGU0ODY3MmY3MmQ5MjgzMzVlMmQzNjAxYTIifQ==&Rh-Identify=911b719fd793389c32d0bc600ce37c55"
+          }
+        ]
+      },
+      "image_a": [
+        "135",
+        0
+      ],
+      "image_b": [
+        "97",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "BEFORE VS AFTER COMPARER"
+    }
+  },
+  "140": {
+    "inputs": {
+      "text": "\nvisible natural scars embedded into the skin geometry on face near forehead and cheeks, surface marks, multiple natural scars on face, \nskin texture creates subtle micro-shadows and highlights under lighting",
+      "clip": [
+        "141",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "141": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "166": {
+    "inputs": {
+      "lora_name": "Realim_Lora_BSY_IL_V1_RA42.safetensors",
+      "strength_model": 1.0000000000000002,
+      "strength_clip": 1,
+      "model": [
+        "96",
+        0
+      ],
+      "clip": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA (Model and CLIP)"
+    }
+  },
+  "167": {
+    "inputs": {
+      "max_shift": 1.0000000000000002,
+      "base_shift": 0.4000000000000001,
+      "width": 1024,
+      "height": 1024,
+      "model": [
+        "166",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingFlux",
+    "_meta": {
+      "title": "ModelSamplingFlux"
+    }
+  },
+  "197": {
+    "inputs": {
+      "width_factor": 3,
+      "height_factor": 4,
+      "overlap_rate": 0.1,
+      "image": [
+        "205",
+        0
+      ]
+    },
+    "class_type": "TTP_Tile_image_size",
+    "_meta": {
+      "title": "TTP_Tile_image_size"
+    }
+  },
+  "198": {
+    "inputs": {
+      "tile_width": [
+        "197",
+        0
+      ],
+      "tile_height": [
+        "197",
+        1
+      ],
+      "image": [
+        "205",
+        0
+      ]
+    },
+    "class_type": "TTP_Image_Tile_Batch",
+    "_meta": {
+      "title": "TTP_Image_Tile_Batch"
+    }
+  },
+  "199": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 0.25,
+      "image": [
+        "198",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "200": {
+    "inputs": {
+      "image": [
+        "198",
+        0
+      ]
+    },
+    "class_type": "GetImageSize+",
+    "_meta": {
+      "title": "🔧 Get Image Size"
+    }
+  },
+  "201": {
+    "inputs": {
+      "width": [
+        "200",
+        0
+      ],
+      "height": [
+        "200",
+        1
+      ],
+      "interpolation": "lanczos",
+      "method": "stretch",
+      "condition": "always",
+      "multiple_of": 8,
+      "image": [
+        "208",
+        0
+      ]
+    },
+    "class_type": "ImageResize+",
+    "_meta": {
+      "title": "🔧 Image Resize"
+    }
+  },
+  "202": {
+    "inputs": {
+      "padding": 64,
+      "tiles": [
+        "201",
+        0
+      ],
+      "positions": [
+        "198",
+        1
+      ],
+      "original_size": [
+        "198",
+        2
+      ],
+      "grid_size": [
+        "198",
+        3
+      ]
+    },
+    "class_type": "TTP_Image_Assy",
+    "_meta": {
+      "title": "TTP_Image_Assy"
+    }
+  },
+  "203": {
+    "inputs": {
+      "model_action": "Purge Model",
+      "bridge_input": [
+        "207",
+        0
+      ]
+    },
+    "class_type": "RunningHub Deepcleaner",
+    "_meta": {
+      "title": "RunningHub Deepcleaner"
+    }
+  },
+  "204": {
+    "inputs": {
+      "model": "ema_vae_fp16.safetensors",
+      "device": "cuda:0",
+      "encode_tiled": false,
+      "encode_tile_size": 256,
+      "encode_tile_overlap": 32,
+      "decode_tiled": false,
+      "decode_tile_size": 256,
+      "decode_tile_overlap": 32,
+      "tile_debug": "false",
+      "offload_device": "cpu"
+    },
+    "class_type": "SeedVR2LoadVAEModel",
+    "_meta": {
+      "title": "SeedVR2 (Down)Load VAE Model"
+    }
+  },
+  "205": {
+    "inputs": {
+      "width": [
+        "211",
+        0
+      ],
+      "height": [
+        "211",
+        1
+      ],
+      "interpolation": "lanczos",
+      "method": "stretch",
+      "condition": "always",
+      "multiple_of": 8,
+      "image": [
+        "209",
+        0
+      ]
+    },
+    "class_type": "ImageResize+",
+    "_meta": {
+      "title": "🔧 Image Resize"
+    }
+  },
+  "206": {
+    "inputs": {
+      "anything": [
+        "135",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "Clean VRAM Used"
+    }
+  },
+  "207": {
+    "inputs": {
+      "model": "seedvr2_ema_7b_fp16.safetensors",
+      "device": "cuda:0",
+      "blocks_to_swap": 36,
+      "swap_io_components": false,
+      "offload_device": "cpu",
+      "attention_mode": "sdpa"
+    },
+    "class_type": "SeedVR2LoadDiTModel",
+    "_meta": {
+      "title": "SeedVR2 (Down)Load DiT Model"
+    }
+  },
+  "208": {
+    "inputs": {
+      "seed": 2461588580,
+      "resolution": 1080,
+      "max_resolution": 0,
+      "batch_size": 1,
+      "uniform_batch_size": false,
+      "color_correction": "lab",
+      "temporal_overlap": 0,
+      "prepend_frames": 0,
+      "input_noise_scale": 0,
+      "latent_noise_scale": 0,
+      "offload_device": "cpu",
+      "enable_debug": false,
+      "image": [
+        "199",
+        0
+      ],
+      "dit": [
+        "207",
+        0
+      ],
+      "vae": [
+        "204",
+        0
+      ]
+    },
+    "class_type": "SeedVR2VideoUpscaler",
+    "_meta": {
+      "title": "SeedVR2 Video Upscaler (v2.5.15)"
+    }
+  },
+  "209": {
+    "inputs": {
+      "anything": [
+        "206",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "Clean VRAM Used"
+    }
+  },
+  "210": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/view?filename=rgthree.compare._temp_zdtug_00001_arzzy_1770915704.jpg&type=temp&subfolder=&rand=0.9232169516637819&Rh-Comfy-Auth=eyJ1c2VySWQiOiI5MTFiNzE5ZmQ3OTMzODljMzJkMGJjNjAwY2UzN2M1NSIsInNpZ25FeHBpcmUiOjE3NzE1MTcxMjg5MTIsInRzIjoxNzcwOTEyMzI4OTEyLCJzaWduIjoiZTY1OGViYTY2NGNmOTA2YmFmM2I2NTg3NjY3YzEyOTMifQ==&Rh-Identify=911b719fd793389c32d0bc600ce37c55"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/view?filename=rgthree.compare._temp_zdtug_00002_elpyb_1770915708.jpg&type=temp&subfolder=&rand=0.5986155231689484&Rh-Comfy-Auth=eyJ1c2VySWQiOiI5MTFiNzE5ZmQ3OTMzODljMzJkMGJjNjAwY2UzN2M1NSIsInNpZ25FeHBpcmUiOjE3NzE1MTcxMjg5MTIsInRzIjoxNzcwOTEyMzI4OTEyLCJzaWduIjoiZTY1OGViYTY2NGNmOTA2YmFmM2I2NTg3NjY3YzEyOTMifQ==&Rh-Identify=911b719fd793389c32d0bc600ce37c55"
+          }
+        ]
+      },
+      "image_a": [
+        "212",
+        0
+      ],
+      "image_b": [
+        "206",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "211": {
+    "inputs": {
+      "image": [
+        "213",
+        0
+      ]
+    },
+    "class_type": "GetImageSize+",
+    "_meta": {
+      "title": "🔧 Get Image Size"
+    }
+  },
+  "212": {
+    "inputs": {
+      "amount": 0.4000000000000001,
+      "image": [
+        "202",
+        0
+      ]
+    },
+    "class_type": "ImageCASharpening+",
+    "_meta": {
+      "title": "🔧 Image Contrast Adaptive Sharpening"
+    }
+  },
+  "213": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 4.000000000000001,
+      "image": [
+        "206",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "set"
+    }
+  },
+  "214": {
+    "inputs": {
+      "width": 8192,
+      "height": 8192,
+      "interpolation": "lanczos",
+      "method": "keep proportion",
+      "condition": "always",
+      "multiple_of": 8,
+      "image": [
+        "212",
+        0
+      ]
+    },
+    "class_type": "ImageResize+",
+    "_meta": {
+      "title": "Output Resolution (4k/8k)"
+    }
+  },
+  "215": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "214",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "217": {
+    "inputs": {
+      "model_action": "Purge Model",
+      "bridge_input": [
+        "204",
+        0
+      ]
+    },
+    "class_type": "RunningHub Deepcleaner",
+    "_meta": {
+      "title": "RunningHub Deepcleaner"
+    }
+  },
+  "224": {
+    "inputs": {},
+    "class_type": "Number to Float",
+    "_meta": {
+      "title": "Number to Float"
+    }
+  },
+  "229": {
+    "inputs": {
+      "Enable SeedVR2 (Down)Load DiT Model": true,
+      "Enable SeedVR2 Video Upscaler (v2.5.15)": true,
+      "Enable RunningHub Deepcleaner": true,
+      "Enable SeedVR2 (Down)Load VAE Model": true,
+      "Enable Clean VRAM Used": true,
+      "Enable 🔧 Image Contrast Adaptive Sharpening": true,
+      "Enable Output Resolution (4k/8k)": true,
+      "Enable TTP_Tile_image_size": true,
+      "Enable TTP_Image_Tile_Batch": true,
+      "Enable Upscale Image By": true,
+      "Enable 🔧 Image Resize": true,
+      "Enable TTP_Image_Assy": true,
+      "Enable set": true,
+      "Enable 🔧 Get Image Size": true,
+      "Enable Image Comparer (rgthree)": true,
+      "Enable Number to Float": true,
+      "Enable Save Image": true,
+      "bypass_node_0": [
+        "206",
+        0
+      ],
+      "bypass_node_1": [
+        "224",
+        0
+      ],
+      "bypass_node_2": [
+        "217",
+        0
+      ],
+      "bypass_node_3": [
+        "204",
+        0
+      ],
+      "bypass_node_4": [
+        "207",
+        0
+      ],
+      "bypass_node_5": [
+        "203",
+        0
+      ],
+      "bypass_node_6": [
+        "208",
+        0
+      ],
+      "bypass_node_7": [
+        "213",
+        0
+      ],
+      "bypass_node_8": [
+        "211",
+        0
+      ],
+      "bypass_node_9": [
+        "205",
+        0
+      ],
+      "bypass_node_10": [
+        "197",
+        0
+      ],
+      "bypass_node_11": [
+        "198",
+        0
+      ],
+      "bypass_node_12": [
+        "199",
+        0
+      ],
+      "bypass_node_13": [
+        "200",
+        0
+      ],
+      "bypass_node_14": [
+        "201",
+        0
+      ],
+      "bypass_node_15": [
+        "202",
+        0
+      ],
+      "bypass_node_16": [
+        "212",
+        0
+      ],
+      "bypass_node_17": [
+        "214",
+        0
+      ],
+      "bypass_node_18": [
+        "210",
+        0
+      ],
+      "bypass_node_19": [
+        "215",
+        0
+      ],
+      "bypass_node_20": [
+        "209",
+        0
+      ]
+    },
+    "class_type": "FastNodeBypasser",
+    "_meta": {
+      "title": "Fast Node Bypasser"
+    }
+  }
+}

@@ -2,11 +2,15 @@
 
 import { useCallback, useState, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, X, Image as ImageIcon, AlertCircle, CheckCircle } from 'lucide-react'
+import { Upload, X, Image as ImageIcon, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useTebi } from '@/lib/hooks/use-tebi'
-import { FILE_CATEGORIES } from '@/lib/tebi'
+
+// Define supported file categories if needed, or remove if not used
+export const FILE_CATEGORIES = {
+  UPLOADS: 'uploads',
+  RESULTS: 'results',
+}
 
 interface UploadBoxProps {
   onFilesSelected: (files: File[]) => void
@@ -31,23 +35,35 @@ export function UploadBox({
 }: UploadBoxProps) {
   const [files, setFiles] = useState<File[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ key: string; url: string; size: number; originalName: string }>>([])
-  
-  const {
-    uploadState,
-    uploadMultipleFiles,
-    deleteFile,
-    clearUploadState,
-    clearError,
-    formatFileSize,
-    isValidFileType
-  } = useTebi()
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const isValidFileType = (file: File, acceptedTypes: string[]) => {
+    // Simple validation based on accept string (e.g. "image/*")
+    if (acceptedTypes.some(type => type.endsWith('/*'))) {
+      const mainType = acceptedTypes[0].split('/')[0]
+      return file.type.startsWith(mainType + '/')
+    }
+    return acceptedTypes.includes(file.type)
+  }
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    setError(null)
     // Validate files
     const validFiles = acceptedFiles.filter(file => {
-      if (!isValidFileType(file, [accept])) {
-        console.warn(`Invalid file type: ${file.name}`)
-        return false
+      // Basic validation
+      if (accept && !file.type.match(accept.replace('*', '.*'))) {
+         console.warn(`Invalid file type: ${file.name}`)
+         return false
       }
       if (file.size > maxSize) {
         console.warn(`File too large: ${file.name}`)
@@ -55,6 +71,11 @@ export function UploadBox({
       }
       return true
     })
+
+    if (validFiles.length === 0 && acceptedFiles.length > 0) {
+      setError('No valid files selected. Please check file type and size.')
+      return
+    }
 
     const newFiles = [...files, ...validFiles].slice(0, maxFiles)
     setFiles(newFiles)
@@ -64,18 +85,52 @@ export function UploadBox({
     if (showUploadProgress && validFiles.length > 0) {
       handleUpload(validFiles)
     }
-  }, [files, maxFiles, onFilesSelected, accept, maxSize, showUploadProgress, isValidFileType])
+  }, [files, maxFiles, onFilesSelected, accept, maxSize, showUploadProgress])
 
   const handleUpload = async (filesToUpload: File[]) => {
+    setIsUploading(true)
+    setError(null)
+    const results: Array<{ key: string; url: string; size: number; originalName: string }> = []
+
     try {
-      const results = await uploadMultipleFiles(filesToUpload, category as any)
+      // Upload files sequentially or in parallel
+      for (const file of filesToUpload) {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const response = await fetch('/api/runninghub/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Upload failed for ${file.name}`)
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          results.push({
+            key: data.key,
+            url: data.url,
+            size: data.size,
+            originalName: data.originalName
+          })
+        } else {
+            console.error('Upload error:', data.error)
+            throw new Error(data.error || 'Upload failed')
+        }
+      }
+
       setUploadedFiles(prev => [...prev, ...results])
       
       if (onFilesUploaded) {
         onFilesUploaded(results)
       }
-    } catch (error) {
-      console.error('Upload failed:', error)
+    } catch (err: any) {
+      console.error('Upload failed:', err)
+      setError(err.message || 'Failed to upload files')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -86,20 +141,18 @@ export function UploadBox({
   }
 
   const removeUploadedFile = async (key: string) => {
-    try {
-      await deleteFile(key)
-      setUploadedFiles(prev => prev.filter(f => f.key !== key))
-    } catch (error) {
-      console.error('Failed to delete file:', error)
-    }
+     // For now just remove from state, as we might not have a delete endpoint for RunningHub immediately available
+     // or we rely on their cleanup policy.
+     setUploadedFiles(prev => prev.filter(f => f.key !== key))
   }
+
 
   // Clear upload state when component unmounts
   useEffect(() => {
     return () => {
-      clearUploadState()
+      // cleanup if needed
     }
-  }, [clearUploadState])
+  }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -111,30 +164,30 @@ export function UploadBox({
   return (
     <div className={cn("w-full", className)}>
       {/* Upload Progress */}
-      {showUploadProgress && uploadState.isUploading && (
+      {showUploadProgress && isUploading && (
         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-blue-800">
               Uploading files...
             </span>
             <span className="text-sm text-blue-600">
-              {uploadState.progress}%
+              <Loader2 className="h-4 w-4 animate-spin" />
             </span>
           </div>
           <div className="w-full bg-blue-200 rounded-full h-2">
             <div 
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadState.progress}%` }}
+              style={{ width: `100%` }}
             />
           </div>
-          {uploadState.error && (
+          {error && (
             <div className="mt-2 flex items-center text-sm text-red-600">
               <AlertCircle className="w-4 h-4 mr-2" />
-              {uploadState.error}
+              {error}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={clearError}
+                onClick={() => setError(null)}
                 className="ml-2 h-6 px-2 text-xs"
               >
                 Dismiss
@@ -213,7 +266,7 @@ export function UploadBox({
                     {formatFileSize(file.size)}
                   </p>
                   <p className="text-xs text-green-500">
-                    Tebi.io: {file.key}
+                    RunningHub: {file.key.substring(0, 20)}...
                   </p>
                 </div>
               </div>
@@ -231,15 +284,15 @@ export function UploadBox({
       )}
 
       {/* Manual Upload Button */}
-      {showUploadProgress && files.length > 0 && !uploadState.isUploading && (
+      {showUploadProgress && files.length > 0 && !isUploading && (
         <div className="mt-4">
           <Button
             onClick={() => handleUpload(files)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            disabled={uploadState.isUploading}
+            disabled={isUploading}
           >
             <Upload className="w-4 h-4 mr-2" />
-            Upload to Tebi.io
+            Upload to RunningHub
           </Button>
         </div>
       )}

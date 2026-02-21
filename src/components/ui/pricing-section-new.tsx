@@ -1,225 +1,361 @@
 "use client"
 
 import * as React from "react"
-import { PricingCard, type PricingTier } from "@/components/ui/pricing-card"
+import { motion } from "framer-motion"
+import { Check, ArrowRight, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-// Inline Tab component to avoid import issues
-interface TabProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  selected?: boolean;
-  children: React.ReactNode;
-}
-
-const Tab = React.forwardRef<HTMLButtonElement, TabProps>(
-  ({ className, selected, children, ...props }, ref) => {
-    return (
-      <button
-        ref={ref}
-        type="button"
-        className={cn(
-          "px-6 py-2 text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          "rounded-full backdrop-blur-sm border",
-          selected 
-            ? "bg-white/20 text-white border-white/30" 
-            : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  }
-);
-Tab.displayName = "Tab";
+import { PRICING_PLANS, PRICING_CONFIG } from "@/lib/pricing-config"
+import { useSession } from "@/lib/auth-client-simple"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface PricingSectionProps {
-  title: string
-  subtitle: string
-  tiers: PricingTier[]
-  frequencies: string[]
+  title?: string
+  subtitle?: string
 }
 
-export function PricingSection({
-  title,
-  subtitle,
-  tiers,
-  frequencies,
-}: PricingSectionProps) {
-  const [selectedFrequency, setSelectedFrequency] = React.useState(() => {
-    const initial = frequencies.includes("yearly") ? "yearly" : frequencies[0];
-    console.log("Initial frequency:", initial);
-    return initial;
-  });
+const fadeIn = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+}
 
-  const handleFrequencyChange = (freq: string) => {
-    console.log("Changing frequency to:", freq);
-    setSelectedFrequency(freq);
-  };
+const stagger = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.15 } },
+}
+
+export function PricingSectionDemo({ id }: { id?: string }) {
+  const [isYearly, setIsYearly] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState<string | null>(null)
+  const { data: authData, isLoading: sessionLoading } = useSession()
+  
+  const router = useRouter()
+  const discountPercent = Math.round((PRICING_CONFIG.yearlyDiscount ?? 0) * 100)
+
+  const handlePlanSelect = async (plan: any, skipAuthCheck = false) => {
+    console.log('🎯 Plan selected:', plan.name, 'Billing:', isYearly ? 'yearly' : 'monthly')
+    console.log('🔐 Auth state:', { 
+      user: authData?.user?.email, 
+      loading: sessionLoading, 
+      skipAuthCheck,
+      timestamp: new Date().toISOString()
+    })
+    
+    setIsLoading(plan.name)
+    
+    try {
+      // If we're not skipping auth check, verify authentication first
+      if (!skipAuthCheck) {
+        // If session is still loading, wait
+        if (sessionLoading) {
+          console.log('⏳ Session loading, waiting...')
+          setTimeout(() => {
+            setIsLoading(null)
+            handlePlanSelect(plan, skipAuthCheck)
+          }, 300)
+          return
+        }
+        
+        // If user is not authenticated, store plan and redirect to signin
+        if (!authData?.user) {
+          console.log('👤 User not authenticated - storing plan and redirecting to signin')
+          const isDayPassRedirect = plan.name.toLowerCase().includes('day')
+          const planData = {
+            plan: isDayPassRedirect ? 'day pass' : plan.name.toLowerCase().replace(/\s+/g, '_'),
+            billingPeriod: isDayPassRedirect ? 'daily' : (isYearly ? 'yearly' : 'monthly')
+          }
+          localStorage.setItem('selectedPlan', JSON.stringify(planData))
+          console.log('💾 Stored plan data:', planData)
+          router.push('/app/signin')
+          return
+        }
+      }
+      
+      console.log('✅ User authenticated - proceeding to checkout API')
+      
+      // Create the request body
+      const isDayPass = plan.name.toLowerCase().includes('day')
+      const requestBody = {
+        plan: isDayPass ? 'day pass' : plan.name.toLowerCase().replace(/\s+/g, '_'),
+        billingPeriod: isDayPass ? 'daily' : (isYearly ? 'yearly' : 'monthly')
+      }
+      
+      console.log('📦 Checkout request:', requestBody)
+      
+      // Call the checkout API
+      const response = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestBody)
+      })
+      
+      console.log('📞 Checkout response status:', response.status)
+      
+      // Parse response
+      let data: any = null
+      try {
+        data = await response.json()
+        console.log('📜 Checkout response data:', data)
+      } catch (e) {
+        console.error('❌ Failed to parse response:', e)
+        toast.error('Invalid response from server')
+        return
+      }
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        console.log('❌ 401 - treating as unauthenticated')
+        const planData = {
+          plan: plan.name.toLowerCase().replace(/\s+/g, '_'),
+          billingPeriod: isYearly ? 'yearly' : 'monthly'
+        }
+        localStorage.setItem('selectedPlan', JSON.stringify(planData))
+        router.push('/app/login')
+        return
+      }
+      
+      // Handle other errors
+      if (!response.ok) {
+        const message = (data && data.error) ? data.error : 'Failed to create checkout session'
+        console.error('❌ Checkout failed:', message)
+        toast.error(message)
+        return
+      }
+      
+      // Success - redirect to Dodo Payments
+      if (data && data.checkoutUrl) {
+        console.log('✅ Redirecting to Dodo checkout:', data.checkoutUrl)
+        window.location.href = data.checkoutUrl
+      } else {
+        console.error('❌ No checkout URL in response')
+        toast.error('No checkout URL received')
+      }
+      
+    } catch (error) {
+      console.error('❌ Checkout error:', error)
+      toast.error(error instanceof Error ? error.message : 'Checkout failed')
+    } finally {
+      setIsLoading(null)
+    }
+  }
+
+  // Single useEffect to handle stored plans after authentication
+  React.useEffect(() => {
+    console.log('🔍 useEffect triggered - checking for stored plans')
+    console.log('🔍 Auth state:', { 
+      hasUser: !!authData?.user, 
+      userEmail: authData?.user?.email,
+      loading: sessionLoading,
+      timestamp: new Date().toISOString()
+    })
+    
+    // Only process when user is authenticated and session is loaded
+    if (authData?.user && !sessionLoading) {
+      const storedPlan = localStorage.getItem('selectedPlan')
+      console.log('🔍 Stored plan found:', storedPlan)
+      
+      if (storedPlan) {
+        try {
+          const planData = JSON.parse(storedPlan)
+          console.log('🔍 Parsed plan data:', planData)
+          
+          // Find the matching plan
+          const plan = PRICING_PLANS.find(p => 
+            p.name.toLowerCase().replace(/\s+/g, '_') === planData.plan
+          )
+          
+          if (plan) {
+            console.log('🚀 Processing stored plan:', plan.name)
+            
+            // Clear the stored plan to prevent reprocessing
+            localStorage.removeItem('selectedPlan')
+            
+            // Set the billing period
+            setIsYearly(planData.billingPeriod === 'yearly')
+            
+            // Trigger checkout with a delay to ensure UI is ready
+            setTimeout(() => {
+              console.log('🚀 Triggering checkout for stored plan:', plan.name)
+              handlePlanSelect(plan, true) // Skip auth check since user is already authenticated
+            }, 1000)
+          } else {
+            console.log('❌ Plan not found for stored data:', planData.plan)
+            localStorage.removeItem('selectedPlan')
+          }
+        } catch (error) {
+          console.error('❌ Error parsing stored plan:', error)
+          localStorage.removeItem('selectedPlan')
+        }
+      }
+    }
+  }, [authData?.user, sessionLoading])
 
   return (
-    <section className="flex flex-col items-center gap-12 py-12">
-      {/* Header Section */}
-      <div className="space-y-6 text-center max-w-3xl">
-        <div className="space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-            {title}
-          </h1>
-          <p className="text-lg text-gray-300 leading-relaxed">
-            {subtitle}
-          </p>
-        </div>
-        
-        {/* Billing Toggle */}
-        <div className="mx-auto flex w-fit rounded-full bg-white/5 p-1.5 border border-white/10 backdrop-blur-sm">
-          {frequencies.map((freq) => (
-            <Tab
-              key={freq}
-              selected={selectedFrequency === freq}
-              onClick={() => handleFrequencyChange(freq)}
-            >
-              {freq === 'monthly' ? 'Month' : 'Year'}
-              {freq === "yearly" && (
-                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
-                  Save 17%
-                </span>
-              )}
-            </Tab>
-          ))}
-        </div>
-      </div>
+    <section id={id} className="relative w-full py-16 sm:py-20">
+      <div className="max-w-7xl mx-auto px-6">
+        {/* Header */}
+        <motion.div initial="hidden" animate="visible" variants={stagger} className="text-center mb-12 sm:mb-14">
+          <motion.h2 variants={fadeIn} className="text-4xl md:text-5xl font-bold tracking-tight">
+            Choose Your Perfect Plan
+          </motion.h2>
+          <motion.p variants={fadeIn} className="mt-4 text-base sm:text-lg text-muted-foreground">
+            Transform your images with professional AI enhancement. Start with any plan and upgrade anytime.
+          </motion.p>
 
-      {/* Pricing Cards Grid */}
-      <div className="grid w-full max-w-6xl gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {tiers.map((tier) => (
-          <PricingCard
-            key={`${tier.name}-${selectedFrequency}`}
-            tier={tier}
-            paymentFrequency={selectedFrequency}
-          />
-        ))}
+          {/* Billing Toggle (exact /plans style with dynamic discount) */}
+          <motion.div variants={fadeIn} className="mt-8 inline-flex items-center bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded-full p-1.5 shadow-sm min-w-[360px]">
+            <button
+              onClick={() => setIsYearly(false)}
+              className={cn(
+                "w-40 sm:w-44 px-6 sm:px-8 py-2 rounded-full text-sm sm:text-base font-medium transition-all duration-300",
+                !isYearly ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              monthly
+            </button>
+            <button
+              onClick={() => setIsYearly(true)}
+              className={cn(
+                "w-40 sm:w-44 px-6 sm:px-8 py-2 rounded-full text-sm sm:text-base font-medium transition-all duration-300 relative",
+                isYearly ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              yearly
+               <span className="absolute -top-2 -right-2 bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full font-semibold">
+                 Save {discountPercent}%
+               </span>
+             </button>
+           </motion.div>
+          
+
+        </motion.div>
+
+        {/* Pricing Grid - copied structure from /plans with legible defaults */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={stagger}
+          className="group/tbl grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
+        >
+          {PRICING_PLANS.map((plan) => {
+            const Icon = plan.icon || Star
+            const monthlyPrice = plan.price.monthly
+            const yearlyPrice = plan.price.yearly
+            const displayPrice = isYearly ? Math.round(yearlyPrice / 12) : monthlyPrice
+            const isCreator = plan.name.toLowerCase().includes("creator")
+            const isProfessional = plan.name.toLowerCase().includes("professional")
+            const isSpecial = isCreator || isProfessional
+            const badgeGradient = plan.badge === "Most Popular"
+              ? "from-accent-purple to-accent-blue"
+              : plan.badge === "Popular"
+              ? "from-accent-blue to-accent-blue/80"
+              : plan.badge === "Enterprise"
+              ? "from-accent-purple/80 to-accent-purple"
+              : "from-accent-blue to-accent-purple"
+            
+            return (
+              <motion.div key={plan.name} variants={fadeIn} className={cn("relative group", (!!plan.highlight) && "lg:scale-[1.03] z-10")}>                
+                {/* Card */}
+                <div
+                  className={cn(
+                    "relative h-full rounded-3xl p-6 sm:p-8 transition-all duration-300",
+                    // Persistent colored backgrounds for Creator & Professional
+                    isCreator && "bg-gradient-to-br from-accent-blue/15 to-accent-blue/5 dark:from-accent-blue/25 dark:to-accent-blue/10 border border-accent-blue/30 dark:border-accent-blue/25",
+                    isProfessional && "bg-gradient-to-br from-accent-purple/15 to-accent-purple/5 dark:from-accent-purple/25 dark:to-accent-purple/10 border border-accent-purple/30 dark:border-accent-purple/25",
+                    !isSpecial && "bg-card border border-border",
+                    // Shared hovers
+                    "hover:border-foreground/20 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:scale-[1.02] group-hover/tbl:-translate-y-0.5",
+                  )}
+                >
+                  {/* Badge */}
+                  {plan.badge && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <div className={cn("bg-gradient-to-r text-white px-3 py-1 rounded-full text-xs font-medium shadow", badgeGradient)}>
+                        {plan.badge}
+                      </div>
+                    </div>
+                  )}
+                  
+                   {/* Icon */}
+                   <div className="flex justify-center mb-5 sm:mb-6">
+                     <div className="p-3 rounded-2xl bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10">
+                       <Icon className="h-6 w-6 text-primary" />
+                     </div>
+                   </div>
+                  
+                   {/* Title + subtitle */}
+                   <h3 className="text-xl sm:text-2xl font-semibold text-center mb-1">{plan.name}</h3>
+                   <p className="text-sm text-muted-foreground text-center mb-5 sm:mb-6">{plan.subtitle}</p>
+                  
+                   {/* Price */}
+                   <div className="text-center mb-6 sm:mb-8">
+                     <div className="flex items-baseline justify-center gap-1 mb-1 sm:mb-2">
+                       <span className="text-3xl sm:text-4xl font-bold">${displayPrice}</span>
+                       <span className="text-muted-foreground">/month</span>
+                     </div>
+                     {isYearly && (
+                       <div className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Save {discountPercent}%</div>
+                     )}
+                  
+                     {!isYearly && (
+                       <div className="text-sm text-muted-foreground">Billed monthly</div>
+                     )}
+                  
+                     {isYearly && (
+                       <div className="text-sm text-muted-foreground">${yearlyPrice}/year (billed annually)</div>
+                     )}
+                   </div>
+                  
+                   {/* Description */}
+                   <p className="text-center text-muted-foreground mb-6 sm:mb-8">{plan.description}</p>
+                  
+                   {/* CTA */}
+                   <button
+                     onClick={(e) => {
+                       e.preventDefault()
+                       e.stopPropagation()
+                       console.log('Button clicked for plan:', plan.name)
+                       handlePlanSelect(plan)
+                     }}
+                     disabled={isLoading === plan.name}
+                     className={cn(
+                       "w-full mb-6 sm:mb-8 group/btn relative overflow-hidden rounded-xl px-6 py-3 font-medium transition-all duration-300",
+                       plan.highlight
+                         ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl"
+                         : "bg-muted/60 dark:bg-white/5 text-foreground border border-border dark:border-white/10 hover:bg-muted hover:border-foreground/20"
+                     )}
+                   >
+                     <span className="relative z-10 flex items-center justify-center gap-2">
+                       {isLoading === plan.name ? (
+                         "Processing..."
+                       ) : (
+                         <>
+                           Get Started
+                           <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                         </>
+                       )}
+                     </span>
+                   </button>
+ 
+                   {/* Features */}
+                   <div className="space-y-3">
+                     {plan.features.map((feature, i) => (
+                       <div key={i} className="flex items-start gap-3">
+                         <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                         <span className="text-sm text-muted-foreground leading-relaxed">{feature}</span>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </motion.div>
+             )
+           })}
+        </motion.div>
       </div>
     </section>
   )
 }
-
-// Demo data and component
-export const PAYMENT_FREQUENCIES = ["yearly", "monthly"]
-
-export const TIERS = [
-  {
-    name: "Basic",
-    price: {
-      monthly: 9,
-      yearly: 90,
-    },
-    description: "10,800 monthly credits - Up to 108 images can be enhanced.",
-    features: [
-      "HD resolution only (1080p)",
-      "Basic skin enhancement",
-      "AI Smoothness Fix",
-      "Standard Mode only",
-      "Selective Area Editing",
-      "Texture Control Settings",
-      "Crop Tool Access",
-      "Face Detection & Smart Cropping",
-      "Early Access to New Features",
-      "Kora Human and cinema access",
-      "Standard Processing Speed",
-      "API Access",
-      "Refunds for Failed Generations"
-    ],
-    cta: "Get Started",
-  },
-  {
-    name: "Creator",
-    price: {
-      monthly: 24,
-      yearly: 240,
-    },
-    description: "28,800 monthly credits - Up to 288 images can be enhanced.",
-    features: [
-      "Supports up to 2K resolution",
-      "Advanced skin enhancement",
-      "AI Smoothness Fix",
-      "Standard + Heavy Mode",
-      "Full Selective Area Editing",
-      "Texture Control Settings",
-      "Auto Crop Face Detection",
-      "Credit top-ups available",
-      "Early Access to New Features",
-      "Kora Character Consistency access",
-      "Priority processing",
-      "API Access",
-      "Refunds for Failed Generations"
-    ],
-    cta: "Get Started",
-    popular: true,
-  },
-  {
-    name: "Professional",
-    price: {
-      monthly: 39,
-      yearly: 390,
-    },
-    description: "46,800 monthly credits - Up to 468 images can be enhanced.",
-    features: [
-      "Supports up to 4K resolution",
-      "Photo-real skin restoration",
-      "AI Smoothness Fix",
-      "Standard + Heavy Mode",
-      "Full Selective Area Editing",
-      "Full Precision Texture Control",
-      "Advanced Crop Tools",
-      "Advanced Face Cropping",
-      "Unlimited Credit Top-Ups",
-      "Character Consistency Professional access",
-      "Highest priority processing",
-      "Team management tools",
-      "24/7 Priority support"
-    ],
-    cta: "Get Started",
-    glow: true,
-  },
-  {
-    name: "Enterprise",
-    price: {
-      monthly: 99,
-      yearly: 990,
-    },
-    description: "118,800 monthly credits - Up to 1,188 images can be enhanced.",
-    features: [
-      "Supports up to 4K resolution",
-      "Photo-real skin restoration",
-      "AI Smoothness Fix",
-      "Standard + Heavy Mode",
-      "Full Selective Area Editing",
-      "Full Precision Texture Control",
-      "Advanced Crop Tools",
-      "Advanced Face Cropping",
-      "Unlimited Credit Top-Ups",
-      "Portrait Upscaler Professional access",
-      "Highest priority processing",
-      "Automatic Refunds on Failed Generation",
-      "Team management tools",
-      "24/7 Priority support"
-    ],
-    cta: "Contact Us"
-  },
-]
-
-export function PricingSectionDemo({ id }: { id?: string }) {
-  return (
-    <div id={id} className="relative z-[80] isolate pointer-events-auto flex justify-center items-center w-full mt-20">
-        <div className="absolute inset-0 -z-10">
-          <div className="h-full w-full bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:35px_35px] opacity-30 [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
-        </div>
-        <PricingSection
-          title="Choose Your Plan"
-          subtitle="Transform your AI images with professional-grade enhancement"
-          frequencies={PAYMENT_FREQUENCIES}
-          tiers={TIERS}
-        />
-      </div>
-    );
- }

@@ -8,17 +8,16 @@ export const mockPresets: Preset[] = [
     description: 'Perfect for faces and portraits',
     thumbnail: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop',
     settings: {
-      strength: 75,
-      exposure: 10,
-      contrast: 15,
-      saturation: 20,
-      denoise: 30,
-      sharpness: 25,
-      temperature: 0,
-      preserveFaces: true,
-      tileable: false,
+      preset: 'portrait-enhance',
+      intensity: 75,
+      skinSmoothing: 60,
+      detailEnhancement: 40,
+      colorCorrection: 20,
+      noiseReduction: 30,
+      sharpening: 25,
     },
-    isDefault: true,
+    category: 'portrait',
+    premium: false,
   },
   {
     id: 'landscape-vivid',
@@ -26,16 +25,16 @@ export const mockPresets: Preset[] = [
     description: 'Enhance nature and landscapes',
     thumbnail: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop',
     settings: {
-      strength: 80,
-      exposure: 15,
-      contrast: 20,
-      saturation: 30,
-      denoise: 20,
-      sharpness: 35,
-      temperature: 5,
-      preserveFaces: false,
-      tileable: false,
+      preset: 'landscape-vivid',
+      intensity: 80,
+      skinSmoothing: 10,
+      detailEnhancement: 35,
+      colorCorrection: 30,
+      noiseReduction: 20,
+      sharpening: 35,
     },
+    category: 'landscape',
+    premium: false,
   },
   {
     id: 'product-sharp',
@@ -43,16 +42,16 @@ export const mockPresets: Preset[] = [
     description: 'Crisp and clean for products',
     thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&h=200&fit=crop',
     settings: {
-      strength: 60,
-      exposure: 5,
-      contrast: 25,
-      saturation: 10,
-      denoise: 15,
-      sharpness: 50,
-      temperature: 0,
-      preserveFaces: false,
-      tileable: false,
+      preset: 'product-sharp',
+      intensity: 60,
+      skinSmoothing: 5,
+      detailEnhancement: 45,
+      colorCorrection: 10,
+      noiseReduction: 15,
+      sharpening: 50,
     },
+    category: 'product',
+    premium: false,
   },
 ]
 
@@ -60,34 +59,28 @@ export const mockJobs: Job[] = [
   {
     id: 'job-1',
     status: 'completed',
-    inputImage: 'https://images.unsplash.com/photo-1554080353-a576cf803bda?w=600&h=400&fit=crop',
-    outputImage: 'https://images.unsplash.com/photo-1554080353-a576cf803bda?w=600&h=400&fit=crop&sat=100&con=110',
-    preset: 'portrait-enhance',
-    settings: mockPresets[0].settings,
+    originalImage: 'https://images.unsplash.com/photo-1554080353-a576cf803bda?w=600&h=400&fit=crop',
+    enhancedImage: 'https://images.unsplash.com/photo-1554080353-a576cf803bda?w=600&h=400&fit=crop&sat=100&con=110',
+    settings: mockPresets[0]!.settings,
     progress: 100,
     createdAt: new Date(Date.now() - 3600000),
-    updatedAt: new Date(Date.now() - 3000000),
+    completedAt: new Date(Date.now() - 3000000),
   },
   {
     id: 'job-2',
     status: 'processing',
-    inputImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop',
-    preset: 'landscape-vivid',
-    settings: mockPresets[1].settings,
+    originalImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop',
+    settings: mockPresets[1]!.settings,
     progress: 65,
-    estimatedTime: 45,
     createdAt: new Date(Date.now() - 1800000),
-    updatedAt: new Date(),
   },
   {
     id: 'job-3',
     status: 'pending',
-    inputImage: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop',
-    preset: 'product-sharp',
-    settings: mockPresets[2].settings,
+    originalImage: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop',
+    settings: mockPresets[2]!.settings,
     progress: 0,
     createdAt: new Date(Date.now() - 900000),
-    updatedAt: new Date(Date.now() - 900000),
   },
 ]
 
@@ -108,11 +101,10 @@ export const mockApi = {
     const job: Job = {
       id: `job-${Date.now()}`,
       status: 'pending',
-      inputImage: imageUrl,
+      originalImage: imageUrl,
       settings,
       progress: 0,
       createdAt: new Date(),
-      updatedAt: new Date(),
     }
     mockJobs.unshift(job)
     return job
@@ -132,10 +124,10 @@ export const mockApi = {
       job.progress = Math.min(100, job.progress + Math.random() * 30)
       if (job.progress >= 100) {
         job.status = 'completed'
-        job.outputImage = job.inputImage + '?enhanced=true'
+        job.enhancedImage = job.originalImage + '?enhanced=true'
+        job.completedAt = new Date()
       }
     }
-    job.updatedAt = new Date()
     return job
   },
 
@@ -156,8 +148,9 @@ export const mockApi = {
     await delay(500)
     const job = mockJobs.find(j => j.id === jobId)
     if (job) {
-      job.status = 'cancelled'
-      job.updatedAt = new Date()
+      job.status = 'failed'
+      job.error = 'Cancelled'
+      job.completedAt = new Date()
     }
     return job
   },
@@ -170,7 +163,7 @@ export const mockApi = {
       job.status = 'pending'
       job.progress = 0
       job.error = undefined
-      job.updatedAt = new Date()
+      job.completedAt = undefined
     }
     return job
   },
@@ -188,15 +181,15 @@ export const webhookSimulator = {
     if (!job) return
 
     // Simulate webhook callback after random delay
-    const delay = Math.random() * 5000 + 2000
+    const timeout = Math.random() * 5000 + 2000
     setTimeout(() => {
       job.status = 'completed'
       job.progress = 100
-      job.outputImage = job.inputImage + '?enhanced=true'
-      job.updatedAt = new Date()
+      job.enhancedImage = job.originalImage + '?enhanced=true'
+      job.completedAt = new Date()
       
       // In real app, this would trigger webhook
       console.log('Webhook triggered for job:', jobId)
-    }, delay)
+    }, timeout)
   },
 }

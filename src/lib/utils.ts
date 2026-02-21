@@ -29,7 +29,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 // Performance utilities
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -40,7 +40,7 @@ export function debounce<T extends (...args: any[]) => any>(
   }
 }
 
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -75,11 +75,14 @@ export function scrollToElement(elementId: string, offset: number = 0): void {
 // Color utilities
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null
+  if (!result || result.length < 4) return null
+  const [, rStr, gStr, bStr] = result
+  if (!rStr || !gStr || !bStr) return null
+  return {
+    r: parseInt(rStr, 16),
+    g: parseInt(gStr, 16),
+    b: parseInt(bStr, 16)
+  }
 }
 
 export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
@@ -194,7 +197,8 @@ export function randomBetween(min: number, max: number): number {
   return Math.random() * (max - min) + min
 }
 
-export function randomChoice<T>(array: T[]): T {
+export function randomChoice<T>(array: T[]): T | undefined {
+  if (!Array.isArray(array) || array.length === 0) return undefined
   return array[Math.floor(Math.random() * array.length)]
 }
 

@@ -1,0 +1,101 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getSession, hashPassword, verifyPassword } from '@/lib/auth-simple'
+import { supabaseAdmin } from '@/lib/supabase'
+
+const admin = supabaseAdmin as any
+
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.cookies.get('session')?.value
+    if (!token) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    const session = await getSession(token)
+    if (!session?.user?.id) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+
+    const { data: user, error } = await admin
+      .from('users')
+      .select('id, name, email, created_at, password_hash')
+      .eq('id', session.user.id)
+      .single()
+
+    if (error || !user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+    return NextResponse.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.created_at,
+      hasPassword: !!user.password_hash,
+    })
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const token = request.cookies.get('session')?.value
+    if (!token) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    const session = await getSession(token)
+    if (!session?.user?.id) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+
+    const body = await request.json()
+    const { name, currentPassword, newPassword } = body
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+
+    // Update name
+    if (name !== undefined) {
+      const trimmed = String(name).trim()
+      if (!trimmed) return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 })
+      if (trimmed.length > 100) return NextResponse.json({ error: 'Name too long' }, { status: 400 })
+      updates.name = trimmed
+    }
+
+    // Update password
+    if (newPassword !== undefined) {
+      if (newPassword.length < 8) {
+        return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
+      }
+
+      // Fetch current password hash to verify
+      const { data: user } = await admin
+        .from('users')
+        .select('password_hash')
+        .eq('id', session.user.id)
+        .single()
+
+      if (user?.password_hash) {
+        // User has a password set — require current password to change
+        if (!currentPassword) {
+          return NextResponse.json({ error: 'Current password required to set a new password' }, { status: 400 })
+        }
+        const valid = await verifyPassword(currentPassword, user.password_hash)
+        if (!valid) {
+          return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
+        }
+      }
+      // If no existing password (e.g. OAuth user), allow setting without current password
+
+      updates.password_hash = await hashPassword(newPassword)
+    }
+
+    if (Object.keys(updates).length === 1) {
+      // Only updated_at — nothing to update
+      return NextResponse.json({ success: true, message: 'No changes made' })
+    }
+
+    const { error } = await admin
+      .from('users')
+      .update(updates)
+      .eq('id', session.user.id)
+
+    if (error) {
+      console.error('Profile update error:', error)
+      return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, message: 'Profile updated successfully' })
+  } catch (error) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

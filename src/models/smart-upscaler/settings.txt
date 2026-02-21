@@ -1,0 +1,18 @@
+Workflow: https://www.runninghub.ai/workflow/2024900845141233665
+Model name: Smart Upscaler
+
+Workflow nodes:
+#230 Input Image (image) — LoadImage
+#213 Scale By (scale_by) — ImageScaleBy
+#214 Width (width) — ImageResize+
+#214 Height (height) — ImageResize+
+#215 Output — SaveImage
+
+Resolution settings:
+  4K: scale_by = 2, width = 4096, height = 4096  →  80 credits
+  8K: scale_by = 4, width = 8192, height = 8192  → 120 credits
+
+Task timer (approximate backend duration for loading animation only):
+  190 seconds (both 4K and 8K)
+Note: task timer is used only to calibrate the loading progress animation speed.
+      If the backend responds earlier the task is immediately marked complete.

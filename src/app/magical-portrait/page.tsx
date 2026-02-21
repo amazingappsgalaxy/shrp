@@ -1,6 +1,6 @@
 "use client"
 
-import MagicalPortraitSection from "@/components/sections/MagicalPortraitSection"
+import { MagicalPortraitSection } from "@/components/sections/MagicalPortraitSection"
 
 export default function MagicalPortraitPage() {
   return (

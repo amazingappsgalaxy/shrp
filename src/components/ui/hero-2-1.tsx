@@ -24,8 +24,8 @@ export function Hero21() {
   }
 
   const itemVariants = {
-    hidden: { 
-      opacity: 0, 
+    hidden: {
+      opacity: 0,
       y: 40,
       scale: 0.95
     },
@@ -62,7 +62,7 @@ export function Hero21() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-blue/30 rounded-full blur-3xl animate-float" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-purple/30 rounded-full blur-3xl animate-float" style={{ animationDelay: "1s" }} />
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent-neon/20 rounded-full blur-2xl animate-float" style={{ animationDelay: "2s" }} />
-        
+
         {/* Grid Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{
@@ -90,7 +90,7 @@ export function Hero21() {
           >
             <div className="w-2 h-2 bg-accent-neon rounded-full animate-pulse" />
             <span className="text-sm font-medium text-text-secondary">
-              Join 100,000+ satisfied users
+              Trusted by Creative Professionals
             </span>
           </motion.div>
 
@@ -100,7 +100,7 @@ export function Hero21() {
             className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6"
           >
             Ready to Transform Your Images with{" "}
-            <SparklesText 
+            <SparklesText
               text="Professional AI?"
               className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl"
             />
@@ -148,12 +148,12 @@ export function Hero21() {
             variants={itemVariants}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
           >
-            <Button 
+            <Button
               size="lg"
               className="btn-premium text-lg px-10 py-4 h-auto group"
               asChild
             >
-              <Link href="/upload">
+              <Link href="/app/upload">
                 <span className="relative z-10 flex items-center gap-2">
                   Start Enhancing Now
                   <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />

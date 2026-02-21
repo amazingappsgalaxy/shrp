@@ -85,7 +85,7 @@ export function ImageComparisonRedesigned({
     damping: 30
   })
 
-  const currentPair = pairs[currentIndex]
+  const currentPair = (pairs[currentIndex] ?? defaultPairs[0]!) as ComparisonPair
 
   // Auto-play functionality
   useEffect(() => {
@@ -133,7 +133,8 @@ export function ImageComparisonRedesigned({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setIsDragging(true)
-    const touch = e.touches[0]
+    const touch = e.touches && e.touches[0]
+    if (!touch) return
     updateSliderPosition(touch.clientX)
   }
 
@@ -159,7 +160,8 @@ export function ImageComparisonRedesigned({
 
     const handleGlobalTouchMove = (e: TouchEvent) => {
       if (isDragging) {
-        const touch = e.touches[0]
+        const touch = e.touches && e.touches[0]
+        if (!touch) return
         updateSliderPosition(touch.clientX)
       }
     }

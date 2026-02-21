@@ -84,7 +84,7 @@ export function CTASection() {
                 className="btn-premium text-xl px-12 py-6 h-auto"
                 asChild
               >
-                <a href="/upload">
+                <a href="/app/upload">
                   <span className="relative z-10 flex items-center gap-3">
                     <Zap className="h-6 w-6" />
                     Start Free Trial

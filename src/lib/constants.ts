@@ -5,19 +5,19 @@ export const COLORS = {
   background: 'hsl(0 0% 0%)',
   surface: 'hsl(0 0% 6.7%)',
   surfaceElevated: 'hsl(0 0% 10.2%)',
-  
+
   // Text colors
   textPrimary: 'hsl(0 0% 100%)',
   textSecondary: 'hsl(0 0% 66.7%)',
   textMuted: 'hsl(0 0% 44.3%)',
   textDisabled: 'hsl(0 0% 25.1%)',
-  
+
   // Accent colors
   accentBlue: 'hsl(199 100% 50%)',
   accentPurple: 'hsl(258 90% 66%)',
   accentNeon: 'hsl(180 100% 50%)',
   accentPink: 'hsl(330 81% 60%)',
-  
+
   // Status colors
   success: 'hsl(142 76% 36%)',
   warning: 'hsl(38 92% 50%)',
@@ -446,7 +446,7 @@ export const FAQ_ITEMS = [
   {
     id: '3',
     question: 'How long does processing take?',
-    answer: 'Processing times vary by plan: Starter (2-5 minutes), Professional (30 seconds - 2 minutes), Enterprise (instant - 30 seconds). Batch processing is available for Professional and Enterprise plans.',
+    answer: 'Processing is extremely fast. Our advanced AI engine provides near-instant results for most images, maintaining studio quality output.',
   },
   {
     id: '4',

@@ -1,136 +1,88 @@
 "use client"
 
 import Link from "next/link"
-import { Github, Twitter, Linkedin, Mail } from "lucide-react"
+import { motion } from "framer-motion"
+import { ArrowRight, Sparkles } from "lucide-react"
 
 export function Footer() {
-  return (
-    <footer className="bg-background border-t">
-      <div className="container px-6 md:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-          {/* Company Info */}
-          <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-8 w-8 rounded-full bg-primary" />
-              <span className="text-xl font-bold">Sharpii AI</span>
+    return (
+        <footer className="bg-black border-t border-white/5 pt-24 pb-12 relative overflow-hidden">
+
+            {/* New CTA Section */}
+            <div className="container mx-auto px-4 mb-24">
+                <div className="relative rounded-[3rem] bg-white/5 border border-white/10 overflow-hidden p-12 md:p-24 text-center">
+                    <div className="absolute inset-0 bg-[#FFFF00]/5 blur-[100px] pointer-events-none" />
+
+                    <div className="relative z-10 max-w-4xl mx-auto space-y-8">
+                        <h2 className="text-5xl md:text-8xl font-black font-heading text-white tracking-tight leading-[0.9]">
+                            CREATE <br />
+                            <span className="text-[#FFFF00]">IMPACT.</span>
+                        </h2>
+
+                        <p className="text-xl text-white/60 max-w-2xl mx-auto">
+                            Elevate your visual storytelling with the world's most advanced AI enhancement engine.
+                        </p>
+
+                        <div className="flex justify-center pt-8">
+                            <Link href="/app/dashboard">
+                                <button className="group relative bg-[#FFFF00] text-black px-10 py-5 rounded-2xl font-bold text-xl inline-flex items-center gap-3 hover:scale-105 transition-transform duration-300">
+                                    <span>Enter App</span>
+                                    <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
+                                </button>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <p className="text-muted-foreground mb-4 max-w-md">
-              SharpII AI is the leading platform for enterprise-grade artificial intelligence solutions. 
-              We empower businesses to harness the full potential of AI with cutting-edge technology, 
-              unmatched security, and world-class support.
-            </p>
-            <div className="flex gap-4">
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Github className="h-5 w-5" />
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Twitter className="h-5 w-5" />
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Linkedin className="h-5 w-5" />
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Mail className="h-5 w-5" />
-              </Link>
+
+            <div className="container mx-auto px-4">
+                <div className="grid md:grid-cols-4 gap-12 mb-16 border-b border-white/5 pb-16">
+                    <div className="col-span-1 md:col-span-1">
+                        <div className="text-2xl font-bold text-white mb-4 tracking-tighter">Sharpii.ai</div>
+                        <p className="text-white/40 text-sm leading-relaxed">
+                            Pioneering the future of digital aesthetic enhancement through generative AI.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-white mb-6">Product</h4>
+                        <ul className="space-y-4 text-sm text-white/50">
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Enhancement</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Generation</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Video</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Pricing</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-white mb-6">Resources</h4>
+                        <ul className="space-y-4 text-sm text-white/50">
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Documentation</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">API Reference</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Community</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Blog</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-white mb-6">Legal</h4>
+                        <ul className="space-y-4 text-sm text-white/50">
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Privacy Policy</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Terms of Service</li>
+                            <li className="hover:text-[#FFFF00] cursor-pointer transition-colors">Security</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/30">
+                    <div>© 2024 Sharpii Inc. All rights reserved.</div>
+                    <div className="flex gap-6">
+                        <span>Twitter</span>
+                        <span>GitHub</span>
+                        <span>Discord</span>
+                    </div>
+                </div>
             </div>
-          </div>
-
-          {/* Product */}
-          <div>
-            <h3 className="font-semibold mb-4">Product</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/features" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Features
-                </Link>
-              </li>
-              <li>
-                <Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Pricing
-                </Link>
-              </li>
-              <li>
-                <Link href="/api" className="text-muted-foreground hover:text-foreground transition-colors">
-                  API
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Documentation
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Company */}
-          <div>
-            <h3 className="font-semibold mb-4">Company</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-                  About
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Blog
-                </Link>
-              </li>
-              <li>
-                <Link href="/careers" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Careers
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Contact
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Resources */}
-          <div>
-            <h3 className="font-semibold mb-4">Resources</h3>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/help" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <Link href="/community" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Community
-                </Link>
-              </li>
-              <li>
-                <Link href="/status" className="text-muted-foreground hover:text-foreground transition-colors">
-                  System Status
-                </Link>
-              </li>
-              <li>
-                <Link href="/changelog" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Changelog
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="border-t mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            © 2024 Sharpii AI. All rights reserved.
-          </p>
-          <div className="flex gap-6 mt-4 md:mt-0">
-            <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Terms of Service
-            </Link>
-          </div>
-        </div>
-      </div>
-    </footer>
-  )
+        </footer>
+    )
 }

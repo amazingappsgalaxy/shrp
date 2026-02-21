@@ -1,15 +1,16 @@
 "use client"
 
-import { motion, easeOut } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { useInView } from "framer-motion"
 import { useRef, useState } from "react"
-import { Zap, Eye, Sparkles, RotateCcw, Settings2, Target, Monitor, Cpu, Play, Pause, BarChart3 } from "lucide-react"
+import { Zap, Eye, Sparkles, RotateCcw, Settings2, Target, Monitor, Cpu, Play, Pause, BarChart3, ChevronDown, Check } from "lucide-react"
 import Image from "next/image"
+import { cn } from "@/lib/utils"
 
 export function IncrediblePowerSection() {
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-100px" })
-  
+
   // Interactive states
   const [textureValue, setTextureValue] = useState(65)
   const [detailValue, setDetailValue] = useState(45)
@@ -25,33 +26,24 @@ export function IncrediblePowerSection() {
     eyes: false
   })
 
+  // Animation Variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
+      transition: { staggerChildren: 0.1, delayChildren: 0.2 }
     }
   }
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 60 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.8,
-        ease: easeOut
-      }
-    }
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as any } }
   }
 
   const textureStyles = [
-    { id: "natural", name: "Natural", desc: "Realistic skin pores and texture", active: selectedTextureStyle === "natural" },
-    { id: "smooth", name: "Smooth", desc: "Refined and clean skin tone", active: selectedTextureStyle === "smooth" },
-    { id: "detailed", name: "Detailed", desc: "Enhanced facial features", active: selectedTextureStyle === "detailed" }
+    { id: "natural", name: "Natural", desc: "Realistic skin pores", active: selectedTextureStyle === "natural" },
+    { id: "smooth", name: "Smooth", desc: "Refined skin tone", active: selectedTextureStyle === "smooth" },
+    { id: "detailed", name: "Detailed", desc: "Enhanced features", active: selectedTextureStyle === "detailed" }
   ]
 
   const enhancementOptions = [
@@ -69,11 +61,7 @@ export function IncrediblePowerSection() {
     setSelectedTextureStyle("natural")
     setSelectedEnhancementType("face")
     setEnhancementAreas({
-      face: true,
-      skin: true,
-      nose: false,
-      mouth: true,
-      eyes: false
+      face: true, skin: true, nose: false, mouth: true, eyes: false
     })
   }
 
@@ -96,337 +84,219 @@ export function IncrediblePowerSection() {
 
   return (
     <section className="py-24 relative overflow-hidden">
-      {/* Glassmorphism Background - Matching AI Enhanced Gallery */}
-      {/* Background removed as requested */}
+
+      {/* Background Decor */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-accent-blue/5 blur-[100px] rounded-full" />
+      </div>
 
       <div className="container mx-auto px-4 lg:px-6 relative z-10">
+
+        {/* Header */}
         <motion.div
           ref={ref}
           variants={containerVariants}
           initial="hidden"
           animate={isInView ? "visible" : "hidden"}
-          className="text-center mb-8"
+          className="text-center mb-16"
         >
-          <motion.div variants={itemVariants} className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 shadow-sm">
-              <Cpu className="h-4 w-4 text-accent-neon" />
-              <span className="text-sm font-semibold text-text-secondary">AI Engine</span>
-            </div>
-            
-            <h2 className="text-3xl md:text-5xl font-bold text-gradient-neon">
-              Incredible AI Power
-            </h2>
-            
-            <p className="text-lg text-text-secondary max-w-3xl mx-auto font-medium">
-              Experience our advanced AI engine with real-time controls and instant feedback, delivering unparalleled image enhancement capabilities.
-            </p>
+          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 mb-6">
+            <Cpu className="h-4 w-4 text-[#FFFF00]" />
+            <span className="text-xs font-bold text-white uppercase tracking-widest">Pro Control Engine</span>
           </motion.div>
+
+          <motion.h2 variants={itemVariants} className="font-heading text-4xl md:text-5xl font-bold mb-6">
+            <span className="text-white">Professional Grade </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFFF00] to-[#E6E600]">Control</span>
+          </motion.h2>
+
+          <motion.p variants={itemVariants} className="text-lg text-white/60 max-w-2xl mx-auto">
+            Fine-tune every aspect of the enhancement process with our professional dashboard.
+            Real-time feedback meets sub-pixel precision.
+          </motion.p>
         </motion.div>
 
-        {/* Glassmorphic Main Dashboard */}
-        <motion.div
-          variants={containerVariants}
-          className="grid lg:grid-cols-2 gap-8 mb-8"
-        >
-          {/* Large Image Preview - Using glass-card */}
-          <motion.div variants={itemVariants} className="order-2 lg:order-1">
-            <div className="relative rounded-3xl overflow-hidden">
-              <Image
-                src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png"
-                alt="Enhanced Portrait"
-                width={600}
-                height={750}
-                className="w-full aspect-[4/5] object-cover shadow-none"
-              />
-              
-              {/* Glassmorphic Status Badge */}
-              <div className="absolute top-4 right-4">
-                <div className="px-4 py-2 rounded-full glass-card" style={{border: '1px solid hsl(142 76% 36% / 0.3)'}}>
-                  <span className="text-sm font-bold text-success flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 bg-success rounded-full animate-pulse"></div>
-                    AI Enhanced
-                  </span>
+        {/* Dashboard UI */}
+        <div className="grid lg:grid-cols-12 gap-8 max-w-7xl mx-auto h-[600px] lg:h-[700px]">
+
+          {/* Preview Area (Left - Large) */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            className="lg:col-span-8 relative h-full rounded-3xl overflow-hidden glass-premium border border-white/10 shadow-2xl group"
+          >
+            <Image
+              src="https://s3.tebi.io/sharpiiweb/sharpiiweb/home/before-after/Girl+1+After.png"
+              alt="Workspace Preview"
+              fill
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+
+            {/* Overlay Gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+            {/* Status Bar */}
+            <div className="absolute top-6 left-6 right-6 flex justify-between items-start pointer-events-none">
+              <div className="flex gap-2">
+                <div className="px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Live Preview</span>
                 </div>
-              </div>
-              
-              {/* Glassmorphic Metrics Dock */}
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="glass-card rounded-xl p-5" style={{border: '1px solid hsl(142 76% 36% / 0.3)'}}>
-                  <div className="grid grid-cols-3 gap-8 text-center">
-                    <div className="space-y-1">
-                      <div className="text-2xl font-bold text-accent-neon">{textureValue}%</div>
-                      <div className="text-xs text-text-secondary font-semibold uppercase tracking-wide">Texture</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl font-bold text-accent-purple">{detailValue}%</div>
-                      <div className="text-xs text-text-secondary font-semibold uppercase tracking-wide">Detail</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-2xl font-bold text-success">{smoothnessValue}%</div>
-                      <div className="text-xs text-text-secondary font-semibold uppercase tracking-wide">Smooth</div>
-                    </div>
-                  </div>
+                <div className="px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-xs font-mono text-white/60">
+                  4K • 60FPS
                 </div>
               </div>
             </div>
+
+            {/* Metrics Dock */}
+            <div className="absolute bottom-6 left-6 right-6 grid grid-cols-3 gap-4">
+              {[
+                { label: "Texture", value: textureValue, color: "text-[#FFFF00]" },
+                { label: "Detail", value: detailValue, color: "text-yellow-400" },
+                { label: "Smoothness", value: smoothnessValue, color: "text-amber-300" },
+              ].map((metric, i) => (
+                <div key={i} className="bg-black/40 backdrop-blur-xl border border-white/10 p-4 rounded-xl">
+                  <div className="flex justify-between items-end mb-1">
+                    <span className="text-xs font-bold text-white/60 uppercase tracking-wider">{metric.label}</span>
+                    <span className={cn("text-xl font-bold font-heading", metric.color)}>{metric.value}%</span>
+                  </div>
+                  <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                    <motion.div
+                      className={cn("h-full rounded-full bg-current", metric.color)}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${metric.value}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.div>
 
-          {/* Glassmorphic Control Panel */}
-          <motion.div variants={itemVariants} className="order-1 lg:order-2 flex flex-col h-full">
-            {/* Main Controls Card */}
-            <div className="p-6 rounded-3xl border border-white/10 flex flex-col h-full justify-between">
-              <div className="flex items-center justify-between mb-6">
+          {/* Control Panel (Right) */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="lg:col-span-4 flex flex-col gap-4 h-full"
+          >
+            {/* Main Controls */}
+            <div className="flex-1 glass-elevated border border-white/10 rounded-3xl p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl border border-white/10">
-                    <Settings2 className="h-5 w-5 text-accent-blue" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-text-primary">AI Controls</h3>
-                    <p className="text-sm text-text-secondary font-medium">Real-time parameters</p>
-                  </div>
+                  <Settings2 className="w-5 h-5 text-[#FFFF00]" />
+                  <span className="font-bold text-white">Parameters</span>
                 </div>
-                <button 
+                <button
                   onClick={handleReset}
-                  className="px-4 py-2 text-sm text-accent-blue bg-white/5 border border-white/10 shadow-sm hover:border-accent-blue/50 rounded-xl transition-all duration-300 font-semibold"
+                  className="text-xs text-white/40 hover:text-white transition-colors uppercase tracking-wider font-bold"
                 >
-                  Reset
+                  Reset Default
                 </button>
               </div>
 
-              {/* Enhancement Type Selection */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-bold text-text-primary">Enhancement Type</span>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setSelectedEnhancementType("face")}
-                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                      selectedEnhancementType === "face"
-                        ? "bg-gradient-to-r from-accent-blue to-accent-purple text-white border border-white/20"
-                        : "bg-white/5 border border-white/10 text-text-primary hover:border-accent-blue/30"
-                    }`}
-                  >
-                    Face
-                  </button>
-                  <button
-                    onClick={() => setSelectedEnhancementType("body")}
-                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                      selectedEnhancementType === "body"
-                        ? "bg-gradient-to-r from-accent-blue to-accent-purple text-white border border-white/20"
-                        : "bg-white/5 border border-white/10 text-text-primary hover:border-accent-blue/30"
-                    }`}
-                  >
-                    Body
-                  </button>
-                </div>
-              </div>
-
-              {/* Glassmorphic Sliders */}
-              <div className="space-y-3">
-                {/* Texture Slider */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-text-primary">Texture Enhancement</span>
-                    <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 shadow-sm">
-                      <span className="text-sm font-bold text-accent-blue">{textureValue}%</span>
+              {/* Sliders */}
+              <div className="space-y-6">
+                {[
+                  { label: "Texture Strength", value: textureValue, setValue: setTextureValue, color: "text-[#FFFF00]" },
+                  { label: "Micro Detail", value: detailValue, setValue: setDetailValue, color: "text-yellow-400" },
+                  { label: "Skin Smoothness", value: smoothnessValue, setValue: setSmoothness, color: "text-amber-300" },
+                ].map((control, i) => (
+                  <div key={i} className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-white/80">{control.label}</span>
+                      <span className="font-mono text-white/60">{control.value}%</span>
                     </div>
-                  </div>
-                  <div className="relative">
                     <input
                       type="range"
                       min="0"
                       max="100"
-                      value={textureValue}
-                      onChange={(e) => setTextureValue(parseInt(e.target.value))}
-                      className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-blue-500"
+                      value={control.value}
+                      onChange={(e) => control.setValue(parseInt(e.target.value))}
+                      className={cn(
+                        "w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer",
+                        "accent-white hover:accent-accent-neon transition-all"
+                      )}
                     />
                   </div>
-                </div>
-
-                {/* Detail Slider */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-text-primary">Detail Level</span>
-                    <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 shadow-sm">
-                      <span className="text-sm font-bold text-accent-purple">{detailValue}%</span>
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={detailValue}
-                      onChange={(e) => setDetailValue(parseInt(e.target.value))}
-                      className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-purple-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Smoothness Slider */}
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-text-primary">Skin Smoothness</span>
-                    <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 shadow-sm">
-                      <span className="text-sm font-bold text-success">{smoothnessValue}%</span>
-                    </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={smoothnessValue}
-                      onChange={(e) => setSmoothness(parseInt(e.target.value))}
-                      className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-green-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Glassmorphic Process Button */}
-              <div className="mt-6">
-                <button 
-                  onClick={handleProcessing}
-                  disabled={isProcessing}
-                  className="w-full py-4 px-6 bg-gradient-to-r from-accent-blue to-accent-purple hover:from-accent-blue/80 hover:to-accent-purple/80 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 backdrop-blur-md border border-white/20"
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Processing...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Sparkles className="h-5 w-5" />
-                      Apply Enhancement
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        {/* Glassmorphic Feature Cards */}
-        <motion.div variants={containerVariants} className="grid md:grid-cols-2 gap-8">
-          {/* AI Skin Texture Card */}
-          <motion.div variants={itemVariants} className="p-6 rounded-3xl border border-white/10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-xl border border-white/10">
-                <Sparkles className="h-5 w-5 text-accent-blue" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-text-primary">AI Skin Texture</h3>
-                <p className="text-sm text-text-secondary font-medium">Advanced texture correction</p>
-              </div>
-            </div>
-
-            {/* Glassmorphic Texture Options */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-text-primary">Texture Styles</span>
-                <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 shadow-sm text-accent-blue">
-                  <span className="text-xs font-bold">AI-POWERED</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {textureStyles.map((style) => (
-                  <button
-                    key={style.id}
-                    onClick={() => setSelectedTextureStyle(style.id)}
-                    className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all duration-300 ${
-                      style.active 
-                        ? 'bg-white/5 border border-accent-blue/30 shadow-sm' 
-                        : 'bg-white/5 border border-white/10 shadow-sm hover:border-accent-blue/20'
-                    }`}
-                  >
-                    <div className={`w-5 h-5 rounded-full transition-all duration-200 ${
-                      style.active ? 'bg-gradient-to-r from-accent-blue to-accent-purple' : 'bg-white/20 border border-white/30'
-                    }`} />
-                    <div className="flex-1 text-left">
-                      <div className={`font-bold text-sm ${
-                        style.active ? 'text-accent-blue' : 'text-text-primary'
-                      }`}>
-                        {style.name}
-                      </div>
-                      <div className="text-xs text-text-secondary font-medium">{style.desc}</div>
-                    </div>
-                  </button>
                 ))}
               </div>
 
-              <div className="text-center pt-3">
-                <div className="inline-block px-4 py-2 rounded-xl bg-gradient-to-r from-accent-blue to-accent-purple text-white text-xs font-bold backdrop-blur-md border border-white/20">
-                  {selectedTextureStyle.toUpperCase()}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Selective Enhancement Card */}
-          <motion.div variants={itemVariants} className="p-6 rounded-3xl border border-white/10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-xl border border-white/10">
-                <Target className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-text-primary">Selective Enhancement</h3>
-                <p className="text-sm text-text-secondary font-medium">Choose specific areas</p>
-              </div>
-            </div>
-
-            {/* Glassmorphic Toggle List */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-text-primary">Enhancement Areas</span>
-                <button 
-                  onClick={() => setEnhancementAreas({
-                    face: true,
-                    skin: true,
-                    nose: true,
-                    mouth: true,
-                    eyes: true
-                  })}
-                  className="text-xs text-accent-blue bg-white/5 border border-white/10 shadow-sm hover:border-accent-blue/50 px-3 py-1.5 rounded-xl transition-all duration-300 font-bold"
-                >
-                  Select All
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {enhancementOptions.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 shadow-sm flex items-center justify-center text-sm font-bold text-text-primary">
-                        {item.letter}
-                      </div>
-                      <span className="text-sm font-bold text-text-primary">{item.area}</span>
-                    </div>
+              {/* Texture Styles */}
+              <div className="space-y-3 pt-4 border-t border-white/5">
+                <span className="text-xs font-bold text-white/60 uppercase tracking-widest">Processing Mode</span>
+                <div className="grid grid-cols-1 gap-2">
+                  {textureStyles.map((style) => (
                     <button
-                      onClick={() => toggleEnhancementArea(item.id)}
-                      className={`w-14 h-8 rounded-full relative transition-all duration-300 backdrop-blur-md border ${
-                        item.active ? 'bg-gradient-to-r from-success to-emerald-500' : 'bg-white/5 border border-white/10 shadow-sm'
-                      }`}
+                      key={style.id}
+                      onClick={() => setSelectedTextureStyle(style.id)}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200",
+                        style.active
+                          ? "bg-white/10 border-accent-blue/50"
+                          : "bg-transparent border-white/5 hover:bg-white/5"
+                      )}
                     >
-                      <div className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-all duration-300 ${
-                        item.active ? 'translate-x-7 border border-success/30' : 'translate-x-1 border border-white/30'
-                      }`} />
+                      <div className={cn(
+                        "w-4 h-4 rounded-full border flex items-center justify-center",
+                        style.active ? "border-accent-blue bg-accent-blue/20" : "border-white/20"
+                      )}>
+                        {style.active && <div className="w-2 h-2 bg-accent-blue rounded-full" />}
+                      </div>
+                      <div>
+                        <div className={cn("text-sm font-bold", style.active ? "text-white" : "text-white/70")}>{style.name}</div>
+                        <div className="text-xs text-white/40">{style.desc}</div>
+                      </div>
                     </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="text-center pt-3">
-                <div className="inline-block px-4 py-2 rounded-xl bg-gradient-to-r from-success to-emerald-500 text-white text-xs font-bold backdrop-blur-md border border-white/20">
-                  {getCoveragePercentage()}% COVERAGE
+                  ))}
                 </div>
               </div>
+
+              {/* Enhancement Zones */}
+              <div className="space-y-3 pt-4 border-t border-white/5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-white/60 uppercase tracking-widest">Target Zones</span>
+                  <span className="text-xs font-mono text-accent-neon">{getCoveragePercentage()}% Active</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {enhancementOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => toggleEnhancementArea(opt.id)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg border text-xs font-bold transition-all",
+                        opt.active
+                          ? "bg-accent-blue/20 border-accent-blue/50 text-white"
+                          : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
+                      )}
+                    >
+                      {opt.area}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
             </div>
+
+            {/* Action Button */}
+            <button
+              onClick={handleProcessing}
+              disabled={isProcessing}
+              className="w-full py-5 rounded-2xl bg-[#FFFF00] text-black font-bold text-lg hover:bg-[#E6E600] hover:shadow-[0_0_20px_rgba(255,255,0,0.4)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isProcessing ? (
+                <>
+                  <Cpu className="animate-spin" />
+                  Processing...
+                </>
+              ) : "Apply AI Enhancement"}
+            </button>
           </motion.div>
-        </motion.div>
+
+        </div>
       </div>
     </section>
   )

@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { motion } from "framer-motion"
-import { Zap, Sparkles, Grid3X3, Maximize2, Image } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Zap, Sparkles, Grid3X3, Maximize2, Image as ImageIcon, ArrowRight, Eye } from "lucide-react"
 import { SimpleImageViewer } from "../ui/simple-image-viewer"
 import { EnhancementGalleryModal } from "../ui/enhancement-gallery-modal"
 import { IMAGE_ASSETS } from "@/lib/constants"
+import Image from "next/image"
+import { cn } from "@/lib/utils"
 
 interface GalleryItem {
   before: string
@@ -14,7 +16,6 @@ interface GalleryItem {
   description: string
   category: string
   improvement: string
-  processingTime: string
 }
 
 // Static values to prevent hydration mismatch
@@ -27,8 +28,7 @@ const galleryItems: GalleryItem[] = IMAGE_ASSETS.beforeAfterPairs.map((pair, ind
   title: pair.title,
   description: "AI-powered image enhancement with professional results",
   category: index < 3 ? 'Portrait' : index < 6 ? 'Professional' : 'Artistic',
-  improvement: staticImprovements[index] || "93%",
-  processingTime: staticProcessingTimes[index] || "28s"
+  improvement: staticImprovements[index] || "93%"
 }))
 
 const categories = ["All", "Portrait", "Professional", "Artistic"]
@@ -37,22 +37,27 @@ export function GallerySection() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalIndex, setModalIndex] = useState(0)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
-  const filteredItems = selectedCategory === "All" 
-    ? galleryItems 
+  const filteredItems = selectedCategory === "All"
+    ? galleryItems
     : galleryItems.filter(item => item.category === selectedCategory)
 
   const handleImageClick = (index: number) => {
-    setModalIndex(index)
+    // Find the original index if filtered
+    const originalIndex = galleryItems.findIndex(item => item === filteredItems[index])
+    setModalIndex(originalIndex !== -1 ? originalIndex : index)
     setIsModalOpen(true)
   }
 
   return (
-    <section className="py-24 lg:py-32 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-b from-surface via-surface-elevated to-surface opacity-50" />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-neon/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-purple/5 rounded-full blur-3xl" />
+    <section className="py-32 relative overflow-hidden bg-black">
+      {/* Premium Background Ambience */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute top-1/4 right-0 w-[600px] h-[600px] bg-accent-blue/10 rounded-full blur-[120px] mix-blend-screen opacity-50" />
+        <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-accent-purple/5 rounded-full blur-[100px] mix-blend-screen opacity-40" />
+      </div>
 
       <div className="container mx-auto px-4 lg:px-6 relative z-10">
         {/* Section Header */}
@@ -63,126 +68,129 @@ export function GallerySection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6">
-            <Image className="h-4 w-4 text-accent-neon" />
-            <span className="text-sm font-medium text-text-secondary">AI Enhanced Gallery</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-elevated border border-white/10 mb-8">
+            <ImageIcon className="h-4 w-4 text-accent-neon" />
+            <span className="text-sm font-bold text-white uppercase tracking-widest">Enhanced Gallery</span>
           </div>
-          
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-8">
-            <span className="text-white">Transform Your</span>
+
+          <h2 className="font-heading text-5xl md:text-7xl font-bold text-center mb-8 leading-tight">
+            <span className="text-white">Masterpiece</span>
             <br />
-            <span className="text-gradient-neon">Images</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-blue via-accent-purple to-accent-pink">Collection</span>
           </h2>
-          
-          <p className="text-lg text-text-secondary text-center max-w-3xl mx-auto mb-12">
-            See the incredible results of our AI enhancement technology. From portraits to landscapes, 
-            every image gets the professional treatment it deserves.
+
+          <p className="text-xl text-white/60 text-center max-w-3xl mx-auto mb-12 leading-relaxed">
+            Explore a curated selection of stunning transformations powered by our advanced AI engine.
           </p>
         </motion.div>
 
         {/* Filter Controls */}
         <motion.div
-          className="flex justify-center mb-12"
+          className="flex justify-center mb-16"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          <div className="flex items-center gap-2 p-2 glass-card rounded-2xl border border-glass-border">
+          <div className="p-1.5 glass-card rounded-2xl flex items-center gap-1 overflow-x-auto max-w-full">
             {categories.map((category) => (
-              <motion.button
+              <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`
-                  px-6 py-3 rounded-xl font-medium transition-all duration-300
-                  ${selectedCategory === category
-                    ? "bg-accent-neon text-white shadow-neon"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/5"
-                  }
-                `}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  "px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 relative whitespace-nowrap",
+                  selectedCategory === category ? "text-white" : "text-white/40 hover:text-white/70"
+                )}
               >
-                {category}
-              </motion.button>
+                {selectedCategory === category && (
+                  <motion.div
+                    layoutId="activeCategory"
+                    className="absolute inset-0 bg-white/10 rounded-xl border border-white/10 shadow-lg"
+                    style={{ borderRadius: "0.75rem" }}
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <span className="relative z-10">{category}</span>
+              </button>
             ))}
           </div>
         </motion.div>
 
-        {/* Unified Image Viewer */}
+        {/* Simplified Grid Gallery */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.4 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          layout
         >
-          <SimpleImageViewer
-            pairs={filteredItems}
-            showStats={true}
-            className="max-w-6xl mx-auto"
-            onImageClick={handleImageClick}
-          />
+          <AnimatePresence mode="popLayout">
+            {filteredItems.slice(0, 6).map((item, index) => (
+              <motion.div
+                key={`${item.title}-${index}`}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4, delay: index * 0.1 }}
+                className="group cursor-pointer"
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => handleImageClick(index)}
+              >
+                {/* Image Container - Clean, No Text Overlay */}
+                <div className="relative aspect-[3/4] rounded-2xl overflow-hidden glass-card border border-white/10 mb-5 shadow-2xl">
+                  <Image
+                    src={hoveredIndex === index ? item.after : item.before}
+                    alt={item.title}
+                    fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+
+                  {/* Subtle Badge - Top Right */}
+                  <div className="absolute top-4 right-4 z-20">
+                    <div className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                      <span className="text-xs font-bold text-accent-neon flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Enhanced
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Slider Hint Gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                </div>
+
+                {/* Content Below Image */}
+                <div className="px-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-accent-blue uppercase tracking-wider">{item.category}</span>
+                    <span className="text-xs font-bold text-accent-green">+{item.improvement} Quality</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white group-hover:text-accent-neon transition-colors duration-300">{item.title}</h3>
+                  <p className="text-white/40 text-sm mt-1 line-clamp-2">{item.description}</p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </motion.div>
 
-        {/* Feature Highlights */}
-        <motion.div
-          className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          <div className="text-center p-6 glass-card rounded-2xl border border-glass-border">
-            <div className="w-12 h-12 bg-accent-neon/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="w-6 h-6 text-accent-neon" />
-            </div>
-            <h3 className="text-lg font-semibold text-text-primary mb-2">Interactive Comparison</h3>
-            <p className="text-text-secondary text-sm">Drag the slider to see before and after results in real-time</p>
-          </div>
+        {/* Enhanced Gallery Modal */}
+        <EnhancementGalleryModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          pairs={galleryItems} // Pass full list for navigation
+          initialIndex={modalIndex}
+        />
 
-          <div className="text-center p-6 glass-card rounded-2xl border border-glass-border">
-            <div className="w-12 h-12 bg-accent-blue/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Grid3X3 className="w-6 h-6 text-accent-blue" />
-            </div>
-            <h3 className="text-lg font-semibold text-text-primary mb-2">Zoom & Pan</h3>
-            <p className="text-text-secondary text-sm">Click and drag to explore details, scroll to zoom in and out</p>
-          </div>
-
-          <div className="text-center p-6 glass-card rounded-2xl border border-glass-border">
-            <div className="w-12 h-12 bg-accent-purple/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-6 h-6 text-accent-purple" />
-            </div>
-            <h3 className="text-lg font-semibold text-text-primary mb-2">Multiple Views</h3>
-            <p className="text-text-secondary text-sm">Switch between comparison, before-only, and after-only views</p>
-          </div>
-        </motion.div>
-
-        {/* CTA Section */}
-        <motion.div
-          className="text-center mt-16"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-        >
+        {/* Decorative CTA */}
+        <div className="mt-20 text-center">
           <motion.button
-            className="btn-premium inline-flex items-center gap-3 text-lg px-8 py-4"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white text-black font-bold text-lg hover:bg-white/90 transition-all duration-300 hover:scale-105 shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)]"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Zap className="w-5 h-5" />
-            Transform Your Images Now
+            <Zap className="w-5 h-5 fill-black" />
+            Start Creating Now
           </motion.button>
-        </motion.div>
+        </div>
       </div>
-
-      {/* Enhanced Gallery Modal */}
-      <EnhancementGalleryModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        pairs={filteredItems}
-        initialIndex={modalIndex}
-      />
     </section>
   )
 }

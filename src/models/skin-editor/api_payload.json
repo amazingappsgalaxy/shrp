@@ -1,0 +1,120 @@
+{
+  "workflowId": "2022540423272599554",
+  "nodeInfoList": [
+    {
+      "nodeId": "97",
+      "fieldName": "image",
+      "fieldValue": "https://i.postimg.cc/2yhK39Yf/33de69f6-cc72-4b13-9430-4be047113364-(1)-(1).jpg"
+    },
+    {
+      "nodeId": "140",
+      "fieldName": "text",
+      "fieldValue": "high quality, detailed, enhanced"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable easy cleanGpuUsed",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable Number to Float",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable RunningHub Deepcleaner",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable SeedVR2LoadVAEModel",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable SeedVR2LoadDiTModel",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable RunningHub Deepcleaner",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable SeedVR2VideoUpscaler",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable set",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable GetImageSize+",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable ImageResize+",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable TTP_Tile_image_size",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable TTP_Image_Tile_Batch",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable ImageScaleBy",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable GetImageSize+",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable ImageResize+",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable TTP_Image_Assy",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable ImageCASharpening+",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable Output Resolution (4k/8k)",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable Image Comparer (rgthree)",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable SaveImage",
+      "fieldValue": "false"
+    },
+    {
+      "nodeId": "229",
+      "fieldName": "Enable easy cleanGpuUsed",
+      "fieldValue": "false"
+    }
+  ]
+}

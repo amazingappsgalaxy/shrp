@@ -8,7 +8,7 @@ interface ParallaxContainerProps {
   className?: string
   speed?: number
   direction?: 'up' | 'down'
-  offset?: Parameters<typeof useScroll>[0]['offset']
+  offset?: NonNullable<Parameters<typeof useScroll>[0]>['offset']
 }
 
 export function ParallaxContainer({

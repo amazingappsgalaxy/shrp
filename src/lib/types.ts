@@ -152,7 +152,7 @@ export interface FormField {
 }
 
 // API types
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean
   data?: T
   error?: string
@@ -229,7 +229,7 @@ export type Direction = 'up' | 'down' | 'left' | 'right'
 export type Orientation = 'horizontal' | 'vertical'
 
 // Event types
-export interface CustomEvent<T = any> {
+export interface CustomEvent<T = unknown> {
   type: string
   data: T
   timestamp: number
@@ -285,21 +285,4 @@ export interface ARIAProps {
   role?: string
 }
 
-// Export all types as a namespace
-export namespace SharpiiTypes {
-  export type Image = ImageAsset
-  export type Workflow = WorkflowStep
-  export type Testimonial = TestimonialData
-  export type Pricing = PricingTier
-  export type FAQ = FAQItem
-  export type Carousel = CarouselItem
-  export type Slider = SliderItem
-  export type Gallery = GalleryItem
-  export type Award = AwardPreset
-  export type Navigation = NavigationItem
-  export type Form = FormField
-  export type API = APIResponse
-  export type Theme = ThemeConfig
-  export type Performance = PerformanceMetrics
-  export type Accessibility = AccessibilityConfig
-}
+// Removed old SharpiiTypes namespace to satisfy ESLint rule against namespaces.

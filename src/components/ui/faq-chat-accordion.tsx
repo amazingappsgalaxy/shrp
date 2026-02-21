@@ -1,211 +1,160 @@
 "use client"
 
-import { motion, AnimatePresence } from "framer-motion"
 import { useState } from "react"
-import { ChevronDown, MessageCircle, User, Bot } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Search, MessageCircle, Plus, Minus, User, Bot, Sparkles, MessageSquare } from "lucide-react" // Import specific icons
+import { cn } from "@/lib/utils"
 
-interface FAQItem {
-  id: number
+// Define FAQ interface
+interface FAQ {
   question: string
   answer: string
-  category: string
+  category?: string
 }
 
-const faqData: FAQItem[] = [
+const faqs: FAQ[] = [
   {
-    id: 1,
-    question: "How does the AI image enhancement work?",
-    answer: "Our AI uses advanced neural networks trained on millions of high-quality images. It analyzes your photo pixel by pixel, identifying areas that need enhancement like skin texture, lighting, and detail clarity. The AI then applies sophisticated algorithms to improve these areas while maintaining natural-looking results.",
+    question: "How does the AI enhancement work?",
+    answer: "Our AI uses advanced deep learning algorithms trained on millions of high-quality images. It analyzes your photo to understand its content and context, then intelligently reconstructs missing details, reduces noise, and corrects colors while maintaining the natural look of the original subject.",
     category: "Technology"
   },
   {
-    id: 2,
-    question: "What image formats do you support?",
-    answer: "We support all major image formats including JPEG, PNG, TIFF, WebP, and RAW files from most camera manufacturers. Our system can handle images up to 8K resolution and file sizes up to 50MB.",
-    category: "Technical"
+    question: "What types of images work best?",
+    answer: "Sharpii works best with portraits, product photos, real estate imagery, and scanned old photos. While it can enhance almost any image, results are most dramatic on images with minor blur, low resolution, or noise issues. Heavily damaged or completely unrecognizable images may have limited improvement.",
+    category: "Usage"
   },
   {
-    id: 3,
-    question: "How long does processing take?",
-    answer: "Most images are processed in under 30 seconds. Processing time depends on image size and complexity. High-resolution images (4K+) may take up to 2 minutes for optimal results.",
-    category: "Performance"
-  },
-  {
-    id: 4,
-    question: "Is my data secure and private?",
-    answer: "Absolutely. We use enterprise-grade encryption for all uploads and processing. Your images are automatically deleted from our servers after 24 hours. We never store, share, or use your images for training purposes without explicit consent.",
+    question: "Is my data secure?",
+    answer: "Absolutely. We treat your images with the highest level of privacy. Your uploaded photos are processed securely on our encrypted servers and are automatically deleted after 24 hours. We do not use your images for training our models or share them with third parties without your explicit permission.",
     category: "Privacy"
   },
   {
-    id: 5,
-    question: "Can I use enhanced images commercially?",
-    answer: "Yes! All enhanced images are yours to use however you like, including commercial purposes. We don't claim any rights to your original or enhanced images.",
+    question: "Can I use Sharpii for commercial purposes?",
+    answer: "Yes! All images enhanced with our paid plans include a commercial license. You are free to use the enhanced results for your business, marketing materials, client work, or any other commercial application.",
     category: "Licensing"
   },
   {
-    id: 6,
-    question: "What's the difference between plans?",
-    answer: "Our Free plan includes 5 enhancements per month with standard processing. Pro plan offers unlimited enhancements, priority processing, batch uploads, and access to advanced AI models. Enterprise includes API access and custom integrations.",
-    category: "Pricing"
+    question: "What if I'm not satisfied with the results?",
+    answer: "We strive for perfection but understand AI isn't magic. If you're not happy with a specific enhancement, you can try regenerating it with different settings. If you're on a paid plan and consistently unhappy, our support team can help or process a refund within our 7-day money-back guarantee period.",
+    category: "Support"
   }
 ]
 
 export function FAQChatAccordion() {
-  const [openItem, setOpenItem] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
-  const filteredFAQs = faqData.filter(
-    item =>
-      item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.answer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredFAQs = faqs.filter(faq =>
+    faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const toggleItem = (id: number) => {
-    setOpenItem(openItem === id ? null : id)
+  const toggleAccordion = (index: number) => {
+    setExpandedIndex(expandedIndex === index ? null : index)
   }
 
   return (
-    <section className="py-24 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-purple/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent-blue/30 rounded-full blur-3xl" />
+    <section className="py-24 relative overflow-hidden bg-black/40">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+        <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-accent-blue/5 rounded-full blur-[100px] mix-blend-screen opacity-30" />
+        <div className="absolute bottom-1/4 right-0 w-[500px] h-[500px] bg-accent-purple/5 rounded-full blur-[100px] mix-blend-screen opacity-30" />
       </div>
 
-      <div className="container mx-auto px-4 lg:px-6 relative z-10">
-        {/* Section Header */}
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-        >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-            <span className="text-gradient-purple">Frequently Asked Questions</span>
+      <div className="container mx-auto px-4 lg:px-6 relative z-10 max-w-4xl">
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-elevated border border-white/10 mb-6">
+            <MessageSquare className="h-4 w-4 text-accent-neon" />
+            <span className="text-sm font-bold text-white uppercase tracking-widest">Support & FAQ</span>
+          </div>
+
+          <h2 className="text-5xl font-bold font-heading mb-6 text-white">
+            Questions? <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-blue via-accent-neon to-accent-purple">We&apos;ve got answers.</span>
           </h2>
-          <p className="text-lg text-text-secondary max-w-2xl mx-auto">
-            Get instant answers to common questions about our AI image enhancement service.
+          <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            Everything you need to know about our technology, billing, and privacy.
           </p>
-        </motion.div>
+        </div>
 
-        <div className="max-w-4xl mx-auto">
-          {/* Search Bar */}
-          <motion.div
-            className="mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="relative">
-              <MessageCircle className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Search questions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 glass rounded-2xl border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-neon/50 focus:border-accent-neon/50 transition-all duration-300"
-              />
-            </div>
-          </motion.div>
+        {/* Search Bar */}
+        <div className="relative mb-12 group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-white/40 group-focus-within:text-accent-neon transition-colors duration-300" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search for answers..."
+            className="w-full pl-12 pr-4 py-5 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-accent-neon/50 focus:bg-white/10 transition-all duration-300 shadow-inner"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-accent-blue/20 to-accent-purple/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none -z-10 blur-xl" />
+        </div>
 
-          {/* FAQ Items */}
-          <div className="space-y-4">
-            {filteredFAQs.map((item, index) => (
+        {/* FAQ List */}
+        <div className="space-y-4">
+          <AnimatePresence initial={false}>
+            {filteredFAQs.map((faq, index) => (
               <motion.div
-                key={item.id}
-                className="glass rounded-2xl border border-glass-border overflow-hidden"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
+                key={index}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+                className={cn(
+                  "group rounded-2xl border transition-all duration-500 overflow-hidden",
+                  expandedIndex === index
+                    ? "bg-white/10 border-accent-neon/30 shadow-[0_0_30px_-10px_rgba(45,212,191,0.2)]"
+                    : "bg-white/5 border-white/5 hover:bg-white/8 hover:border-white/10"
+                )}
               >
-                {/* Question */}
+                {/* Question Header */}
                 <button
-                  onClick={() => toggleItem(item.id)}
-                  className="w-full p-6 text-left flex items-center justify-between hover:glass-elevated transition-all duration-300 group"
+                  onClick={() => toggleAccordion(index)}
+                  className="w-full flex items-center justify-between p-6 text-left cursor-pointer outline-none"
                 >
-                  <div className="flex items-start gap-4 flex-1">
-                    {/* User Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center flex-shrink-0">
-                      <User className="h-5 w-5 text-white" />
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
+                      expandedIndex === index ? "bg-accent-neon text-black" : "bg-white/10 text-white/50 group-hover:bg-white/20 group-hover:text-white"
+                    )}>
+                      <User className="w-5 h-5" />
                     </div>
-                    
-                    <div className="flex-1">
-                      {/* Category Badge */}
-                      <div className="inline-block px-3 py-1 rounded-full bg-accent-neon/10 border border-accent-neon/20 mb-2">
-                        <span className="text-xs font-medium text-accent-neon">
-                          {item.category}
-                        </span>
-                      </div>
-                      
-                      {/* Question Text */}
-                      <h3 className="text-lg font-semibold text-text-primary group-hover:text-accent-neon transition-colors duration-300">
-                        {item.question}
-                      </h3>
-                    </div>
+                    <span className={cn(
+                      "text-lg font-medium transition-colors duration-300",
+                      expandedIndex === index ? "text-white" : "text-white/80 group-hover:text-white"
+                    )}>
+                      {faq.question}
+                    </span>
                   </div>
 
-                  {/* Chevron */}
-                  <motion.div
-                    animate={{ rotate: openItem === item.id ? 180 : 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="ml-4 flex-shrink-0"
-                  >
-                    <ChevronDown className="h-5 w-5 text-text-muted group-hover:text-accent-neon transition-colors duration-300" />
-                  </motion.div>
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300",
+                    expandedIndex === index ? "border-accent-neon text-accent-neon rotate-180" : "border-white/10 text-white/40 group-hover:border-white/30 group-hover:text-white"
+                  )}>
+                    {expandedIndex === index ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  </div>
                 </button>
 
-                {/* Answer */}
+                {/* Answer Content */}
                 <AnimatePresence>
-                  {openItem === item.id && (
+                  {expandedIndex === index && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-                      className="overflow-hidden"
+                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] as any }}
                     >
-                      <div className="px-6 pb-6">
-                        <div className="flex items-start gap-4">
-                          {/* Bot Avatar */}
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-neon to-accent-purple flex items-center justify-center flex-shrink-0">
-                            <Bot className="h-5 w-5 text-white" />
+                      <div className="px-6 pb-6 pl-[4.5rem]">
+                        <div className="relative p-5 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm">
+                          <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center shadow-lg border border-white/20">
+                            <Bot className="w-4 h-4 text-white" />
                           </div>
-                          
-                          {/* Answer Content */}
-                          <div className="flex-1">
-                            <motion.div
-                              className="glass-elevated rounded-2xl p-4 border border-glass-border-elevated"
-                              initial={{ scale: 0.95, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ duration: 0.3, delay: 0.1 }}
-                            >
-                              <p className="text-text-secondary leading-relaxed">
-                                {item.answer}
-                              </p>
-                            </motion.div>
-                            
-                            {/* Helpful Actions */}
-                            <motion.div
-                              className="flex items-center gap-4 mt-4 text-sm text-text-muted"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3, delay: 0.2 }}
-                            >
-                              <button className="hover:text-accent-neon transition-colors duration-300">
-                                Was this helpful?
-                              </button>
-                              <button className="hover:text-accent-neon transition-colors duration-300">
-                                👍 Yes
-                              </button>
-                              <button className="hover:text-accent-neon transition-colors duration-300">
-                                👎 No
-                              </button>
-                            </motion.div>
-                          </div>
+                          <p className="text-white/70 leading-relaxed text-sm md:text-base">
+                            {faq.answer}
+                          </p>
                         </div>
                       </div>
                     </motion.div>
@@ -213,46 +162,13 @@ export function FAQChatAccordion() {
                 </AnimatePresence>
               </motion.div>
             ))}
-          </div>
+          </AnimatePresence>
 
-          {/* No Results */}
           {filteredFAQs.length === 0 && (
-            <motion.div
-              className="text-center py-12"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <MessageCircle className="h-12 w-12 text-text-muted mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-text-primary mb-2">
-                No questions found
-              </h3>
-              <p className="text-text-secondary">
-                Try adjusting your search terms or browse all questions above.
-              </p>
-            </motion.div>
-          )}
-
-          {/* Contact Support */}
-          <motion.div
-            className="text-center mt-12"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <div className="glass rounded-2xl p-8 border border-glass-border">
-              <h3 className="text-xl font-semibold text-text-primary mb-4">
-                Still have questions?
-              </h3>
-              <p className="text-text-secondary mb-6">
-                Our support team is here to help you get the most out of Sharpii.ai
-              </p>
-              <button className="btn-premium">
-                Contact Support
-              </button>
+            <div className="text-center py-12 text-white/40">
+              <p>No answers found matching &quot;{searchTerm}&quot;</p>
             </div>
-          </motion.div>
+          )}
         </div>
       </div>
     </section>

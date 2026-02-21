@@ -105,7 +105,8 @@ export function UnifiedImageViewer({
     damping: 30
   })
 
-  const currentPair = pairs[currentIndex]
+  const currentPair = (pairs[currentIndex] ?? defaultPairs[0]!) as ComparisonPair
+  const currentImage = viewMode === 'after' ? currentPair.after : currentPair.before
 
   // Auto-play functionality
   useEffect(() => {
@@ -178,6 +179,7 @@ export function UnifiedImageViewer({
     if (viewMode !== 'comparison') return
     setIsDragging(true)
     const touch = e.touches[0]
+    if (!touch) return
     updateSliderPosition(touch.clientX)
   }
 
@@ -243,6 +245,7 @@ export function UnifiedImageViewer({
     const handleGlobalTouchMove = (e: TouchEvent) => {
       if (isDragging && viewMode === 'comparison') {
         const touch = e.touches[0]
+        if (!touch) return
         updateSliderPosition(touch.clientX)
       }
     }
@@ -267,7 +270,6 @@ export function UnifiedImageViewer({
   }, [isDragging, isPanning, viewMode])
 
   const renderImage = () => {
-    const currentImage = viewMode === 'after' ? currentPair.after : currentPair.before
     const imageTransform = `scale(${zoomLevel}) translate(${panPosition.x / zoomLevel}px, ${panPosition.y / zoomLevel}px)`
 
     if (viewMode === 'comparison') {
@@ -338,11 +340,10 @@ export function UnifiedImageViewer({
       >
         <Image
           src={currentImage}
-          alt={`${currentPair.title} - ${viewMode === 'after' ? 'After' : 'Before'}`}
+          alt={currentPair.title}
           fill
-          className="object-contain"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 60vw"
-          priority
+          className="object-cover transition-all duration-500 group-hover:scale-105"
+          sizes="(max-width: 1024px) 100vw, 80vw"
         />
       </motion.div>
     )
@@ -354,7 +355,7 @@ export function UnifiedImageViewer({
       <div className="relative aspect-[16/10] rounded-3xl overflow-hidden glass-premium group">
         <Image
           src={currentImage}
-          alt={currentImageData?.title || "Enhanced Image"}
+          alt={currentPair.title}
           fill
           className="object-cover transition-all duration-500 group-hover:scale-105"
           sizes="(max-width: 1024px) 100vw, 80vw"
@@ -368,10 +369,10 @@ export function UnifiedImageViewer({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="px-4 py-2 rounded-full glass-elevated border border-glass-border-elevated text-sm font-medium text-white">
-                {currentImageData?.category || "Enhanced"}
+                {viewMode === 'after' ? 'Enhanced' : 'Original'}
               </div>
               <div className="px-4 py-2 rounded-full glass-elevated border border-glass-border-elevated text-sm font-medium text-white">
-                {currentImageData?.quality || "4K"}
+                {"4K"}
               </div>
             </div>
           </div>

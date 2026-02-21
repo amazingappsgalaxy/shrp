@@ -26,8 +26,6 @@ export default function Navigation({ showAuthButtons = false, showUserMenu = fal
   const pathname = usePathname()
 
   const navigationItems = [
-    { href: '/upload', label: 'Upload', icon: Upload },
-    { href: '/gallery', label: 'Gallery', icon: ImageIcon },
     { href: '/editor', label: 'Editor', icon: Sparkles },
     { href: '/dashboard', label: 'Dashboard', icon: Settings },
   ]
@@ -73,10 +71,10 @@ export default function Navigation({ showAuthButtons = false, showUserMenu = fal
           <div className="flex items-center space-x-4">
             {showAuthButtons ? (
               <>
-                <Link href="/auth/signin">
+                <Link href="/app/signin">
                   <Button variant="ghost" size="sm">Sign In</Button>
                 </Link>
-                <Link href="/auth/signup">
+                <Link href="/app/signin?tab=signup">
                   <Button size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                     Get Started
                   </Button>

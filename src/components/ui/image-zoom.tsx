@@ -117,11 +117,11 @@ export function ImageZoom({
     }
   }
 
-  // Touch handling for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1 && zoomState.scale > 1) {
       setIsDragging(true)
-      const touch = e.touches[0]
+      const touch = e.touches.item(0)
+      if (!touch) return
       setDragStart({
         x: touch.clientX - zoomState.x,
         y: touch.clientY - zoomState.y,
@@ -131,7 +131,8 @@ export function ImageZoom({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (isDragging && e.touches.length === 1 && zoomState.scale > 1) {
-      const touch = e.touches[0]
+      const touch = e.touches.item(0)
+      if (!touch) return
       setZoomState(prev => ({
         ...prev,
         x: touch.clientX - dragStart.x,

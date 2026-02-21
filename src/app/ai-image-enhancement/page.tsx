@@ -29,6 +29,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { TestimonialsSection } from "@/components/sections/TestimonialsSection"
+import { PRICING_PLANS, getMonthlySavings } from "@/lib/pricing-config"
 
 // Glow component
 const Glow = React.forwardRef<
@@ -309,156 +310,168 @@ function FeaturesSection() {
 function PricingSection() {
   const [isYearly, setIsYearly] = useState(false)
 
-  const plans = [
-    {
-      name: "Starter",
-      subtitle: "Perfect for individuals",
-      price: { monthly: 9, yearly: 90 },
-      description: "Get started with AI image enhancement",
-      features: [
-        "50 images per month",
-        "Up to 4x upscaling",
-        "Basic enhancement",
-        "Standard support",
-        "JPEG & PNG formats"
-      ],
-      highlight: false,
-      badge: null
-    },
-    {
-      name: "Professional",
-      subtitle: "Most popular choice",
-      price: { monthly: 29, yearly: 290 },
-      description: "Advanced features for professionals",
-      features: [
-        "500 images per month",
-        "Up to 8x upscaling",
-        "Advanced AI enhancement",
-        "Priority support",
-        "All formats supported",
-        "Batch processing",
-        "API access"
-      ],
-      highlight: true,
-      badge: "Most Popular"
-    },
-    {
-      name: "Enterprise",
-      subtitle: "For teams and agencies",
-      price: { monthly: 99, yearly: 990 },
-      description: "Unlimited power for your business",
-      features: [
-        "Unlimited images",
-        "Up to 16x upscaling",
-        "Custom AI models",
-        "24/7 dedicated support",
-        "White-label solution",
-        "Advanced API",
-        "Custom integrations",
-        "SLA guarantee"
-      ],
-      highlight: false,
-      badge: "Enterprise"
-    }
-  ]
-
   return (
-    <section className="relative py-20 bg-gradient-to-br from-background via-muted/20 to-background overflow-hidden">
+    <section id="pricing-section" className="relative py-24 bg-gradient-to-b from-background to-muted/30 overflow-hidden">
       <div className="container mx-auto px-4 relative z-10">
         <motion.div
-          className="text-center mb-16"
+          className="text-center mb-20"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">
-            Choose Your Plan
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+            Simple, Transparent Pricing
           </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Start free, upgrade when you need more power
+          <p className="text-lg text-muted-foreground mb-12 max-w-2xl mx-auto">
+            Choose the perfect plan for your image enhancement needs. Upgrade or downgrade at any time.
           </p>
 
-          <div className="flex items-center justify-center gap-4">
-            <span className={`text-sm font-medium ${!isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
-              Monthly
-            </span>
-            <motion.button
-              onClick={() => setIsYearly(!isYearly)}
-              className={`relative w-16 h-8 rounded-full border-2 transition-all ${
-                isYearly ? 'bg-primary border-primary' : 'bg-muted border-border'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+          <div className="inline-flex items-center p-1 bg-muted/50 rounded-2xl border border-border/50 backdrop-blur-sm">
+            <button
+              onClick={() => setIsYearly(false)}
+              className={cn(
+                "px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300",
+                !isYearly 
+                  ? "bg-background text-foreground shadow-sm border border-border/50" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              <motion.div
-                className="absolute top-0.5 w-6 h-6 bg-background rounded-full shadow-lg"
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                animate={{ x: isYearly ? 32 : 2 }}
-              />
-            </motion.button>
-            <span className={`text-sm font-medium ${isYearly ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Monthly
+            </button>
+            <button
+              onClick={() => setIsYearly(true)}
+              className={cn(
+                "px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative",
+                isYearly 
+                  ? "bg-background text-foreground shadow-sm border border-border/50" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
               Yearly
-            </span>
-            {isYearly && (
-              <Badge variant="secondary" className="ml-2">Save 20%</Badge>
-            )}
+              <Badge className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                Save 15%
+              </Badge>
+            </button>
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {plans.map((plan, index) => (
-            <motion.div
-              key={plan.name}
-              className="relative"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card className={cn(
-                "relative h-full p-6 transition-all duration-300",
-                plan.highlight && "border-primary shadow-lg scale-105 ring-2 ring-primary/50 shadow-primary/25",
-                plan.name === "Enterprise" && "bg-muted/50 dark:bg-background"
-              )}>
-                {plan.badge && (
-                  <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    {plan.badge}
-                  </Badge>
-                )}
-
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                  <p className="text-muted-foreground text-sm mb-4">{plan.subtitle}</p>
-                  <div className="mb-4">
-                    <span className="text-4xl font-bold">
-                      ${isYearly ? plan.price.yearly : plan.price.monthly}
-                    </span>
-                    <span className="text-muted-foreground">
-                      /{isYearly ? 'year' : 'month'}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground text-sm">{plan.description}</p>
-                </div>
-
-                <div className="space-y-3 mb-6">
-                  {plan.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-center gap-3">
-                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      <span className="text-sm">{feature}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          {PRICING_PLANS.map((plan, index) => {
+            const monthlyPrice = plan.price.monthly
+            const yearlyPrice = plan.price.yearly
+            const displayPrice = isYearly ? Math.round(yearlyPrice / 12) : monthlyPrice
+            const savings = isYearly ? getMonthlySavings(monthlyPrice) : 0
+            const IconComponent = plan.icon
+            
+            return (
+              <motion.div
+                key={plan.name}
+                className="relative"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <div className={cn(
+                  "relative h-full p-6 rounded-3xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-background/80 backdrop-blur-sm",
+                  plan.highlight 
+                    ? "border-primary/50 shadow-lg shadow-primary/10 ring-1 ring-primary/20" 
+                    : "border-border/50 hover:border-border"
+                )}>
+                  {plan.badge && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <Badge className={cn(
+                        "px-3 py-1 rounded-full text-xs font-medium",
+                        plan.highlight ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}>
+                        {plan.badge}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
+                  )}
 
-                <Button 
-                  className="w-full" 
-                  variant={plan.highlight ? "default" : "outline"}
-                >
-                  Get Started
-                </Button>
-              </Card>
-            </motion.div>
-          ))}
+                  <div className="text-center mb-8">
+                    {IconComponent && (
+                      <div className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4",
+                        plan.highlight ? "bg-primary/10" : "bg-muted/50"
+                      )}>
+                        <IconComponent className={cn(
+                          "w-6 h-6",
+                          plan.highlight ? "text-primary" : "text-muted-foreground"
+                        )} />
+                      </div>
+                    )}
+                    
+                    <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
+                    <p className="text-muted-foreground text-sm mb-4">{plan.subtitle}</p>
+                    
+                    <div className="mb-4">
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-3xl font-bold">${displayPrice}</span>
+                        <span className="text-muted-foreground text-sm">/month</span>
+                      </div>
+                      
+                      {isYearly && savings > 0 && (
+                        <div className="text-xs text-green-600 font-medium mt-1">
+                          Save ${savings.toFixed(2)}/month
+                        </div>
+                      )}
+                      
+                      {isYearly && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          ${yearlyPrice}/year billed annually
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mb-8">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                      Key Features
+                    </div>
+                    {plan.features.slice(0, 6).map((feature, featureIndex) => (
+                      <div key={featureIndex} className="flex items-start gap-3">
+                        <div className="w-4 h-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mt-0.5 flex-shrink-0">
+                          <Check className="w-2.5 h-2.5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="text-sm text-foreground/90 leading-relaxed">{feature}</span>
+                      </div>
+                    ))}
+                    
+                    {plan.features.length > 6 && (
+                      <div className="text-xs text-muted-foreground pt-2">
+                        +{plan.features.length - 6} more features
+                      </div>
+                    )}
+                  </div>
+
+                  <Button 
+                    className={cn(
+                      "w-full rounded-xl font-medium transition-all duration-300",
+                      plan.highlight 
+                        ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl" 
+                        : "bg-muted hover:bg-muted/80 text-foreground border border-border/50"
+                    )}
+                    variant={plan.highlight ? "default" : "outline"}
+                  >
+                    Get Started
+                  </Button>
+                </div>
+              </motion.div>
+            )
+          })}
         </div>
+        
+        <motion.div 
+          className="text-center mt-16"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+        >
+          <p className="text-sm text-muted-foreground">
+            All plans include a 7-day free trial. No credit card required.
+          </p>
+        </motion.div>
       </div>
     </section>
   )

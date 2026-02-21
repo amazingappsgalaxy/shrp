@@ -81,15 +81,19 @@ export function SimpleImageViewer({
     damping: 30
   })
 
-  const currentPair = pairs[currentIndex]
+  const hasPairs = pairs.length > 0
+  const safeIndex = hasPairs ? Math.max(0, Math.min(currentIndex, pairs.length - 1)) : 0
+  const currentPair = hasPairs ? pairs[safeIndex] : null
 
   const goToPrevious = () => {
+    if (!hasPairs) return
     setCurrentIndex((prev) => (prev - 1 + pairs.length) % pairs.length)
     setSliderPosition(50)
     resetZoom()
   }
 
   const goToNext = () => {
+    if (!hasPairs) return
     setCurrentIndex((prev) => (prev + 1) % pairs.length)
     setSliderPosition(50)
     resetZoom()
@@ -184,6 +188,10 @@ export function SimpleImageViewer({
       document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
   }, [isDragging, isPanning])
+
+  if (!currentPair) {
+    return <div className={`relative ${className}`} />
+  }
 
   return (
     <div className={`relative ${className}`}>

@@ -8,6 +8,7 @@ interface HighlightTextProps {
   children: React.ReactNode
   className?: string
   highlightClassName?: string
+  underlineClassName?: string
   delay?: number
 }
 

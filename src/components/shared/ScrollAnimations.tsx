@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { motion, useInView, useScroll, useTransform } from "framer-motion"
+import { motion, useInView, useScroll, useTransform, MotionValue } from "framer-motion"
 
 interface ScrollFadeInProps {
   children: React.ReactNode
@@ -247,16 +247,18 @@ export function ScrollReveal({
 }
 
 // Hook for scroll-based value transformations
-export function useScrollTransform(
+export function useScrollTransform<T extends number | string>(
   inputRange: number[],
-  outputRange: number[] | string[]
-) {
+  outputRange: T[]
+): MotionValue<T> {
   const { scrollY } = useScroll()
   return useTransform(scrollY, inputRange, outputRange)
 }
 
 // Hook for element-based scroll progress
-export function useElementScrollProgress(offset: string[] = ["start end", "end start"]) {
+export function useElementScrollProgress(
+  offset: NonNullable<Parameters<typeof useScroll>[0]>['offset'] = ["start end", "end start"]
+) {
   const ref = useRef(null)
   const { scrollYProgress } = useScroll({
     target: ref,

@@ -1,20 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Syne, Manrope, Ubuntu } from "next/font/google";
+import { Toaster } from "sonner";
+import { SWRProvider } from "@/lib/providers/swr-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const syne = Syne({
+  variable: "--font-syne",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const ubuntu = Ubuntu({
+  variable: "--font-ubuntu",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Sharpii.ai - AI-Powered Image Enhancement & Skin Upscaler",
-  description: "Transform your images with professional-grade AI enhancement. Sharpii.ai delivers cinematic quality skin upscaling and image enhancement in seconds. Trusted by 50K+ photographers and studios.",
+  description: "Transform your images with professional-grade AI enhancement. Sharpii.ai delivers cinematic quality skin upscaling and image enhancement in seconds.",
   keywords: ["AI image enhancement", "skin upscaler", "photo editing", "AI photography", "image quality", "portrait enhancement"],
   authors: [{ name: "Sharpii.ai Team" }],
   creator: "Sharpii.ai",
@@ -48,11 +59,33 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${syne.variable} ${manrope.variable} ${ubuntu.variable} antialiased bg-background text-foreground font-body`}
+        suppressHydrationWarning
       >
+        <SWRProvider>
         {children}
+        </SWRProvider>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#111111',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#ffffff',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+            classNames: {
+              success: 'border-[#FFFF00]/30',
+              error: 'border-red-500/30',
+              warning: 'border-amber-500/30',
+              info: 'border-blue-500/30',
+            },
+          }}
+        />
       </body>
     </html>
   );

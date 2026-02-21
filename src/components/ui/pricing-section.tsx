@@ -5,20 +5,12 @@ import { motion } from "framer-motion"
 import { Check, Sparkles, Zap, Crown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { PRICING_PLANS, type PricingPlan, getMonthlySavings } from "@/lib/pricing-config"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { useAuth } from "@/lib/auth-client-simple"
 
-interface PricingPlan {
-  name: string
-  subtitle: string
-  price: {
-    monthly: number
-    yearly: number
-  }
-  description: string
-  features: string[]
-  highlight?: boolean
-  badge?: string | null
-  icon?: React.ComponentType<{ className?: string }>
-}
+// PricingPlan interface is now imported from pricing-config
 
 interface PricingSectionProps {
   title?: string
@@ -30,10 +22,112 @@ interface PricingSectionProps {
 export function PricingSection({
   title = "Choose Your Plan",
   subtitle = "Transform your AI images with professional-grade enhancement",
-  plans = DEFAULT_PLANS,
+  plans = PRICING_PLANS,
   id,
 }: PricingSectionProps) {
   const [isYearly, setIsYearly] = React.useState(true) // Default to yearly
+  const [isLoading, setIsLoading] = React.useState<string | null>(null)
+  const { user } = useAuth()
+  const router = useRouter()
+
+  const handlePlanSelect = async (plan: PricingPlan) => {
+    console.log('handlePlanSelect called with plan:', plan.name)
+    setIsLoading(plan.name)
+    
+    try {
+      // Check if user is authenticated
+      if (!user) {
+        // Store selected plan in localStorage for after login
+        localStorage.setItem('selectedPlan', JSON.stringify({
+          plan: plan.name.toLowerCase().replace(/\s+/g, '_'),
+          billingPeriod: isYearly ? 'yearly' : 'monthly'
+        }))
+        
+        // Redirect to login (correct path)
+        router.push('/app/login?redirect=/#pricing-section')
+        return
+      }
+      
+      const selectedPlan = plan.name.toLowerCase().replace(/\s+/g, '_')
+      const selectedBillingPeriod = isYearly ? 'yearly' : 'monthly'
+
+      const subRes = await fetch('/api/user/subscription', { credentials: 'include' }).catch(() => null as any)
+      const subData = subRes?.ok ? await subRes.json() : null
+      const hasActiveSubscription = !!subData?.has_active_subscription
+      const currentPlan = String(subData?.subscription?.plan || '').toLowerCase()
+
+      if (hasActiveSubscription && currentPlan && currentPlan !== selectedPlan.replace(/_/g, ' ')) {
+        const changeRes = await fetch('/api/user/subscription/change-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ plan: selectedPlan, billingPeriod: selectedBillingPeriod })
+        })
+        const changeData = await changeRes.json().catch(() => ({} as any))
+        if (!changeRes.ok) {
+          throw new Error(changeData.error || 'Failed to change plan')
+        }
+        toast.success('Plan updated successfully')
+        router.push('/app/dashboard?tab=billing')
+        return
+      }
+
+      // User is authenticated, proceed to checkout
+      const response = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          plan: selectedPlan,
+          billingPeriod: selectedBillingPeriod
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session')
+      }
+      
+      // Redirect to Dodo Payments checkout
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+      } else {
+        throw new Error('No checkout URL received')
+      }
+      
+    } catch (error) {
+      console.error('Checkout error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process')
+    } finally {
+      setIsLoading(null)
+    }
+  }
+  
+  // Check for stored plan selection after login
+  React.useEffect(() => {
+    if (user) {
+      const storedPlan = localStorage.getItem('selectedPlan')
+      if (storedPlan) {
+        try {
+          const planData = JSON.parse(storedPlan)
+          localStorage.removeItem('selectedPlan')
+          
+          // Find the plan and trigger checkout
+          const plan = plans.find(p => p.name.toLowerCase().replace(/\s+/g, '_') === planData.plan)
+          if (plan) {
+            setIsYearly(planData.billingPeriod === 'yearly')
+            setTimeout(() => handlePlanSelect(plan), 500) // Small delay for UI
+          }
+        } catch (error) {
+          console.error('Error processing stored plan:', error)
+          localStorage.removeItem('selectedPlan')
+        }
+      }
+    }
+  }, [user])
 
   return (
     <section id={id} className="py-20 px-6 bg-gradient-to-br from-background via-background to-background/50">
@@ -155,14 +249,22 @@ export function PricingSection({
                 </ul>
                 
                 <Button
+                  onClick={() => {
+                    console.log('Button clicked for plan:', plan.name)
+                    handlePlanSelect(plan)
+                  }}
+                  disabled={isLoading === plan.name}
                   className={cn(
                     "w-full py-3 rounded-xl font-semibold transition-all duration-300 text-sm relative overflow-hidden group/btn",
                     plan.highlight
                       ? "bg-gradient-to-r from-cyan-500 to-purple-600 hover:shadow-lg hover:shadow-cyan-500/30 text-white border-0 hover:scale-105 hover:from-cyan-400 hover:to-purple-500"
-                      : "bg-slate-800/50 border border-slate-600/50 text-white hover:border-cyan-500/50 hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-purple-600/10 hover:scale-105 hover:text-cyan-300"
+                      : "bg-slate-800/50 border border-slate-600/50 text-white hover:border-cyan-500/50 hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-purple-600/10 hover:scale-105 hover:text-cyan-300",
+                    isLoading === plan.name && "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  <span className="relative z-10">Choose {plan.name}</span>
+                  <span className="relative z-10">
+                    {isLoading === plan.name ? 'Processing...' : `Choose ${plan.name}`}
+                  </span>
                   {!plan.highlight && (
                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-purple-600/0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
                   )}
@@ -177,100 +279,7 @@ export function PricingSection({
 }
 
 // Default pricing plans based on Enhancor.ai credit system
-const DEFAULT_PLANS: PricingPlan[] = [
-  {
-    name: "Basic",
-    subtitle: "Beginners & hobbyists",
-    price: { monthly: 9, yearly: 90 },
-    description: "10,800 monthly credits - Up to 108 images can be enhanced.",
-    features: [
-      "HD resolution only (1080p)",
-      "Basic skin enhancement",
-      "AI Smoothness Fix",
-      "Standard Mode only",
-      "Selective Area Editing",
-      "Texture Control Settings",
-      "Crop Tool Access",
-      "Face Detection & Smart Cropping",
-      "Early Access to New Features",
-      "Kora Human and cinema access",
-      "Standard Processing Speed",
-      "API Access",
-      "Refunds for Failed Generations"
-    ],
-    icon: Sparkles
-  },
-  {
-    name: "Creator",
-    subtitle: "Creators & small teams",
-    price: { monthly: 24, yearly: 240 },
-    description: "28,800 monthly credits - Up to 288 images can be enhanced.",
-    features: [
-      "Supports up to 2K resolution",
-      "Advanced skin enhancement",
-      "AI Smoothness Fix",
-      "Standard + Heavy Mode",
-      "Full Selective Area Editing",
-      "Texture Control Settings",
-      "Auto Crop Face Detection",
-      "Credit top-ups available",
-      "Early Access to New Features",
-      "Kora Character Consistency access",
-      "Priority processing",
-      "API Access",
-      "Refunds for Failed Generations"
-    ],
-    highlight: false,
-    badge: "Popular",
-    icon: Zap
-  },
-  {
-    name: "Professional",
-    subtitle: "Studios & power users",
-    price: { monthly: 39, yearly: 390 },
-    description: "46,800 monthly credits - Up to 468 images can be enhanced.",
-    features: [
-      "Supports up to 4K resolution",
-      "Photo-real skin restoration",
-      "AI Smoothness Fix",
-      "Standard + Heavy Mode",
-      "Full Selective Area Editing",
-      "Full Precision Texture Control",
-      "Advanced Crop Tools",
-      "Advanced Face Cropping",
-      "Unlimited Credit Top-Ups",
-      "Character Consistency Professional access",
-      "Highest priority processing",
-      "Team management tools",
-      "24/7 Priority support"
-    ],
-    highlight: true,
-    icon: Crown
-  },
-  {
-    name: "Enterprise",
-    subtitle: "Large teams & agencies",
-    price: { monthly: 99, yearly: 990 },
-    description: "118,800 monthly credits - Up to 1,188 images can be enhanced.",
-    features: [
-      "Supports up to 4K resolution",
-      "Photo-real skin restoration",
-      "AI Smoothness Fix",
-      "Standard + Heavy Mode",
-      "Full Selective Area Editing",
-      "Full Precision Texture Control",
-      "Advanced Crop Tools",
-      "Advanced Face Cropping",
-      "Unlimited Credit Top-Ups",
-      "Portrait Upscaler Professional access",
-      "Highest priority processing",
-      "Automatic Refunds on Failed Generation",
-      "Team management tools",
-      "24/7 Priority support"
-    ],
-    icon: Crown
-  }
-]
+// DEFAULT_PLANS removed - now using centralized PRICING_PLANS from pricing-config
 
 // Demo data and component
 export const PAYMENT_FREQUENCIES = [
@@ -370,7 +379,7 @@ export function PricingSectionDemo({ id }: { id?: string }) {
           id={id}
           title="Choose Your Plan"
           subtitle="Transform your AI images with professional-grade enhancement"
-          plans={DEFAULT_PLANS}
+          plans={PRICING_PLANS}
         />
     </div>
   );

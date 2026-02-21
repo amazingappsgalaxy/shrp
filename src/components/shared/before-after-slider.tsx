@@ -36,7 +36,11 @@ export function BeforeAfterSlider({
   }
 
   const handleTouchMove = (e: TouchEvent) => {
-    if (isDragging) handleMove(e.touches[0].clientX)
+    if (isDragging) {
+      const touch = e.touches && e.touches[0]
+      if (!touch) return
+      handleMove(touch.clientX)
+    }
   }
 
   const handleMouseDown = () => setIsDragging(true)
@@ -56,6 +60,7 @@ export function BeforeAfterSlider({
         document.removeEventListener('touchend', handleMouseUp)
       }
     }
+    return undefined
   }, [isDragging])
 
   useEffect(() => {

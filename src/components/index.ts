@@ -31,6 +31,7 @@ export { FAQSection } from './sections/FAQSection'
 // Shared Components
 export { LazyImage, ProgressiveImage, OptimizedImage, ZoomImage } from './shared/LazyImage'
 export { ParallaxContainer, ParallaxImage, ParallaxText, ParallaxSection } from './shared/ParallaxContainer'
+export { default as NavigationShared } from './shared/navigation'
 export {
   ScrollFadeIn,
   ScrollScaleIn,

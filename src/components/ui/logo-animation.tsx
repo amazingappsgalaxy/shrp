@@ -31,75 +31,40 @@ export function LogoAnimation({
     return () => clearTimeout(timer)
   }, [])
 
-  const logoVariants = {
-    initial: {
-      opacity: 0,
-      scale: 0.8,
-      y: -20,
-      filter: "blur(10px)"
-    },
-    animate: {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      filter: "blur(0px)",
-      transition: {
-        duration: 1.2,
-        ease: [0.25, 0.46, 0.45, 0.94],
-        delay: 0.2
-      }
-    },
-    hover: {
-      scale: 1.05,
-      transition: {
-        duration: 0.3,
-        ease: "easeOut"
-      }
-    }
-  }
+  const baseInitial = animated
+    ? { opacity: 0, scale: 0.8 as number, y: -20, filter: "blur(10px)" }
+    : undefined
 
-  const glowVariants = {
-    animate: {
-      filter: [
-        "drop-shadow(0 0 10px hsl(199 100% 50% / 0.3))",
-        "drop-shadow(0 0 20px hsl(199 100% 50% / 0.6))",
-        "drop-shadow(0 0 10px hsl(199 100% 50% / 0.3))"
-      ],
-      transition: {
-        duration: 3,
-        repeat: Infinity,
-        ease: "easeInOut"
+  const baseAnimate = animated && isLoaded
+    ? {
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        filter: "blur(0px)",
+        transition: { duration: 1.2, ease: "easeOut" as const, delay: 0.2 },
       }
-    }
-  }
+    : undefined
 
-  const sparkleVariants = {
-    animate: {
-      opacity: [0, 1, 0],
-      scale: [0.5, 1.2, 0.5],
-      rotate: [0, 180, 360],
-      transition: {
-        duration: 2,
-        repeat: Infinity,
-        ease: "easeInOut",
-        staggerChildren: 0.2
-      }
-    }
-  }
+  const hoverAnimate = animated ? { scale: 1.05, transition: { duration: 0.3, ease: "easeOut" as const } } : undefined
 
   return (
     <motion.div
       className={`relative inline-block ${className}`}
-      variants={logoVariants}
-      initial={animated ? "initial" : false}
-      animate={animated && isLoaded ? "animate" : false}
-      whileHover={animated ? "hover" : undefined}
+      initial={baseInitial}
+      animate={baseAnimate}
+      whileHover={hoverAnimate}
     >
       {/* Main Logo */}
       <motion.div
         className="relative z-10"
-        variants={glowEffect ? glowVariants : undefined}
-        animate={glowEffect && animated ? "animate" : undefined}
+        animate={glowEffect && animated ? {
+          filter: [
+            "drop-shadow(0 0 10px hsl(199 100% 50% / 0.3))",
+            "drop-shadow(0 0 20px hsl(199 100% 50% / 0.6))",
+            "drop-shadow(0 0 10px hsl(199 100% 50% / 0.3))"
+          ],
+          transition: { duration: 3, repeat: Infinity, ease: "easeInOut" as const }
+        } : undefined}
       >
         {src.endsWith('.svg') ? (
           <div 
@@ -193,13 +158,16 @@ export function LogoAnimation({
                 left: `${20 + i * 25}%`,
                 top: `${15 + (i % 2) * 70}%`,
               }}
-              variants={sparkleVariants}
-              animate="animate"
-              transition={{
-                delay: i * 0.3,
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
+              animate={{
+                opacity: [0, 1, 0],
+                scale: [0.5, 1.2, 0.5],
+                rotate: [0, 180, 360],
+                transition: {
+                  delay: i * 0.3,
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut" as const
+                },
               }}
             />
           ))}
@@ -217,26 +185,14 @@ export function LogoAnimation({
           transition={{
             duration: 4,
             repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1
+            ease: "easeInOut" as const,
           }}
-        />
-      )}
-
-      {/* Loading State */}
-      {!isLoaded && animated && (
-        <motion.div
-          className="absolute inset-0 bg-surface rounded-lg animate-pulse"
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 0 }}
-          transition={{ duration: 0.5, delay: 0.8 }}
         />
       )}
     </motion.div>
   )
 }
 
-// Preset configurations
 export const LOGO_PRESETS = {
   header: {
     width: 120,

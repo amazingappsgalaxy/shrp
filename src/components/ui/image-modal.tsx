@@ -68,7 +68,7 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
     const delta = e.deltaY > 0 ? -0.1 : 0.1
     const newZoom = Math.max(1, Math.min(3, zoomLevel + delta))
     setZoomLevel(newZoom)
-    
+
     if (newZoom === 1) {
       setPanPosition({ x: 0, y: 0 })
     }
@@ -85,7 +85,7 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
       >
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
-        
+
         {/* Modal */}
         <motion.div
           className="relative max-w-7xl w-full max-h-[95vh] glass rounded-3xl border border-glass-border overflow-hidden"
@@ -101,13 +101,13 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
               <h3 className="text-xl font-semibold text-text-primary mb-1">{title}</h3>
               <p className="text-text-secondary">{description}</p>
             </div>
-            
+
             {/* Controls */}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 px-3 py-1 glass rounded-lg border border-glass-border">
                 <span className="text-sm text-text-secondary">Zoom: {Math.round(zoomLevel * 100)}%</span>
               </div>
-              
+
               <button
                 onClick={handleZoomOut}
                 disabled={zoomLevel <= 1}
@@ -115,7 +115,7 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
               >
                 <ZoomOut className="h-5 w-5" />
               </button>
-              
+
               <button
                 onClick={handleZoomIn}
                 disabled={zoomLevel >= 3}
@@ -123,24 +123,24 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
               >
                 <ZoomIn className="h-5 w-5" />
               </button>
-              
+
               <button
                 onClick={handleReset}
                 className="p-2 rounded-lg glass hover:glass-elevated border border-glass-border transition-all duration-300"
               >
                 <RotateCcw className="h-5 w-5" />
               </button>
-              
+
               <div className="w-px h-6 bg-glass-border mx-2" />
-              
+
               <button className="p-2 rounded-lg glass hover:glass-elevated border border-glass-border transition-all duration-300">
                 <Download className="h-5 w-5" />
               </button>
-              
+
               <button className="p-2 rounded-lg glass hover:glass-elevated border border-glass-border transition-all duration-300">
                 <Share2 className="h-5 w-5" />
               </button>
-              
+
               <button
                 onClick={onClose}
                 className="p-2 rounded-lg glass hover:glass-elevated border border-glass-border transition-all duration-300 hover:bg-red-500/20"
@@ -151,7 +151,7 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
           </div>
 
           {/* Image Container */}
-          <div 
+          <div
             ref={imageRef}
             className="relative aspect-video overflow-hidden cursor-grab active:cursor-grabbing"
             onMouseDown={handleMouseDown}
@@ -178,7 +178,7 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
                 priority
               />
             </motion.div>
-            
+
             {/* After Image */}
             <motion.div
               className="absolute inset-0"
@@ -217,24 +217,22 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
               <div className="flex items-center gap-2">
                 <motion.button
                   onClick={() => setShowAfter(false)}
-                  className={`px-4 py-2 rounded-l-full border border-glass-border transition-all duration-300 ${
-                    !showAfter 
-                      ? "bg-accent-neon text-white border-accent-neon" 
+                  className={`px-4 py-2 rounded-l-full border border-glass-border transition-all duration-300 ${!showAfter
+                      ? "bg-accent-neon text-white border-accent-neon"
                       : "glass hover:glass-elevated text-text-secondary"
-                  }`}
+                    }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   Before
                 </motion.button>
-                
+
                 <motion.button
                   onClick={() => setShowAfter(true)}
-                  className={`px-4 py-2 rounded-r-full border border-glass-border transition-all duration-300 ${
-                    showAfter 
-                      ? "bg-accent-neon text-white border-accent-neon" 
+                  className={`px-4 py-2 rounded-r-full border border-glass-border transition-all duration-300 ${showAfter
+                      ? "bg-accent-neon text-white border-accent-neon"
                       : "glass hover:glass-elevated text-text-secondary"
-                  }`}
+                    }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -246,11 +244,10 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
             {/* Image State Indicator */}
             <div className="absolute top-4 right-4">
               <motion.div
-                className={`px-3 py-1 rounded-full border ${
-                  showAfter 
-                    ? "bg-green-500/20 border-green-500/30 text-green-400" 
+                className={`px-3 py-1 rounded-full border ${showAfter
+                    ? "bg-green-500/20 border-green-500/30 text-green-400"
                     : "bg-blue-500/20 border-blue-500/30 text-blue-400"
-                }`}
+                  }`}
                 key={showAfter ? "after" : "before"}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -269,7 +266,7 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
               <div className="flex items-center gap-4">
                 <span>Resolution: 4K Ultra HD</span>
                 <span>•</span>
-                <span>Processing Time: 28s</span>
+                {/* Processing time removed */}
                 <span>•</span>
                 <span>Enhancement: 94% improvement</span>
               </div>
