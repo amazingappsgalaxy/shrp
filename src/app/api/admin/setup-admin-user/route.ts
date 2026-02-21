@@ -6,8 +6,8 @@ export async function POST() {
     console.log('Setting up admin user...')
 
     // Create admin user with your credentials
-    const adminEmail = 'sharpiiaiweb@gmail.com'
-    const adminPassword = '##SHARPpass123'
+    const adminEmail = process.env.ADMIN_EMAIL || ''
+    const adminPassword = process.env.ADMIN_PASSWORD || ''
     const adminName = 'Sharpii Admin'
 
     const adminUserId = await ensureAdminUser(adminEmail, adminPassword, adminName)

@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
     // Simple admin authentication check
     const adminEmail = request.headers.get('X-Admin-Email')
 
-    if (!adminEmail || adminEmail !== 'sharpiiaiweb@gmail.com') {
+    if (!adminEmail || adminEmail !== process.env.ADMIN_EMAIL) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

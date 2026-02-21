@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     } catch (dbError) {
       console.log('Database admin check failed, using email fallback:', dbError)
       // Fallback: check hardcoded admin email
-      isAdmin = sessionData.user.email === 'sharpiiaiweb@gmail.com'
+      isAdmin = sessionData.user.email === process.env.ADMIN_EMAIL
     }
 
     // Also check the user object directly if it has the isAdmin property

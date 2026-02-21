@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Create or update admin user
     console.log('2. Creating/updating admin user...');
-    const adminEmail = 'sharpiiaiweb@gmail.com';
-    const adminPassword = '##SHARPpass123';
+    const adminEmail = process.env.ADMIN_EMAIL || '';
+    const adminPassword = process.env.ADMIN_PASSWORD || '';
     const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
     // Check if admin user exists

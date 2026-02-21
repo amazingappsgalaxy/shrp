@@ -16,12 +16,16 @@ export default function SimpleAdminPage() {
     }
   }, [])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (formData.email.toLowerCase() === 'sharpiiaiweb@gmail.com' &&
-        formData.password === '##SHARPpass123') {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: formData.email, password: formData.password }),
+    })
 
+    if (res.ok) {
       sessionStorage.setItem('adminAuthenticated', 'true')
       sessionStorage.setItem('adminEmail', formData.email.toLowerCase())
       setIsAuthenticated(true)

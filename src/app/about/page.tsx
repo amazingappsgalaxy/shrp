@@ -237,7 +237,7 @@ export default function AboutPage() {
                 </div>
                 <div className="flex items-center gap-3 justify-center">
                   <Mail className="h-5 w-5 text-accent-neon" />
-                  <span className="text-text-secondary">sharpiiaiweb@gmail.com</span>
+                  <span className="text-text-secondary">support@sharpii.ai</span>
                 </div>
                 <div className="flex items-center gap-3 justify-center">
                   <MapPin className="h-5 w-5 text-accent-neon" />
