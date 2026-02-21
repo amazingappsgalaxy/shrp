@@ -124,9 +124,11 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (!refreshIfProcessing) return
+    // Poll every 15s — the server-side scheduled function updates the DB every minute,
+    // so users will see results reflected here within ~15s of DB update
     const interval = setInterval(() => {
       updateProcessingItems()
-    }, 3000)
+    }, 15000)
     return () => clearInterval(interval)
   }, [refreshIfProcessing])
 

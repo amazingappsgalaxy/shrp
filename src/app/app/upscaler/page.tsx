@@ -125,6 +125,7 @@ function UpscalerContent() {
       const progressInterval = startSmartProgress(taskId, 190, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
 
+      // POST returns immediately with { taskId: dbTaskId, status: 'processing' }
       const response = await fetch('/api/enhance-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,58 +141,92 @@ function UpscalerContent() {
         })
       })
 
-      const interval = taskIntervalsRef.current.get(taskId)
-      if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
-
       const data = await response.json()
 
       if (response.status === 402) {
         openPlansPopup()
+        const interval = taskIntervalsRef.current.get(taskId)
+        if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
         setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
         return
       }
 
       if (!response.ok) throw new Error(data?.error || 'Upscaling failed')
 
-      if (data.success && (data.outputs || data.enhancedUrl)) {
-        const outputUrl = Array.isArray(data.outputs) && data.outputs[0]?.url
-          ? data.outputs[0].url
-          : typeof data.enhancedUrl === 'string'
-            ? data.enhancedUrl
-            : Array.isArray(data.enhancedUrl)
-              ? data.enhancedUrl[0]
+      const dbTaskId: string = data.taskId
+
+      // Clear the smart-progress animation interval; replace with poll interval
+      const existingInterval = taskIntervalsRef.current.get(taskId)
+      if (existingInterval) { clearInterval(existingInterval) }
+
+      // Poll every 5 seconds until the task completes
+      const pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/enhance-image/poll?taskId=${dbTaskId}`)
+          const pollData = await pollRes.json()
+
+          if (pollData.status === 'success') {
+            clearInterval(pollInterval)
+            taskIntervalsRef.current.delete(taskId)
+
+            const outputUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url
+              ? pollData.outputs[0].url
               : null
 
-        if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
-          setUpscaledImage(outputUrl)
-        }
+            if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
+              setUpscaledImage(outputUrl)
+            }
 
-        setActiveTasks(prev => {
-          const newMap = new Map(prev)
-          const task = newMap.get(taskId)
-          if (task) newMap.set(taskId, { ...task, progress: 100, status: 'success', message: 'Done!' })
-          return newMap
-        })
-      } else {
-        setActiveTasks(prev => {
-          const newMap = new Map(prev)
-          const task = newMap.get(taskId)
-          if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: data.error || 'Upscaling failed' })
-          return newMap
-        })
-      }
+            setActiveTasks(prev => {
+              const newMap = new Map(prev)
+              const task = newMap.get(taskId)
+              if (task) newMap.set(taskId, { ...task, progress: 100, status: 'success', message: 'Done!' })
+              return newMap
+            })
+
+            setTimeout(() => {
+              setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
+              setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
+            }, 4000)
+
+          } else if (pollData.status === 'failed') {
+            clearInterval(pollInterval)
+            taskIntervalsRef.current.delete(taskId)
+
+            setActiveTasks(prev => {
+              const newMap = new Map(prev)
+              const task = newMap.get(taskId)
+              if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: pollData.error || 'Upscaling failed' })
+              return newMap
+            })
+
+            setTimeout(() => {
+              setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
+              setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
+            }, 4000)
+          }
+          // status === 'running': keep polling
+        } catch (pollError) {
+          console.warn('Poll error (will retry):', pollError)
+        }
+      }, 10000)
+
+      // Store poll interval so progress animation can be cleared if needed
+      taskIntervalsRef.current.set(taskId, pollInterval)
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Connection error'
+
+      const interval = taskIntervalsRef.current.get(taskId)
+      if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
+
       setActiveTasks(prev => {
         const newMap = new Map(prev)
         const task = newMap.get(taskId)
         if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: errorMsg })
         return newMap
       })
-    } finally {
-      const interval = taskIntervalsRef.current.get(taskId)
-      if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
+
       setTimeout(() => {
         setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
         setDismissedTaskIds(prev => { const next = new Set(prev); next.delete(taskId); return next })

@@ -5,6 +5,8 @@ import type { EnhancementRequest } from '../../../services/ai-providers';
 import { createClient } from '@supabase/supabase-js';
 import { config } from '../../../lib/config';
 import { AIProviderFactory } from '../../../services/ai-providers/provider-factory';
+import { ProviderType } from '../../../services/ai-providers/common/types';
+import { RunningHubProvider } from '../../../services/ai-providers/runninghub/runninghub-provider';
 import { getSession } from '@/lib/auth-simple';
 import { getImageMetadata, calculateCreditsConsumed, getModelDisplayName } from '@/lib/image-metadata'
 import { PricingEngine } from '@/lib/pricing-engine';
@@ -247,291 +249,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get enhancement service instance
-    const enhancementService = EnhancementService.getInstance()
+    // Start the RunningHub task asynchronously (non-blocking)
+    const provider = AIProviderFactory.getProvider(ProviderType.RUNNINGHUB) as RunningHubProvider
+    const enhancementRequest: EnhancementRequest = { imageUrl, settings, userId, imageId }
 
-    console.log('🌐 API: Starting enhancement with modular service', {
-      modelId,
-      userId,
-      imageId,
-      taskId
-    })
+    console.log('🚀 API: Starting async RunningHub task for model:', modelId)
+    const taskStart = await provider.startTaskForModel(enhancementRequest, modelId)
 
-    // Create progress callback to update history status in Supabase with validation
-    const progressCallback = async (progress: number, status: string) => {
-      try {
-        const updateTime = Date.now()
-
-        if (typeof progress !== 'number' || progress < 0 || progress > 100) {
-          progress = Math.max(0, Math.min(100, progress || 0))
-        }
-
-        if (!status || typeof status !== 'string') {
-          status = 'processing'
-        }
-
-        const safeStatus = status === 'failed' ? 'failed' : 'processing'
-        const { error } = await supabase
-          .from('history_items')
-          .update({
-            status: safeStatus,
-            updated_at: new Date(updateTime).toISOString()
-          })
-          .eq('id', taskId)
-
-        if (error) {
-          throw error
-        }
-
-        console.log(`✅ API: History status updated - ${progress}% (${status})`, { taskId })
-
-      } catch (error) {
-        console.error('❌ API: Failed to update progress:', {
-          taskId,
-          error: error instanceof Error ? error.message : String(error)
+    if (!taskStart.success) {
+      console.error('❌ API: Failed to start RunningHub task:', taskStart.error)
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...historySettings, failure_reason: taskStart.error || 'Failed to start task' }
         })
-      }
+        .eq('id', taskId)
+      return NextResponse.json(
+        { error: taskStart.error || 'Failed to start enhancement task' },
+        { status: 500 }
+      )
     }
 
-    // Create properly structured EnhancementRequest
-    const enhancementRequest: EnhancementRequest = {
-      imageUrl,
-      settings,
-      userId,
-      imageId
-    }
-
-    // Perform enhancement using the new modular system
-    const result = await enhancementService.enhanceImage(enhancementRequest, modelId, progressCallback)
-
-    // Extract metadata from original and enhanced images
-    let originalMetadata = null
-    let creditsConsumed = 0
-
-    // Prioritize request dimensions for credit calculation (same as estimation)
-    if (settings?.imageWidth && settings?.imageHeight) {
-      try {
-        // Use the new model-specific pricing engine with granular control
-        const pricingBreakdown = ModelPricingEngine.calculateCredits(
-          settings.imageWidth,
-          settings.imageHeight,
-          modelId,
-          settings
-        )
-        creditsConsumed = pricingBreakdown.totalCredits
-        console.log('💰 API: Enhanced final credit calculation from request dimensions:', {
-          dimensions: { width: settings.imageWidth, height: settings.imageHeight },
-          megapixels: (settings.imageWidth * settings.imageHeight) / 1000000,
-          creditsConsumed,
-          breakdown: pricingBreakdown.breakdown,
-          resolutionTier: pricingBreakdown.resolutionTier.description,
-          appliedIncrements: pricingBreakdown.appliedIncrements.map(inc =>
-            `${inc.settingName}: ${inc.addedCredits > 0 ? '+' : ''}${inc.addedCredits} credits (${inc.description})`
-          ),
-          taskId
-        })
-      } catch (error) {
-        // Fallback to old pricing engine if model pricing engine fails
-        console.warn('⚠️ API: Model pricing engine failed for final calculation, trying old pricing engine:', error)
-        try {
-          const pricingBreakdown = PricingEngine.calculateCredits(
-            settings.imageWidth,
-            settings.imageHeight,
-            modelId,
-            settings
-          )
-          creditsConsumed = pricingBreakdown.totalCredits
-          console.log('💰 API: Using fallback pricing engine for final calculation:', { creditsConsumed })
-        } catch (fallbackError) {
-          // Final fallback to old calculation
-          console.warn('⚠️ API: All pricing engines failed for final calculation, using legacy calculation:', fallbackError)
-          creditsConsumed = calculateCreditsConsumed(settings.imageWidth, settings.imageHeight)
-          console.log('💰 API: Fallback final credit calculation from request dimensions:', {
-            dimensions: { width: settings.imageWidth, height: settings.imageHeight },
-            megapixels: (settings.imageWidth * settings.imageHeight) / 1000000,
-            creditsConsumed,
-            taskId
-          })
-        }
-      }
-
-      // Still try to get metadata for storage but don't use it for credits
-      try {
-        originalMetadata = await getImageMetadata(imageUrl)
-        if (result.success && result.enhancedUrl) {
-          const urlToMetadata = Array.isArray(result.enhancedUrl) ? result.enhancedUrl[0] : result.enhancedUrl
-          if (urlToMetadata) {
-            await getImageMetadata(urlToMetadata)
-          }
-        }
-      } catch (error) {
-        console.warn('⚠️ API: Could not extract image metadata (using request dimensions for credits):', error)
-      }
-    } else {
-      // Fallback to metadata extraction if request doesn't have dimensions
-      try {
-        originalMetadata = await getImageMetadata(imageUrl)
-        creditsConsumed = calculateCreditsConsumed(originalMetadata.width, originalMetadata.height)
-
-        console.log('💰 API: Fallback credit calculation from metadata:', {
-          dimensions: { width: originalMetadata.width, height: originalMetadata.height },
-          megapixels: (originalMetadata.width * originalMetadata.height) / 1000000,
-          creditsConsumed,
-          taskId
-        })
-
-        // Get enhanced image metadata if successful
-        if (result.success && result.enhancedUrl) {
-          const urlToMetadata = Array.isArray(result.enhancedUrl) ? result.enhancedUrl[0] : result.enhancedUrl
-          if (urlToMetadata) {
-            await getImageMetadata(urlToMetadata)
-          }
-        }
-      } catch (error) {
-        console.error('❌ API: Failed to extract image metadata and no request dimensions available:', error)
-        throw new Error('Unable to determine image dimensions for credit calculation')
-      }
-    }
-
-    // Calculate processing time in seconds
-    const processingTimeMs = result.metadata?.processingTime || (Date.now() - now)
-    const processingTime = Math.round(processingTimeMs / 1000)
-
-    // Update history in Supabase with comprehensive metadata and validation
-    try {
-      const completionTime = Date.now()
-      const finalStatus = result.success ? 'completed' : 'failed'
-
-      console.log('📝 API: Updating history completion in database...', {
-        taskId,
-        status: finalStatus,
-        processingTime,
-        creditsConsumed,
-        hasEnhancedUrl: !!result.enhancedUrl,
-        timestamp: new Date(completionTime).toISOString()
-      })
-
-      const updateData: any = {
-        status: finalStatus,
-        generation_time_ms: Math.max(0, processingTimeMs),
-        updated_at: new Date(completionTime).toISOString(),
-        model_name: getModelDisplayName(modelId)
-      }
-
-      // Add failure reason if failed
-      if (!result.success) {
-        updateData.settings = {
+    // Store RunningHub task metadata in DB settings for the poll endpoint to use
+    await supabase
+      .from('history_items')
+      .update({
+        settings: {
           ...historySettings,
-          failure_reason: result.error || result.message || 'Unknown error',
-          failure_details: result.metadata?.details || null
+          _runningHubTaskId: taskStart.runningHubTaskId,
+          _expectedNodeIds: taskStart.expectedNodeIds,
+          _creditsToDeduct: estimatedCredits
         }
-      }
-
-      // Add original image metadata with validation
-      if (result.success && result.enhancedUrl) {
-        const normalized = normalizeOutputs(result.outputs ?? result.enhancedUrl)
-        updateData.output_urls = normalized
-      }
-
-      // Perform the database update
-      const { error: updateError } = await supabase
-        .from('history_items')
-        .update(updateData)
-        .eq('id', taskId)
-
-      if (updateError) {
-        throw new Error(`Failed to update task: ${updateError.message}`)
-      }
-
-      console.log('✅ API: History completion updated successfully in Supabase:', {
-        taskId,
-        status: finalStatus,
-        processingTime,
-        creditsConsumed,
-        timestamp: new Date(completionTime).toISOString()
       })
+      .eq('id', taskId)
 
-      // Deduct credits from user account if enhancement was successful
-      if (result.success && creditsConsumed > 0) {
-        try {
-          const description = `Image enhancement - ${originalMetadata?.width || 'unknown'}x${originalMetadata?.height || 'unknown'} pixels`
-          const success = await UnifiedCreditsService.deductCredits(
-            userId,
-            creditsConsumed,
-            taskId,
-            description
-          )
-
-          if (success) {
-            console.log('💳 API: Credits deducted successfully:', {
-              taskId,
-              creditsDeducted: creditsConsumed,
-              newBalance: (await UnifiedCreditsService.getUserCredits(userId)).total
-            })
-          } else {
-            throw new Error('Credit deduction returned false')
-          }
-
-        } catch (creditError) {
-          console.error('❌ API: Failed to deduct credits:', {
-            taskId,
-            error: creditError instanceof Error ? creditError.message : String(creditError),
-            creditsToDeduct: creditsConsumed,
-            userId: userId
-          })
-          // Don't fail the enhancement if credit deduction fails
-        }
-      }
-      // console.log('⚠️ API: Credit deduction temporarily disabled')
-
-      // Verify the update by querying the task back
-      const { data: updatedTask, error: verifyError } = await supabase
-        .from('history_items')
-        .select('id, status')
-        .eq('id', taskId)
-        .single()
-
-      if (!updatedTask || verifyError) {
-        console.error('❌ API: Task update verification failed - task not found')
-      } else {
-        // Verify that the stored credits match our calculation
-        console.log('✅ API: Task update verified:', {
-          taskId: updatedTask.id,
-          status: updatedTask.status,
-        })
-      }
-
-    } catch (updateError) {
-      console.error('❌ API: Failed to update task completion in Supabase:', {
-        taskId,
-        error: updateError instanceof Error ? updateError.message : String(updateError)
-      })
-      // Continue execution even if database update fails
-    }
-
-    console.log('📤 API: Enhancement completed', {
-      success: result.success,
-      hasUrl: !!result.enhancedUrl,
-      jobId: result.metadata?.jobId,
-      taskId
+    console.log('✅ API: Task started, returning immediately to client', {
+      taskId,
+      runningHubTaskId: taskStart.runningHubTaskId
     })
 
-    const normalizedOutputs = normalizeOutputs(result.outputs ?? result.enhancedUrl)
-    result.outputs = normalizedOutputs
-
-    // Add taskId to response metadata
-    if (result.metadata) {
-      (result.metadata as any).taskId = taskId
-    } else {
-      result.metadata = { taskId } as any
-    }
-
-    // Return the result (success or error)
-    if (result.success) {
-      return NextResponse.json(result)
-    } else {
-      return NextResponse.json(result, { status: 500 })
-    }
+    // Return immediately — client will poll /api/enhance-image/poll?taskId=<taskId>
+    return NextResponse.json({ success: true, taskId, status: 'processing' })
 
   } catch (error) {
     console.error('❌ API: Image enhancement failed:', error)
@@ -547,8 +307,7 @@ export async function POST(request: NextRequest) {
             generation_time_ms: 0,
             settings: {
               ...historySettings,
-              failure_reason: error instanceof Error ? error.message : 'Unknown system error',
-              failure_details: error
+              failure_reason: error instanceof Error ? error.message : 'Unknown system error'
             }
           })
           .eq('id', taskId)
@@ -558,18 +317,14 @@ export async function POST(request: NextRequest) {
       console.error('❌ API: Failed to update history item after exception:', dbError)
     }
 
-    const errorResponse = {
-      success: false,
-      error: 'Image enhancement failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      metadata: {
-        timestamp: Date.now(),
-        details: error
-      }
-    }
-
-    console.error('📤 API: Sending error response:', errorResponse)
-    return NextResponse.json(errorResponse, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Image enhancement failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
   }
 }
 

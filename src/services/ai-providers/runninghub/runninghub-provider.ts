@@ -1252,6 +1252,141 @@ export class RunningHubProvider extends BaseAIProvider {
     }
   }
 
+  // ── Async task methods (non-blocking: start task, return immediately) ────────
+
+  public async startTaskForModel(
+    request: EnhancementRequest,
+    modelId: string
+  ): Promise<{ success: boolean; runningHubTaskId?: string; expectedNodeIds?: string[]; error?: string }> {
+    try {
+      this.validateRequest(request)
+
+      if (modelId === 'smart-upscaler') {
+        const { SMART_UPSCALER_WORKFLOW_ID, SMART_UPSCALER_NODES, SMART_UPSCALER_RESOLUTION_SETTINGS } = await import('../../../models/smart-upscaler/config')
+        const settings = request.settings as RunningHubSettings
+        const resolution = ((settings as any).resolution as '4k' | '8k') || '4k'
+        const resSettings = SMART_UPSCALER_RESOLUTION_SETTINGS[resolution] || SMART_UPSCALER_RESOLUTION_SETTINGS['4k']
+        const nodeInfoListOverride = [
+          { nodeId: SMART_UPSCALER_NODES.LOAD_IMAGE, fieldName: 'image', fieldValue: request.imageUrl.trim() },
+          { nodeId: SMART_UPSCALER_NODES.SCALE_BY, fieldName: 'scale_by', fieldValue: resSettings.scaleBy },
+          { nodeId: SMART_UPSCALER_NODES.RESIZE, fieldName: 'width', fieldValue: resSettings.width },
+          { nodeId: SMART_UPSCALER_NODES.RESIZE, fieldName: 'height', fieldValue: resSettings.height }
+        ]
+        const taskResponse = await this.createTask(request.imageUrl, { workflowId: SMART_UPSCALER_WORKFLOW_ID, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: [String(SMART_UPSCALER_NODES.SAVE_IMAGE)] }
+      }
+
+      if (modelId === 'skin-editor') {
+        const settings = request.settings as RunningHubSettings
+        const { SKIN_EDITOR_MODES } = await import('../../../models/skin-editor/config')
+        const isSmartUpscale = settings.smartUpscale === true
+        const mode = (settings.mode as keyof typeof SKIN_EDITOR_MODES) || 'Subtle'
+        const modeDefaults = SKIN_EDITOR_MODES[mode]
+        let prompt = modeDefaults.prompt
+        if (mode === 'Custom' && settings.customPrompt) {
+          prompt = `${settings.customPrompt}, apply skin texture only for skin, apply skin texture only for face and skin and not on hair or dress, skin texture creates subtle micro-shadows and highlights under lighting`
+        }
+        const finalSettings = { ...modeDefaults, ...settings, prompt }
+        const nodeInfoList: NodeInfoOverride[] = [
+          { nodeId: '97', fieldName: 'image', fieldValue: request.imageUrl.trim() },
+          { nodeId: '140', fieldName: 'text', fieldValue: finalSettings.prompt },
+          { nodeId: '90', fieldName: 'denoise', fieldValue: Number(finalSettings.denoise).toFixed(2) },
+          { nodeId: '167', fieldName: 'max_shift', fieldValue: Number(finalSettings.maxshift).toFixed(2) },
+          { nodeId: '85', fieldName: 'megapixels', fieldValue: String(finalSettings.megapixels) },
+          { nodeId: '88', fieldName: 'guidance', fieldValue: String(finalSettings.guidance) }
+        ]
+        if (settings.style) nodeInfoList.push({ nodeId: '166', fieldName: 'lora_name', fieldValue: settings.style })
+        const p = settings.protections || { face: { skin: false, nose: false, mouth: false, upperLip: false, lowerLip: false }, eyes: { eyeGeneral: false, rightEye: false, leftEye: false, rightBrow: false, leftBrow: false }, other: { hair: false, cloth: false, background: false, neck: false } }
+        const protectionFields = [
+          { field: 'skin', val: p.face?.skin }, { field: 'nose', val: p.face?.nose }, { field: 'mouth', val: p.face?.mouth },
+          { field: 'u_lip', val: p.face?.upperLip }, { field: 'l_lip', val: p.face?.lowerLip }, { field: 'eye_g', val: p.eyes?.eyeGeneral },
+          { field: 'r_eye', val: p.eyes?.rightEye }, { field: 'l_eye', val: p.eyes?.leftEye }, { field: 'r_brow', val: p.eyes?.rightBrow },
+          { field: 'l_brow', val: p.eyes?.leftBrow }, { field: 'background', val: p.other?.background ?? false },
+          { field: 'hair', val: p.other?.hair ?? false }, { field: 'cloth', val: p.other?.cloth ?? false }, { field: 'neck', val: p.other?.neck ?? false }
+        ]
+        protectionFields.forEach(({ field, val }) => { if (val !== undefined) nodeInfoList.push({ nodeId: '138', fieldName: field, fieldValue: String(val) }) })
+        const resolution = settings.upscaleResolution || '4k'
+        const smartUpscaleWorkflowId = settings.smartUpscaleWorkflowId || (resolution === '4k' ? settings.smartUpscaleWorkflowId4k : settings.smartUpscaleWorkflowId8k) || process.env.RUNNINGHUB_SKIN_EDITOR_SMART_UPSCALE_WORKFLOW_ID || '2023026925354094594'
+        const standardWorkflowId = settings.workflowId || process.env.RUNNINGHUB_SKIN_EDITOR_WORKFLOW_ID || '2023005806844710914'
+        const baseWorkflowId = isSmartUpscale ? smartUpscaleWorkflowId : standardWorkflowId
+        if (isSmartUpscale) {
+          if (resolution === '4k') {
+            nodeInfoList.push({ nodeId: '213', fieldName: 'scale_by', fieldValue: '2.000000000000' })
+            nodeInfoList.push({ nodeId: '214', fieldName: 'width', fieldValue: '4096' })
+            nodeInfoList.push({ nodeId: '214', fieldName: 'height', fieldValue: '4096' })
+          } else {
+            nodeInfoList.push({ nodeId: '213', fieldName: 'scale_by', fieldValue: '4.000000000000' })
+            nodeInfoList.push({ nodeId: '214', fieldName: 'width', fieldValue: '8192' })
+            nodeInfoList.push({ nodeId: '214', fieldName: 'height', fieldValue: '8192' })
+          }
+        }
+        const extraNodeInfoList = Array.isArray(settings.nodeInfoListOverride) ? settings.nodeInfoListOverride : []
+        const finalNodeInfoList = mergeNodeInfoList(nodeInfoList, extraNodeInfoList)
+        const taskResponse = await this.createTask(request.imageUrl, { ...settings, workflowId: baseWorkflowId, nodeInfoListOverride: finalNodeInfoList } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: isSmartUpscale ? ['215', '136'] : ['136'] }
+      }
+
+      return { success: false, error: `Unknown model: ${modelId}` }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  public async checkTaskOnce(
+    runningHubTaskId: string,
+    expectedNodeIds?: string[]
+  ): Promise<{ status: 'queued' | 'running' | 'success' | 'failed'; outputUrl?: string; outputUrls?: string[]; error?: string }> {
+    try {
+      const statusResponse = await fetch(`${this.baseUrl}/task/openapi/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: this.apiKey, taskId: runningHubTaskId })
+      })
+      if (!statusResponse.ok) return { status: 'running' }
+      const statusData = await statusResponse.json()
+      if (statusData.code !== 0) return { status: 'running' }
+      const taskStatus = statusData.data
+      if (taskStatus === 'SUCCESS') {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        let outputData: any = null
+        for (let i = 0; i < 3; i++) {
+          try {
+            const outputResponse = await fetch(`${this.baseUrl}/task/openapi/outputs`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey: this.apiKey, taskId: runningHubTaskId })
+            })
+            if (outputResponse.ok) {
+              outputData = await outputResponse.json()
+              if (isRunningHubOutputsResponse(outputData) && outputData.data?.length && outputData.code === 0) break
+            }
+          } catch { /* ignore, retry */ }
+          if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)))
+        }
+        if (!isRunningHubOutputsResponse(outputData) || !outputData.data?.length) return { status: 'success', error: 'No outputs found' }
+        const urls: string[] = []
+        if (expectedNodeIds?.length) {
+          for (const nodeId of expectedNodeIds) {
+            const match = outputData.data.find((o: RunningHubOutputItem) => String(o.nodeId) === String(nodeId) && !!o.fileUrl)
+            if (match?.fileUrl) urls.push(match.fileUrl)
+          }
+        }
+        for (const item of outputData.data) {
+          if (item.fileUrl && !urls.includes(item.fileUrl)) urls.push(item.fileUrl)
+        }
+        return { status: 'success', outputUrl: urls[0], outputUrls: urls }
+      }
+      if (taskStatus === 'FAILED') return { status: 'failed', error: 'Task failed on RunningHub' }
+      return { status: 'running' }
+    } catch {
+      return { status: 'running' }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   protected validateRequest(request: EnhancementRequest): void {
     if (!request.imageUrl) {
       throw new Error('Image URL is required')

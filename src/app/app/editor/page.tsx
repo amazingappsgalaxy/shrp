@@ -368,6 +368,8 @@ function EditorContent() {
         ...modelSettings
       }
 
+      // POST returns immediately with { taskId: dbTaskId, status: 'processing' }
+      // (progressInterval from startSmartProgress is already stored and animating)
       const response = await fetch('/api/enhance-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -378,17 +380,13 @@ function EditorContent() {
         })
       })
 
-      const interval = taskIntervalsRef.current.get(taskId)
-      if (interval) {
-        clearInterval(interval)
-        taskIntervalsRef.current.delete(taskId)
-      }
-
       const data = await response.json()
 
       // Insufficient credits — show plans popup, remove task silently (no error toast)
       if (response.status === 402) {
         openPlansPopup()
+        const interval = taskIntervalsRef.current.get(taskId)
+        if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
         setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
         return
       }
@@ -397,56 +395,84 @@ function EditorContent() {
         throw new Error(data?.error || 'Enhancement failed')
       }
 
-      if (data.success && (data.outputs || data.enhancedUrl)) {
-        const outputs = normalizeOutputs(data.outputs ?? data.enhancedUrl)
-        if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
-          setEnhancedOutputs(outputs)
-          setSelectedOutputIndex(0)
-        }
+      const dbTaskId: string = data.taskId
 
-        setActiveTasks(prev => {
-          const newMap = new Map(prev)
-          const task = newMap.get(taskId)
-          if (task) newMap.set(taskId, { ...task, progress: 100, status: 'success', message: 'Done!' })
-          return newMap
-        })
-      } else {
-        console.error('Enhancement failed:', data.error)
-        setActiveTasks(prev => {
-          const newMap = new Map(prev)
-          const task = newMap.get(taskId)
-          if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: data.error || 'Enhancement failed' })
-          return newMap
-        })
-      }
+      // Clear the smart-progress animation interval; replace with poll interval
+      const existingInterval = taskIntervalsRef.current.get(taskId)
+      if (existingInterval) { clearInterval(existingInterval) }
+
+      // Poll every 10 seconds until the task completes
+      // The server-side scheduled function also checks every minute as a safety net
+      const POLL_INTERVAL_MS = 10000
+      const pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/enhance-image/poll?taskId=${dbTaskId}`)
+          const pollData = await pollRes.json()
+
+          if (pollData.status === 'success') {
+            clearInterval(pollInterval)
+            taskIntervalsRef.current.delete(taskId)
+
+            const outputs = normalizeOutputs(pollData.outputs)
+            if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
+              setEnhancedOutputs(outputs)
+              setSelectedOutputIndex(0)
+            }
+
+            setActiveTasks(prev => {
+              const newMap = new Map(prev)
+              const task = newMap.get(taskId)
+              if (task) newMap.set(taskId, { ...task, progress: 100, status: 'success', message: 'Done!' })
+              return newMap
+            })
+
+            setTimeout(() => {
+              setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
+              setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
+            }, 4000)
+
+          } else if (pollData.status === 'failed') {
+            clearInterval(pollInterval)
+            taskIntervalsRef.current.delete(taskId)
+
+            setActiveTasks(prev => {
+              const newMap = new Map(prev)
+              const task = newMap.get(taskId)
+              if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: pollData.error || 'Enhancement failed' })
+              return newMap
+            })
+
+            setTimeout(() => {
+              setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
+              setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
+            }, 4000)
+          }
+          // status === 'running': keep polling
+        } catch (pollError) {
+          console.warn('Poll error (will retry):', pollError)
+        }
+      }, POLL_INTERVAL_MS)
+
+      // Store poll interval so it can be cleaned up
+      taskIntervalsRef.current.set(taskId, pollInterval)
 
     } catch (error) {
       console.error('Enhancement error:', error)
       const errorMsg = error instanceof Error ? error.message : 'Connection error'
+
+      const interval = taskIntervalsRef.current.get(taskId)
+      if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
+
       setActiveTasks(prev => {
         const newMap = new Map(prev)
         const task = newMap.get(taskId)
         if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: errorMsg })
         return newMap
       })
-    } finally {
-      const interval = taskIntervalsRef.current.get(taskId)
-      if (interval) {
-        clearInterval(interval)
-        taskIntervalsRef.current.delete(taskId)
-      }
 
       setTimeout(() => {
-        setActiveTasks(prev => {
-          const newMap = new Map(prev)
-          newMap.delete(taskId)
-          return newMap
-        })
-        setDismissedTaskIds(prev => {
-          const next = new Set(prev)
-          next.delete(taskId)
-          return next
-        })
+        setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
+        setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
       }, 4000)
     }
   }

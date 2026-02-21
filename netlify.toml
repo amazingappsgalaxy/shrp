@@ -10,6 +10,11 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Background task processor — runs every minute to complete in-progress enhancement jobs
+# even when the user's browser is closed. Works for all models (skin-editor, smart-upscaler, etc.)
+[functions."process-pending-tasks"]
+  schedule = "* * * * *"
+
 [[headers]]
   for = "/*"
   [headers.values]
