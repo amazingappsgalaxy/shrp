@@ -1,7 +1,7 @@
 // Dodo Payments configuration
 export const DODO_PAYMENTS_CONFIG = {
   apiKey: process.env.DODO_PAYMENTS_API_KEY || '',
-  environment: process.env.NODE_ENV === 'production' ? 'live_mode' : 'test_mode',
+  environment: (process.env.DODO_ENVIRONMENT as 'live_mode' | 'test_mode') || (process.env.NODE_ENV === 'production' ? 'live_mode' : 'test_mode'),
   webhookSecret: process.env.DODO_WEBHOOK_SECRET || process.env.DODO_PAYMENTS_WEBHOOK_SECRET || '',
   // Use NEXT_PUBLIC_APP_URL for client-visible base URL; fall back to localhost:3002
   returnUrl: process.env.DODO_PAYMENTS_RETURN_URL || `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002'}/app/dashboard?payment=success`,
