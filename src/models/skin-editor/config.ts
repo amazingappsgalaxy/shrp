@@ -2,6 +2,17 @@ import { EnhancementSettings } from '@/services/ai-providers/common/types'
 
 export const SKIN_EDITOR_MODEL_ID = 'skin-editor'
 
+/**
+ * Approximate task duration in seconds — used to calibrate the loading progress animation.
+ * Phase 1 (0→~43%) animates quickly regardless.
+ * Phase 2 (~43%→96%) is paced to fill the remaining time at this duration.
+ * When the real output arrives earlier, progress jumps to 100% immediately.
+ */
+export const SKIN_EDITOR_TASK_DURATION_SECS = {
+  standard: 70,     // smartUpscale disabled
+  smartUpscale: 160 // smartUpscale enabled
+} as const
+
 export interface SkinEditorSettings extends EnhancementSettings {
     mode?: 'Subtle' | 'Clear' | 'Pimples' | 'Freckles' | 'Custom'
     denoise?: number

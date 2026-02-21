@@ -1,5 +1,13 @@
 export const SMART_UPSCALER_MODEL_ID = 'smart-upscaler'
 
+/**
+ * Approximate task duration in seconds — used to calibrate the loading progress animation.
+ * Phase 1 (0→~43%) animates quickly regardless.
+ * Phase 2 (~43%→96%) is paced to fill the remaining time at this duration.
+ * When the real output arrives earlier, progress jumps to 100% immediately.
+ */
+export const SMART_UPSCALER_TASK_DURATION_SECS = 190
+
 export interface SmartUpscalerSettings {
   resolution?: '4k' | '8k'
   [key: string]: any

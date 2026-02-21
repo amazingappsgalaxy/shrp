@@ -15,6 +15,7 @@ import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
 import { startSmartProgress, type TaskStatus, type TaskEntry } from "@/lib/task-progress"
+import { SMART_UPSCALER_TASK_DURATION_SECS } from "@/models/smart-upscaler/config"
 
 // --- Demo images ---
 const DEMO_INPUT_URL = 'https://i.postimg.cc/vTtwPDVt/90s-Futuristic-Portrait-3.png'
@@ -60,6 +61,7 @@ function UpscalerContent() {
   latestImageRef.current = uploadedImage
   const latestTaskIdRef = useRef<string | null>(null)
   const taskIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const pollIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
 
   const visibleTasks = React.useMemo(() => {
     const items = Array.from(activeTasks.values()).filter(task => !dismissedTaskIds.has(task.id))
@@ -121,8 +123,7 @@ function UpscalerContent() {
     setTimeout(() => setIsSubmitting(false), 1000)
 
     try {
-      // smart-upscaler approximate task duration: 190 s
-      const progressInterval = startSmartProgress(taskId, 190, setActiveTasks)
+      const progressInterval = startSmartProgress(taskId, SMART_UPSCALER_TASK_DURATION_SECS, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
 
       // POST returns immediately with { taskId: dbTaskId, status: 'processing' }
@@ -155,11 +156,9 @@ function UpscalerContent() {
 
       const dbTaskId: string = data.taskId
 
-      // Clear the smart-progress animation interval; replace with poll interval
-      const existingInterval = taskIntervalsRef.current.get(taskId)
-      if (existingInterval) { clearInterval(existingInterval) }
+      // NOTE: intentionally do NOT clear taskIntervalsRef (smart progress animation).
+      // Let it keep animating toward 96% while we poll for the real result.
 
-      // Poll every 5 seconds until the task completes
       const pollInterval = setInterval(async () => {
         try {
           const pollRes = await fetch(`/api/enhance-image/poll?taskId=${dbTaskId}`)
@@ -167,7 +166,9 @@ function UpscalerContent() {
 
           if (pollData.status === 'success') {
             clearInterval(pollInterval)
-            taskIntervalsRef.current.delete(taskId)
+            pollIntervalsRef.current.delete(taskId)
+            const progressInterval = taskIntervalsRef.current.get(taskId)
+            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
 
             const outputUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url
               ? pollData.outputs[0].url
@@ -191,7 +192,9 @@ function UpscalerContent() {
 
           } else if (pollData.status === 'failed') {
             clearInterval(pollInterval)
-            taskIntervalsRef.current.delete(taskId)
+            pollIntervalsRef.current.delete(taskId)
+            const progressInterval = taskIntervalsRef.current.get(taskId)
+            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
 
             setActiveTasks(prev => {
               const newMap = new Map(prev)
@@ -205,20 +208,21 @@ function UpscalerContent() {
               setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
             }, 4000)
           }
-          // status === 'running': keep polling
+          // status === 'running': keep polling, progress animation keeps going
         } catch (pollError) {
           console.warn('Poll error (will retry):', pollError)
         }
       }, 10000)
 
-      // Store poll interval so progress animation can be cleared if needed
-      taskIntervalsRef.current.set(taskId, pollInterval)
+      pollIntervalsRef.current.set(taskId, pollInterval)
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Connection error'
 
-      const interval = taskIntervalsRef.current.get(taskId)
-      if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
+      const progressInterval = taskIntervalsRef.current.get(taskId)
+      if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
+      const pollInterval = pollIntervalsRef.current.get(taskId)
+      if (pollInterval) { clearInterval(pollInterval); pollIntervalsRef.current.delete(taskId) }
 
       setActiveTasks(prev => {
         const newMap = new Map(prev)

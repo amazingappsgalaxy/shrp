@@ -30,6 +30,7 @@ import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
 import { startSmartProgress, type TaskStatus, type TaskEntry } from "@/lib/task-progress"
+import { SKIN_EDITOR_TASK_DURATION_SECS } from "@/models/skin-editor/config"
 
 // --- TYPES ---
 interface AreaProtectionSettings {
@@ -220,6 +221,7 @@ function EditorContent() {
   latestImageRef.current = uploadedImage
   const latestTaskIdRef = useRef<string | null>(null)
   const taskIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const pollIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
 
   const visibleTasks = React.useMemo(() => {
     const items = Array.from(activeTasks.values()).filter(task => !dismissedTaskIds.has(task.id))
@@ -351,8 +353,9 @@ function EditorContent() {
 
     try {
       const shouldSmartUpscale = !!modelSettings['smartUpscale']
-      // skin-editor: 70 s without smart upscale, 160 s with it
-      const taskDurationSecs = shouldSmartUpscale ? 160 : 70
+      const taskDurationSecs = shouldSmartUpscale
+        ? SKIN_EDITOR_TASK_DURATION_SECS.smartUpscale
+        : SKIN_EDITOR_TASK_DURATION_SECS.standard
       const progressInterval = startSmartProgress(taskId, taskDurationSecs, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
       const settingsSnapshot = {
@@ -397,21 +400,21 @@ function EditorContent() {
 
       const dbTaskId: string = data.taskId
 
-      // Clear the smart-progress animation interval; replace with poll interval
-      const existingInterval = taskIntervalsRef.current.get(taskId)
-      if (existingInterval) { clearInterval(existingInterval) }
+      // NOTE: intentionally do NOT clear taskIntervalsRef (smart progress animation).
+      // Let it keep running so the progress bar continues animating toward 96%.
+      // We only clear it when the task actually finishes.
 
-      // Poll every 10 seconds until the task completes
-      // The server-side scheduled function also checks every minute as a safety net
-      const POLL_INTERVAL_MS = 10000
       const pollInterval = setInterval(async () => {
         try {
           const pollRes = await fetch(`/api/enhance-image/poll?taskId=${dbTaskId}`)
           const pollData = await pollRes.json()
 
           if (pollData.status === 'success') {
+            // Clear both the poll interval and the smart-progress animation
             clearInterval(pollInterval)
-            taskIntervalsRef.current.delete(taskId)
+            pollIntervalsRef.current.delete(taskId)
+            const progressInterval = taskIntervalsRef.current.get(taskId)
+            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
 
             const outputs = normalizeOutputs(pollData.outputs)
             if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
@@ -433,7 +436,9 @@ function EditorContent() {
 
           } else if (pollData.status === 'failed') {
             clearInterval(pollInterval)
-            taskIntervalsRef.current.delete(taskId)
+            pollIntervalsRef.current.delete(taskId)
+            const progressInterval = taskIntervalsRef.current.get(taskId)
+            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
 
             setActiveTasks(prev => {
               const newMap = new Map(prev)
@@ -447,21 +452,22 @@ function EditorContent() {
               setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
             }, 4000)
           }
-          // status === 'running': keep polling
+          // status === 'running': keep polling, progress animation keeps going
         } catch (pollError) {
           console.warn('Poll error (will retry):', pollError)
         }
-      }, POLL_INTERVAL_MS)
+      }, 10000)
 
-      // Store poll interval so it can be cleaned up
-      taskIntervalsRef.current.set(taskId, pollInterval)
+      pollIntervalsRef.current.set(taskId, pollInterval)
 
     } catch (error) {
       console.error('Enhancement error:', error)
       const errorMsg = error instanceof Error ? error.message : 'Connection error'
 
-      const interval = taskIntervalsRef.current.get(taskId)
-      if (interval) { clearInterval(interval); taskIntervalsRef.current.delete(taskId) }
+      const progressInterval = taskIntervalsRef.current.get(taskId)
+      if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
+      const pollInterval = pollIntervalsRef.current.get(taskId)
+      if (pollInterval) { clearInterval(pollInterval); pollIntervalsRef.current.delete(taskId) }
 
       setActiveTasks(prev => {
         const newMap = new Map(prev)
