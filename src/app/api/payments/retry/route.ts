@@ -50,7 +50,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Create new checkout session with the same plan
-    const retryResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002'}/api/payments/checkout`, {
+    // MUST use absolute URL — relative URLs don't work in serverless API routes
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (!appUrl) {
+      return NextResponse.json({ error: 'Server misconfiguration: NEXT_PUBLIC_APP_URL not set' }, { status: 500 })
+    }
+    const retryResponse = await fetch(`${appUrl}/api/payments/checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

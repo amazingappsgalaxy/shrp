@@ -126,12 +126,29 @@ function UpscalerContent() {
       const progressInterval = startSmartProgress(taskId, SMART_UPSCALER_TASK_DURATION_SECS, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
 
+      // If the image is a local base64 data URI, upload it to RunningHub first.
+      // This keeps the enhance-image request body small (Netlify 6MB body limit).
+      let imageUrlForApi = inputImage
+      if (inputImage.startsWith('data:')) {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri: inputImage })
+        })
+        if (!uploadRes.ok) {
+          const uploadErr = await uploadRes.json().catch(() => ({}))
+          throw new Error(uploadErr.error || 'Image upload failed')
+        }
+        const uploadData = await uploadRes.json()
+        imageUrlForApi = uploadData.imageUrl
+      }
+
       // POST returns immediately with { taskId: dbTaskId, status: 'processing' }
       const response = await fetch('/api/enhance-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: inputImage,
+          imageUrl: imageUrlForApi,
           modelId: 'smart-upscaler',
           settings: {
             resolution,

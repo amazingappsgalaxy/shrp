@@ -1,36 +1,7 @@
 // Application configuration
-if (typeof window === 'undefined' && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  try {
-    // Attempt to load .env.local manually if key is missing (e.g. monorepo context)
-    // Use dynamic require to avoid bundling issues
-    const fs = require('fs');
-    const path = require('path');
-    const dotenv = require('dotenv');
-    
-    const possiblePaths = [
-      path.resolve(process.cwd(), '.env.local'),
-      path.resolve(process.cwd(), '..', '.env.local'),
-      path.resolve(process.cwd(), 'sharpii-ai', '.env.local')
-    ];
-    
-    for (const envPath of possiblePaths) {
-      if (fs.existsSync(envPath)) {
-        console.log(`[config] Manually loading env from ${envPath}`);
-        const envConfig = dotenv.parse(fs.readFileSync(envPath));
-        // Only set if not already set
-        for (const k in envConfig) {
-          if (!process.env[k]) {
-            process.env[k] = envConfig[k];
-          }
-        }
-        // Break after finding one valid file
-        if (process.env.SUPABASE_SERVICE_ROLE_KEY) break;
-      }
-    }
-  } catch (e) {
-    // Ignore errors in browser or if modules missing
-  }
-}
+// NOTE: Do NOT add filesystem fallbacks here. On Netlify (and other serverless
+// platforms) .env.local is not available at runtime. All env vars must be set
+// in the hosting platform's environment variable settings.
 
 export const config = {
 
