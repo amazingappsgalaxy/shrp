@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
 import { CreditManager } from '@/lib/credits'
 
-const supabase = createClient(config.database.supabaseUrl!, config.database.supabaseServiceKey!)
+const getSupabase = () => createClient(config.database.supabaseUrl!, config.database.supabaseServiceKey!)
 
 // Credit amounts by plan
 const SUBSCRIPTION_CREDITS = {
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
 async function handleSubscriptionCredits(subscriptionData: any) {
   const { customer_id, plan, subscription_id, amount } = subscriptionData
 
+  const supabase = getSupabase()
   // Find user by customer ID
   const { data: user } = await supabase
     .from('users')
@@ -81,6 +82,7 @@ async function handleSubscriptionCredits(subscriptionData: any) {
 }
 
 async function handleCreditPurchase(paymentData: any) {
+  const supabase = getSupabase()
   const { customer_id, amount, metadata, payment_id } = paymentData
 
   // Find user by customer ID
