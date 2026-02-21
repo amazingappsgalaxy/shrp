@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const RUNNINGHUB_API_KEY = process.env.RUNNINGHUB_API_KEY || '95d3c787224840998c28fd0f2da9b4a2';
+const RUNNINGHUB_API_KEY = process.env.RUNNINGHUB_API_KEY || '';
 const BASE_URL = 'https://www.runninghub.ai';
 
 export async function POST(request: NextRequest) {

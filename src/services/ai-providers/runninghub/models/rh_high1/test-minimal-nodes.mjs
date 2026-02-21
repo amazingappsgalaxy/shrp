@@ -2,7 +2,7 @@ import fetch from 'node-fetch';
 
 // Test minimal configuration to understand what nodes 102, 139, 137 should contain
 const API_CONFIG = {
-  apiKey: "95d3c787224840998c28fd0f2da9b4a2",
+  apiKey: process.env.RUNNINGHUB_API_KEY || "",
   workflowId: "1969370493155483650",
   baseUrl: "https://www.runninghub.ai"
 };

@@ -5,10 +5,10 @@ import path from 'path'
 import { RunningHubProvider } from '../services/ai-providers/runninghub/runninghub-provider'
 import type { EnhancementRequest } from '../services/ai-providers/common/types'
 
-process.env.RUNNINGHUB_API_KEY = '95d3c787224840998c28fd0f2da9b4a2'
+process.env.RUNNINGHUB_API_KEY = process.env.RUNNINGHUB_API_KEY || ''
 
 const provider = new RunningHubProvider({
-  apiKey: '95d3c787224840998c28fd0f2da9b4a2',
+  apiKey: process.env.RUNNINGHUB_API_KEY || '',
   baseUrl: 'https://www.runninghub.ai'
 })
 

@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 
 const API_CONFIG = {
-  apiKey: "95d3c787224840998c28fd0f2da9b4a2",
+  apiKey: process.env.RUNNINGHUB_API_KEY || "",
 };
 
 // Check the results of our test tasks
