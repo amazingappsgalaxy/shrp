@@ -342,9 +342,9 @@ export default function TestSubscriptionFlow() {
             <div className="space-y-2">
               <h4 className="font-medium">Expected Product IDs in Dodo Dashboard:</h4>
               <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground font-mono">
-                <li>Basic Monthly: pdt_2bc24CYBPFj8olU2KxuiG</li>
-                <li>Creator Monthly: pdt_ALjMHf8bJnZD0GRtNnUAY</li>
-                <li>Creator Yearly: pdt_WNr5iJDaFOiDCXWKZWjX2</li>
+                <li>Basic Monthly: (see env DODO_BASIC_MONTHLY_PRODUCT_ID)</li>
+                <li>Creator Monthly: (see env DODO_CREATOR_MONTHLY_PRODUCT_ID)</li>
+                <li>Creator Yearly: (see env DODO_CREATOR_YEARLY_PRODUCT_ID)</li>
               </ul>
             </div>
           </CardContent>
