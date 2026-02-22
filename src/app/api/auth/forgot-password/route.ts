@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import * as crypto from 'crypto'
 
-// Use anon key — resetPasswordForEmail is a user-facing operation
-const supabase = createClient(
+const adminClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
+
+// Anon client for resetPasswordForEmail (user-facing operation)
+const anonClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
@@ -14,16 +21,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
+    const normalizedEmail = email.toLowerCase().trim()
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sharpii.ai'
 
-    // Supabase handles "user not found" gracefully — no email sent, but returns no error
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      email.toLowerCase().trim(),
-      { redirectTo: `${siteUrl}/app/reset-password` }
+    // Check if user exists in public.users
+    const { data: appUser } = await adminClient
+      .from('users')
+      .select('id, email')
+      .eq('email', normalizedEmail)
+      .maybeSingle()
+
+    // Always return success to avoid leaking whether an email exists
+    if (!appUser) {
+      return NextResponse.json({ message: 'If that email exists, a reset link has been sent.' })
+    }
+
+    // Check if this user exists in auth.users — if not, create them first.
+    // Old accounts (pre-Supabase Auth migration) only live in public.users.
+    // resetPasswordForEmail silently does nothing if the email isn't in auth.users.
+    const { data: authList } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
+    const authUser = authList?.users?.find(
+      (u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail
     )
 
+    if (!authUser) {
+      // Lazy-migrate: create in Supabase Auth with a random unusable password
+      const tempPassword = crypto.randomBytes(32).toString('hex')
+      const { error: createError } = await adminClient.auth.admin.createUser({
+        email: normalizedEmail,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: appUser.email.split('@')[0] },
+      })
+      if (createError) {
+        console.error('forgot-password: failed to lazy-migrate user to auth:', createError)
+        return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
+      }
+    }
+
+    // Now send the reset email via Supabase (uses Maileroo SMTP configured in dashboard)
+    const { error } = await anonClient.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: `${siteUrl}/app/reset-password`,
+    })
+
     if (error) {
-      console.error('forgot-password: Supabase error:', error)
+      console.error('forgot-password: Supabase resetPasswordForEmail error:', error)
       return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
     }
 
