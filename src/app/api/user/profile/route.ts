@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession, hashPassword, verifyPassword } from '@/lib/auth-simple'
 import { supabaseAdmin } from '@/lib/supabase'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 
 const admin = supabaseAdmin as any
+
+function getAuthAdminClient() {
+  return createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,24 +66,47 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
       }
 
-      // Fetch current password hash to verify
+      // Fetch current user record
       const { data: user } = await admin
         .from('users')
-        .select('password_hash')
+        .select('email, password_hash')
         .eq('id', session.user.id)
         .single()
 
-      if (user?.password_hash) {
-        // User has a password set — require current password to change
+      const hash = user?.password_hash as string | undefined
+
+      if (hash && hash.startsWith('$2')) {
+        // Legacy bcrypt user — verify against stored hash
         if (!currentPassword) {
           return NextResponse.json({ error: 'Current password required to set a new password' }, { status: 400 })
         }
-        const valid = await verifyPassword(currentPassword, user.password_hash)
+        const valid = await verifyPassword(currentPassword, hash)
         if (!valid) {
           return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
         }
+      } else if (hash === 'supabase-auth-managed' || hash === 'google-oauth-managed') {
+        // Supabase Auth user — verify current password via Supabase Auth signInWithPassword
+        if (!currentPassword) {
+          return NextResponse.json({ error: 'Current password required to set a new password' }, { status: 400 })
+        }
+        // Use an in-memory anon client (no cookie side-effects) just for credential check
+        const verifyClient = createSupabaseAdmin(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        const { error: signInError } = await verifyClient.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        })
+        if (signInError) {
+          return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
+        }
+        // Also update password in Supabase Auth (public.users.id === auth.users.id)
+        const authAdmin = getAuthAdminClient()
+        await authAdmin.auth.admin.updateUserById(session.user.id, { password: newPassword })
       }
-      // If no existing password (e.g. OAuth user), allow setting without current password
+      // If no hash at all (e.g. OAuth user with no password yet), allow setting without current password
 
       updates.password_hash = await hashPassword(newPassword)
     }
