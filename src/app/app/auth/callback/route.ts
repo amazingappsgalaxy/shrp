@@ -72,14 +72,12 @@ export async function GET(request: Request) {
                 // But likely middleware will block.
             }
 
-            const forwardedHost = request.headers.get('x-forwarded-host'); // original origin before load balancer
             const isLocalEnv = process.env.NODE_ENV === 'development';
+            const productionUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sharpii.ai';
             if (isLocalEnv) {
                 return NextResponse.redirect(`${origin}${next}`);
-            } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`);
             } else {
-                return NextResponse.redirect(`${origin}${next}`);
+                return NextResponse.redirect(`${productionUrl}${next}`);
             }
         }
     }
