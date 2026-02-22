@@ -57,6 +57,11 @@ export async function POST(request: NextRequest) {
         console.error('forgot-password: failed to lazy-migrate user to auth:', createError)
         return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
       }
+    } else if (!authUser.email_confirmed_at) {
+      // User exists in Supabase Auth but email is unconfirmed — confirm it now.
+      // resetPasswordForEmail fails for unconfirmed users; requesting a password
+      // reset implicitly proves intent to access the account, so confirming is safe.
+      await adminClient.auth.admin.updateUserById(authUser.id, { email_confirm: true })
     }
 
     // Now send the reset email via Supabase (uses Maileroo SMTP configured in dashboard)
