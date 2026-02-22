@@ -175,7 +175,7 @@ function ResetPasswordForm() {
       </div>
       <div className="absolute top-6 left-6 z-50"><MainLogo /></div>
 
-      <div className="relative z-10 w-full max-w-[400px] animate-in fade-in zoom-in-95 duration-500">
+      <div className="relative z-10 w-full max-w-[400px]">
         <div className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg p-6 shadow-2xl">
           {invalidLink ? (
             <div className="text-center space-y-4 py-4">
