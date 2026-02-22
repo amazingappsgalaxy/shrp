@@ -4,7 +4,6 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
 import { generateSessionToken, verifyPassword } from '@/lib/auth-simple'
-import { supabaseAdmin } from '@/lib/supabase'
 
 function getAdminClient() {
   return createSupabaseAdmin(
@@ -48,18 +47,8 @@ export async function POST(request: NextRequest) {
           passwordHash: 'supabase-auth-managed',
         })
       }
-      // Sync email verification status if Supabase Auth says email is confirmed
-      if (userId && supabaseUser.email_confirmed_at) {
-        ;(supabaseAdmin as any)
-          .from('users')
-          .update({ is_email_verified: true, updated_at: new Date().toISOString() })
-          .eq('id', userId)
-          .then(() => {}).catch(() => {})
-      }
     } else if (supabaseError?.message?.toLowerCase().includes('not confirmed')) {
-      // Correct password but email not yet verified — Supabase blocks login.
-      // We allow it since we manage email verification separately via is_email_verified.
-      // (Supabase only returns this error when the password IS correct.)
+      // Correct password but email not yet confirmed in Supabase — allow sign-in anyway
       appUser = await findUserByEmail(normalizedEmail)
       userId = appUser?.id
       if (!userId) {
@@ -69,6 +58,15 @@ export async function POST(request: NextRequest) {
       // Supabase Auth failed — fallback to legacy bcrypt for existing users
       appUser = await findUserByEmail(normalizedEmail)
       const hash = appUser?.password_hash
+
+      // Give a helpful error for Google-only accounts
+      if (appUser && hash === 'google-oauth-managed') {
+        return NextResponse.json(
+          { error: 'This account was created with Google. Please sign in with Google.' },
+          { status: 401 }
+        )
+      }
+
       // Only attempt bcrypt if we have a real bcrypt hash (starts with $2b$ or $2a$)
       if (!appUser || !hash || !hash.startsWith('$2')) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
@@ -78,12 +76,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
       }
       userId = appUser.id
-      // Legacy user proved ownership via password — mark email as verified
-      ;(supabaseAdmin as any)
-        .from('users')
-        .update({ is_email_verified: true, updated_at: new Date().toISOString() })
-        .eq('id', userId)
-        .then(() => {}).catch(() => {})
       // Lazily migrate this user into Supabase Auth so future logins use it
       try {
         await getAdminClient().auth.admin.createUser({

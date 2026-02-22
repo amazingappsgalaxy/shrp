@@ -127,14 +127,18 @@ export async function POST(request: NextRequest) {
       console.log('📋 [CHECKOUT API] Request data:', { plan, billingPeriod })
       console.log('💰 [CHECKOUT API] Plan amount:', amount, 'cents:', amount * 100)
 
-      // Always derive the base URL from the incoming request origin so that
-      // cloudflare tunnel URL changes never break the return redirect.
-      // NEXT_PUBLIC_APP_URL is only used as a last-resort localhost fallback.
+      // Determine the base URL for payment return/cancel redirects.
+      // Priority: NEXT_PUBLIC_SITE_URL (set in Netlify/production env) > request origin.
+      // This prevents Netlify deploy-preview URLs from becoming the return URL,
+      // which would break auth (session cookie is domain-scoped to production).
       const requestOrigin = new URL(request.url).origin
       const isLocalhost = requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1')
-      const baseUrlRaw = isLocalhost
-        ? (process.env.NEXT_PUBLIC_APP_URL || requestOrigin)
-        : requestOrigin
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      const baseUrlRaw = siteUrl
+        ? siteUrl
+        : isLocalhost
+          ? (process.env.NEXT_PUBLIC_APP_URL || requestOrigin)
+          : requestOrigin
       const baseUrl = baseUrlRaw.replace(/\/$/, '')
       const successUrl = `${baseUrl}/payment-success`
       const cancelUrl = `${baseUrl}/?payment=cancelled#pricing-section`
