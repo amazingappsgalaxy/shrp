@@ -44,12 +44,19 @@ export async function POST(request: NextRequest) {
       (u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail
     )
 
+    // DEBUG: temporary diagnostic info - remove after debugging
+    const diagInfo: Record<string, unknown> = {
+      authUserFound: !!authUser,
+      authUserConfirmed: authUser ? !!authUser.email_confirmed_at : null,
+    }
+
     if (authUser) {
       // User exists in Supabase Auth.
       // resetPasswordForEmail fails for unconfirmed users — confirm the email first.
       // Requesting a password reset proves intent to access the account, so this is safe.
       if (!authUser.email_confirmed_at) {
-        await adminClient.auth.admin.updateUserById(authUser.id, { email_confirm: true })
+        const { error: confirmError } = await adminClient.auth.admin.updateUserById(authUser.id, { email_confirm: true })
+        diagInfo.confirmError = confirmError?.message ?? null
       }
     } else {
       // User is not in Supabase Auth (legacy bcrypt-only account) — lazy-migrate.
@@ -60,9 +67,10 @@ export async function POST(request: NextRequest) {
         email_confirm: true,
         user_metadata: { full_name: appUser.email.split('@')[0] },
       })
+      diagInfo.createError = createError?.message ?? null
       if (createError) {
         console.error('forgot-password: failed to lazy-migrate user to auth:', createError)
-        return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
+        return NextResponse.json({ error: 'Failed to send reset email', diag: diagInfo }, { status: 500 })
       }
     }
 
@@ -73,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('forgot-password: Supabase resetPasswordForEmail error:', error)
-      return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to send reset email', diag: { ...diagInfo, resetError: error.message } }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'If that email exists, a reset link has been sent.' })
