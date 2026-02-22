@@ -56,6 +56,15 @@ export async function POST(request: NextRequest) {
           .eq('id', userId)
           .then(() => {}).catch(() => {})
       }
+    } else if (supabaseError?.message?.toLowerCase().includes('not confirmed')) {
+      // Correct password but email not yet verified — Supabase blocks login.
+      // We allow it since we manage email verification separately via is_email_verified.
+      // (Supabase only returns this error when the password IS correct.)
+      appUser = await findUserByEmail(normalizedEmail)
+      userId = appUser?.id
+      if (!userId) {
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      }
     } else {
       // Supabase Auth failed — fallback to legacy bcrypt for existing users
       appUser = await findUserByEmail(normalizedEmail)
