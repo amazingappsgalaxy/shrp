@@ -29,16 +29,17 @@ export async function POST(request: NextRequest) {
 
     // Sync new bcrypt hash into public.users via email (public.users.id != auth.users.id)
     const newHash = await hashPassword(password)
-    await adminClient
+    const { data: appUser } = await adminClient
       .from('users')
       .update({ password_hash: newHash, updated_at: new Date().toISOString() })
       .eq('email', user.email)
+      .select('id')
+      .single()
 
-    // Invalidate all existing custom sessions for security
-    await adminClient
-      .from('sessions')
-      .delete()
-      .eq('user_id', user.id)
+    // Invalidate all existing custom sessions for security (use public.users.id, not auth.users.id)
+    if (appUser?.id) {
+      await adminClient.from('sessions').delete().eq('user_id', appUser.id)
+    }
 
     // Clear the session cookie so middleware doesn't redirect on the next request
     const cookieStore = await cookies()
