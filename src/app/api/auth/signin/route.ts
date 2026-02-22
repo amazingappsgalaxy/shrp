@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
 import { generateSessionToken, verifyPassword } from '@/lib/auth-simple'
+import { supabaseAdmin } from '@/lib/supabase'
 
 function getAdminClient() {
   return createSupabaseAdmin(
@@ -46,6 +47,14 @@ export async function POST(request: NextRequest) {
           name: supabaseUser.user_metadata?.full_name || normalizedEmail.split('@')[0],
           passwordHash: 'supabase-auth-managed',
         })
+      }
+      // Sync email verification status if Supabase Auth says email is confirmed
+      if (userId && supabaseUser.email_confirmed_at) {
+        ;(supabaseAdmin as any)
+          .from('users')
+          .update({ is_email_verified: true, updated_at: new Date().toISOString() })
+          .eq('id', userId)
+          .then(() => {}).catch(() => {})
       }
     } else {
       // Supabase Auth failed — fallback to legacy bcrypt for existing users

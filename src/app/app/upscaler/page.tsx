@@ -25,7 +25,7 @@ const DEMO_OUTPUT_URL = 'https://i.postimg.cc/NjJBqyPS/Comfy-UI-00022-psmsy-1770
 const UPSCALER_CREDITS = { '4k': 80, '8k': 120 } as const
 
 function UpscalerContent() {
-  const { user, isLoading, isDemo } = useAuth()
+  const { user, isLoading, isDemo, emailVerified } = useAuth()
 
   // Image state
   const [uploadedImage, setUploadedImage] = useState<string | null>(DEMO_INPUT_URL)
@@ -277,6 +277,23 @@ function UpscalerContent() {
   }
 
   if (isLoading) return <ElegantLoading message="Initializing Upscaler..." />
+
+  if (user && !isDemo && emailVerified === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white px-4">
+        <div className="text-center max-w-md">
+          <div className="text-4xl mb-4">✉️</div>
+          <h2 className="text-xl font-semibold mb-2">Verify your email to continue</h2>
+          <p className="text-neutral-400 text-sm mb-6">
+            Check your inbox for a verification link. You need to verify your email before using the upscaler.
+          </p>
+          <p className="text-neutral-500 text-xs">
+            Didn&apos;t get it? Check the banner at the top to resend.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   if (!user && !isDemo) {
     if (typeof window !== 'undefined') window.location.href = '/app/signin'

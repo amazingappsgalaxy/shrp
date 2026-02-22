@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/supabase';
 import { generateSessionToken } from '@/lib/auth-simple';
 
 export async function GET(request: Request) {
@@ -64,6 +65,14 @@ export async function GET(request: Request) {
                         maxAge: 60 * 60 * 24 * 7 // 7 days (matching signin route)
                     });
                     console.log(`[Auth Callback] Session bridge established for ${userId}`);
+                    // Mark email as verified — OAuth providers (Google) always verify emails
+                    if (userId) {
+                      (supabaseAdmin as any)
+                        .from('users')
+                        .update({ is_email_verified: true, updated_at: new Date().toISOString() })
+                        .eq('id', userId)
+                        .then(() => {}).catch(() => {})
+                    }
                 }
 
             } catch (bridgeError) {

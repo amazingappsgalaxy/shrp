@@ -92,12 +92,13 @@ export function useSession() {
 
 // Backward-compatible hook — returns user directly
 export function useAuth() {
-  const { user, isLoading, isDemo } = useAppData()
+  const { user, isLoading, isDemo, profile } = useAppData()
 
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
     isDemo,
+    emailVerified: profile?.emailVerified ?? true, // default true for OAuth users / loading state
   }
 }

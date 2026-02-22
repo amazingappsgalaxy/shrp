@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
           .single(),
         (supabase as any)
           .from('users')
-          .select('id, name, email, created_at, password_hash')
+          .select('id, name, email, created_at, password_hash, is_email_verified')
           .eq('id', user.id)
           .single(),
       ])
@@ -132,6 +132,7 @@ export async function GET(request: NextRequest) {
           email: profileRow.email,
           createdAt: profileRow.created_at,
           hasPassword: !!profileRow.password_hash,
+          emailVerified: !!profileRow.is_email_verified,
         }
       }
     }

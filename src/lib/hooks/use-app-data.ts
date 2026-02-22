@@ -34,6 +34,7 @@ interface AppProfile {
   email: string
   createdAt: string
   hasPassword: boolean
+  emailVerified: boolean
 }
 
 interface AppData {

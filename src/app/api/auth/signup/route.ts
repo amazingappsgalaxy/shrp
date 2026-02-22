@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
       password,
-      email_confirm: true,
+      email_confirm: false, // sends verification email via Supabase/Maileroo SMTP
       user_metadata: { full_name: name.trim() },
     })
 

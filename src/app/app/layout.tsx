@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import UserHeader from '@/components/app/UserHeader'
+import EmailVerificationBanner from '@/components/app/EmailVerificationBanner'
 
 // Auth pages that should NOT show the app header
 const AUTH_PATHS = ['/app/signin', '/app/signup', '/app/reset-password', '/app/auth']
@@ -13,6 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!isAuthPage && <UserHeader />}
+      {!isAuthPage && <EmailVerificationBanner />}
       {children}
     </>
   )
