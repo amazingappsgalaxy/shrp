@@ -22,6 +22,7 @@ export async function updateSession(request: NextRequest) {
     !hasDemoCookie &&
     !request.nextUrl.pathname.startsWith('/app/signin') &&
     !request.nextUrl.pathname.startsWith('/app/auth') &&
+    !request.nextUrl.pathname.startsWith('/app/reset-password') &&
     request.nextUrl.searchParams.get('demo') !== 'true'
   ) {
     const url = request.nextUrl.clone()
