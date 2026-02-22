@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       user: {
         id: userId,
-        email: user.email,
-        name: appUser?.name || user.user_metadata?.full_name || user.email!.split('@')[0],
+        email: normalizedEmail,
+        name: appUser?.name || supabaseUser?.user_metadata?.full_name || normalizedEmail.split('@')[0],
       },
     })
   } catch (error) {
