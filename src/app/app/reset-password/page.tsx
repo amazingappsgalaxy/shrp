@@ -215,9 +215,17 @@ function ResetPasswordForm() {
   );
 }
 
+function SuspenseFallback() {
+  return (
+    <div className="relative min-h-screen w-full bg-[#030303] font-sans flex items-center justify-center">
+      <Loader2 className="size-8 text-[#FFFF00] animate-spin" />
+    </div>
+  );
+}
+
 export default function ResetPasswordPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<SuspenseFallback />}>
       <ResetPasswordForm />
     </Suspense>
   );

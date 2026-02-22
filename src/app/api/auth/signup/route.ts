@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
-import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { findUserByEmail, createSession } from '@/lib/supabase-server'
 import { generateSessionToken } from '@/lib/auth-simple'
 import { supabaseAdmin } from '@/lib/supabase'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  return createSupabaseAdmin(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createSupabaseClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
 function getAnonClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  return createSupabaseAdmin(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  return createSupabaseClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
 export async function POST(request: NextRequest) {
@@ -36,77 +36,105 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
+    const trimmedName = name.trim()
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sharpii.ai'
 
-    // Use admin API to create user with email pre-confirmed (no confirmation email needed,
-    // matching the old custom auth behaviour where users could sign in immediately)
-    const adminClient = getAdminClient()
-    const { data: { user }, error } = await adminClient.auth.admin.createUser({
+    // Use the anon client's signUp — this is the ONLY Supabase method that reliably
+    // sends the confirmation email via the configured SMTP (Mailroo).
+    // admin.createUser does NOT send confirmation emails automatically.
+    const anonClient = getAnonClient()
+    const { data: authData, error: signUpError } = await anonClient.auth.signUp({
       email: normalizedEmail,
       password,
-      email_confirm: false, // sends verification email via Supabase/Maileroo SMTP
-      user_metadata: { full_name: name.trim() },
+      options: {
+        data: { full_name: trimmedName, name: trimmedName },
+        emailRedirectTo: `${siteUrl}/app/dashboard`,
+      },
     })
 
-    if (error || !user) {
-      const msg = error?.message || 'Signup failed'
+    if (signUpError) {
+      const msg = signUpError.message || 'Signup failed'
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
         return NextResponse.json({ error: 'User already exists with this email' }, { status: 409 })
       }
       return NextResponse.json({ error: msg }, { status: 400 })
     }
 
-    // Explicitly send confirmation email — admin createUser doesn't always trigger it automatically
-    try {
-      await getAnonClient().auth.resend({ type: 'signup', email: normalizedEmail })
-    } catch {
-      // Non-fatal — user can still sign in, just won't get the confirmation email
+    if (!authData.user) {
+      return NextResponse.json({ error: 'Signup failed' }, { status: 500 })
     }
 
-    // Find or create user in public.users
+    // Supabase returns a user with empty identities when the email is already registered
+    if (authData.user.identities && authData.user.identities.length === 0) {
+      return NextResponse.json({ error: 'User already exists with this email' }, { status: 409 })
+    }
+
+    const authUserId = authData.user.id
+
+    // The DB trigger has already created public.users with password_hash = 'managed_by_supabase_auth'.
+    // Update it with the correct sentinel and name.
+    ;(supabaseAdmin as any)
+      .from('users')
+      .update({
+        password_hash: 'supabase-auth-managed',
+        name: trimmedName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', authUserId)
+      .then(() => {}).catch(() => {})
+
+    // Find the public.users row to get the ID for the custom session.
+    // The trigger fires synchronously so the row exists by now.
     let appUser = await findUserByEmail(normalizedEmail)
-    let userId = appUser?.id
+
+    // Fallback: if trigger hasn't propagated yet, wait briefly and retry once
+    if (!appUser) {
+      await new Promise(r => setTimeout(r, 300))
+      appUser = await findUserByEmail(normalizedEmail)
+    }
 
     if (!appUser) {
-      userId = await createUser({
-        email: normalizedEmail,
-        name: name.trim(),
-        passwordHash: 'supabase-auth-managed',
+      // User was created in auth.users but trigger failed — still return success,
+      // the account works via Supabase Auth even without a public.users row yet.
+      console.error('signup: public.users row missing after auth.signUp for', normalizedEmail)
+      return NextResponse.json({
+        user: { id: authUserId, email: normalizedEmail, name: trimmedName },
+        session: null,
       })
-    } else if (appUser.passwordHash === 'managed_by_supabase_auth' || !appUser.passwordHash) {
-      // DB trigger created the row before us — stamp the correct sentinel so settings shows "Change Password"
-      ;(supabaseAdmin as any)
-        .from('users')
-        .update({ password_hash: 'supabase-auth-managed', name: name.trim(), updated_at: new Date().toISOString() })
-        .eq('id', userId)
-        .then(() => {}).catch(() => {})
     }
 
-    if (!userId) {
-      return NextResponse.json({ error: 'Failed to create user account' }, { status: 500 })
-    }
+    const userId = appUser.id
 
-    // Bridge: create custom session so middleware + all existing API routes work unchanged
+    // Create custom session so middleware and all existing API routes work immediately
     const sessionToken = generateSessionToken()
-    await createSession({
-      userId,
-      token: sessionToken,
-      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
-    })
+    let sessionCreated = false
+    try {
+      await createSession({
+        userId,
+        token: sessionToken,
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+      })
+      sessionCreated = true
+    } catch (e) {
+      console.warn('signup: failed to create custom session', e)
+    }
 
-    const cookieStore = await cookies()
-    cookieStore.set('session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    })
+    if (sessionCreated) {
+      const cookieStore = await cookies()
+      cookieStore.set('session', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      })
+    }
 
     return NextResponse.json({
       user: {
         id: userId,
         email: normalizedEmail,
-        name: name.trim(),
+        name: trimmedName,
       },
     })
   } catch (error) {
