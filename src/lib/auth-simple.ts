@@ -14,6 +14,7 @@ import {
   setImageStatus,
   listUserActivity as listUserActivityFromDB
 } from './supabase-server';
+import { supabaseAdmin } from './supabase';
 
 export interface User {
   id: string;
@@ -224,11 +225,23 @@ export async function getUserStats(userId: string) {
     if (!user) {
       throw new Error('User not found');
     }
-    
+
+    // Count completed enhancements from history
+    let totalImages = 0;
+    let processingImages = 0;
+    if (supabaseAdmin) {
+      const [completedResult, processingResult] = await Promise.all([
+        (supabaseAdmin as any).from('history_items').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'completed'),
+        (supabaseAdmin as any).from('history_items').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'processing'),
+      ]);
+      totalImages = completedResult.count ?? 0;
+      processingImages = processingResult.count ?? 0;
+    }
+
     return {
-      totalImages: 0, // TODO: Implement image counting
-      enhancedImages: 0,
-      processingImages: 0,
+      totalImages,
+      enhancedImages: totalImages,
+      processingImages,
       totalStorage: 0,
       apiUsage: user.apiUsage || 0,
       monthlyApiLimit: user.monthlyApiLimit || 100,

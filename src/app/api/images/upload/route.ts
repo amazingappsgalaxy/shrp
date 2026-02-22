@@ -148,27 +148,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to get image dimensions (server-side)
+// Helper function to get image dimensions using sharp
 async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
-  // For now, return default dimensions since we're in a server environment
-  // In production, you might want to use a library like 'sharp' or 'image-size'
-  // to extract actual image dimensions from the file buffer
-  
   try {
-    // Convert File to Buffer for server-side processing
+    const sharp = (await import('sharp')).default
     const buffer = Buffer.from(await file.arrayBuffer())
-    
-    // For now, return default dimensions
-    // TODO: Implement actual image dimension detection using sharp or similar
-    return {
-      width: 1920, // Default width
-      height: 1080 // Default height
+    const metadata = await sharp(buffer).metadata()
+    if (metadata.width && metadata.height) {
+      return { width: metadata.width, height: metadata.height }
     }
   } catch (error) {
     console.error('Error getting image dimensions:', error)
-    return {
-      width: 1920,
-      height: 1080
-    }
   }
+  return { width: 1920, height: 1080 }
 }

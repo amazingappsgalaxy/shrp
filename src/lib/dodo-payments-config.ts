@@ -27,7 +27,7 @@ export const DODO_PRODUCT_IDS = {
     yearly: process.env.DODO_ENTERPRISE_YEARLY_PRODUCT_ID,
   },
   'day pass': {
-    daily: 'pdt_0NYhE3lLB1AVBQ1IF1NzS',
+    daily: process.env.DODO_DAY_PASS_DAILY_PRODUCT_ID || 'pdt_0NYhE3lLB1AVBQ1IF1NzS',
   },
   topup: {
     500:  process.env.DODO_TOPUP_500_PRODUCT_ID  || '',

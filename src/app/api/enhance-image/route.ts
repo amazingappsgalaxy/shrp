@@ -206,8 +206,6 @@ export async function POST(request: NextRequest) {
           created_at: new Date(now).toISOString(),
           updated_at: new Date(now).toISOString()
         })
-        .select()
-        .single()
 
       if (insertError) {
         throw new Error(`Failed to create task: ${insertError.message}`)
@@ -225,7 +223,7 @@ export async function POST(request: NextRequest) {
         .from('history_items')
         .select('id, status, user_id')
         .eq('id', taskId)
-        .single()
+        .maybeSingle()
 
       if (verifyError || !verifyTask) {
         throw new Error('Task creation verification failed - task not found in database')

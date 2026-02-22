@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  const adminSecret = process.env.ADMIN_SECRET
+  if (!adminSecret || !authHeader || authHeader !== `Bearer ${adminSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   if (!supabaseAdmin) {
     return NextResponse.json(
       { error: 'Admin client not configured' },

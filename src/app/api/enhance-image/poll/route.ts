@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     .from('history_items')
     .select('id, user_id, status, output_urls, settings, created_at')
     .eq('id', taskId)
-    .single()
+    .maybeSingle()
 
   if (fetchError || !item) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
   if (item.user_id !== userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

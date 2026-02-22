@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
   try {
     // Verify admin authorization
     const authHeader = request.headers.get('authorization')
-    const adminSecret = process.env.ADMIN_SECRET || 'default-admin-secret'
-    
-    if (!authHeader || authHeader !== `Bearer ${adminSecret}`) {
+    const adminSecret = process.env.ADMIN_SECRET
+
+    if (!adminSecret || !authHeader || authHeader !== `Bearer ${adminSecret}`) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

@@ -605,7 +605,8 @@ async function handleSubscriptionUpdated(subscription: any) {
       },
       { onConflict: 'user_id' }
     )
-  } catch {
+  } catch (error) {
+    console.error('❌ Error handling subscription.updated:', error)
   }
 }
 

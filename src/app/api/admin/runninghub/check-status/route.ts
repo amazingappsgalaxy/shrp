@@ -4,6 +4,12 @@ const RUNNINGHUB_API_KEY = process.env.RUNNINGHUB_API_KEY || '';
 const BASE_URL = 'https://www.runninghub.ai';
 
 export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  const adminSecret = process.env.ADMIN_SECRET
+  if (!adminSecret || !authHeader || authHeader !== `Bearer ${adminSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get('taskId');
