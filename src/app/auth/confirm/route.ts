@@ -25,11 +25,15 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${siteUrl}/app/signin?error=invalid_link`)
   }
 
-  const authUser = data.session.user
-  const email = authUser?.email
+  // For password recovery: just redirect to the reset page — no session bridge needed.
+  // The page calls supabase.auth.updateUser() directly using the Supabase Auth session.
+  if (type === 'recovery') {
+    return NextResponse.redirect(`${siteUrl}${next}`)
+  }
 
+  // For email confirmation (signup): create our custom session so the user is logged in.
+  const email = data.session.user?.email
   if (email) {
-    // Bridge: create our custom session cookie so middleware and API routes work
     const appUser = await findUserByEmail(email).catch(() => null)
     if (appUser) {
       const sessionToken = generateSessionToken()

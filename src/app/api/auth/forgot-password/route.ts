@@ -66,11 +66,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send the reset email. redirectTo points to /auth/confirm which verifies
-    // the token_hash server-side and bridges our custom session before redirecting
-    // to /app/reset-password. Supabase appends ?token_hash=...&type=recovery to this URL.
+    // Send the reset email. Supabase appends ?token_hash=...&type=recovery to redirectTo.
+    // We point directly to /app/reset-password so the page handles the token itself.
     const { error } = await anonClient.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: `${siteUrl}/auth/confirm?next=/app/reset-password`,
+      redirectTo: `${siteUrl}/app/reset-password`,
     })
 
     if (error) {

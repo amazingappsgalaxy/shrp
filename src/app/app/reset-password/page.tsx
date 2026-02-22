@@ -86,8 +86,8 @@ function ResetPasswordForm() {
     }
 
     // PKCE token_hash flow — Supabase appends ?token_hash=...&type=recovery to the redirectTo URL.
-    // The /auth/confirm route should handle this before the user lands here, but as a fallback
-    // (e.g. old emails in inbox) we also handle it directly on the page.
+    // Verify the token directly here. Do NOT call router.replace() after — that would trigger
+    // a re-render that clears the session before the user can submit the form.
     const tokenHash = searchParams.get("token_hash");
     const tokenType = searchParams.get("type");
     if (tokenHash && tokenType === "recovery") {
@@ -95,7 +95,7 @@ function ResetPasswordForm() {
         .then(({ data, error }) => {
           if (error || !data.session) { setInvalidLink(true); return; }
           markReady(data.session.access_token);
-          router.replace("/app/reset-password");
+          // Token is consumed (one-time use) — leave URL as-is to avoid triggering a re-render
         });
       return;
     }
@@ -114,8 +114,6 @@ function ResetPasswordForm() {
         .then(({ data, error }) => {
           if (error || !data.session) { setInvalidLink(true); return; }
           markReady(hashToken);
-          // Clean hash from URL so a refresh doesn't re-process it
-          window.history.replaceState(null, "", "/app/reset-password");
         });
       return;
     }
