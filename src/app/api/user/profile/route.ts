@@ -102,9 +102,11 @@ export async function PATCH(request: NextRequest) {
         if (signInError) {
           return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
         }
-        // Also update password in Supabase Auth (public.users.id === auth.users.id)
+        // Also update password in Supabase Auth (find by email since public.users.id != auth.users.id)
         const authAdmin = getAuthAdminClient()
-        await authAdmin.auth.admin.updateUserById(session.user.id, { password: newPassword })
+        const { data: authList } = await authAdmin.auth.admin.listUsers({ perPage: 1000 })
+        const authUser = authList?.users?.find((u: { email?: string }) => u.email?.toLowerCase() === user.email.toLowerCase())
+        if (authUser) await authAdmin.auth.admin.updateUserById(authUser.id, { password: newPassword })
       }
       // If no hash at all (e.g. OAuth user with no password yet), allow setting without current password
 

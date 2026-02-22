@@ -136,7 +136,7 @@ const DEMO_INPUT_URL = 'https://i.postimg.cc/vTtwPDVt/90s-Futuristic-Portrait-3.
 const DEMO_OUTPUT_URL = 'https://i.postimg.cc/NjJBqyPS/Comfy-UI-00022-psmsy-1770811094.png'
 
 function EditorContent() {
-  const { user, isLoading, isDemo, emailVerified } = useAuth()
+  const { user, isLoading, isDemo } = useAuth()
   const searchParams = useSearchParams()
 
   type EnhancedOutput = { type: 'image' | 'video'; url: string }
@@ -527,23 +527,6 @@ function EditorContent() {
   }
 
   if (isLoading) return <ElegantLoading message="Initializing Editor..." />
-
-  if (user && !isDemo && emailVerified === false) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white px-4">
-        <div className="text-center max-w-md">
-          <div className="text-4xl mb-4">✉️</div>
-          <h2 className="text-xl font-semibold mb-2">Verify your email to continue</h2>
-          <p className="text-neutral-400 text-sm mb-6">
-            Check your inbox for a verification link. You need to verify your email before using the editor.
-          </p>
-          <p className="text-neutral-500 text-xs">
-            Didn&apos;t get it? Check the banner at the top to resend.
-          </p>
-        </div>
-      </div>
-    )
-  }
 
   if (!user && !isDemo) {
     if (typeof window !== 'undefined') {

@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
 
-    // Sync new bcrypt hash into public.users (keeps legacy fallback working)
+    // Sync new bcrypt hash into public.users via email (public.users.id != auth.users.id)
     const newHash = await hashPassword(password)
     await adminClient
       .from('users')
       .update({ password_hash: newHash, updated_at: new Date().toISOString() })
-      .eq('id', user.id)
+      .eq('email', user.email)
 
     // Invalidate all existing custom sessions for security
     await adminClient
