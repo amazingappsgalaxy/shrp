@@ -106,9 +106,11 @@ function ResetPasswordForm() {
       return;
     }
 
-    // Fallback: listen for PASSWORD_RECOVERY auth state event
+    // Session was already established server-side by /auth/confirm.
+    // Read it from cookies via getSession(). Also keep PASSWORD_RECOVERY
+    // listener as fallback for old hash-based links.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session) markReady(session.access_token);
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) markReady(session.access_token);
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.access_token) markReady(session.access_token);
