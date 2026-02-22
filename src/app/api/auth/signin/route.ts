@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
       appUser = await findUserByEmail(normalizedEmail)
       const hash = appUser?.password_hash
 
-      // Give a helpful error for Google-only accounts
-      if (appUser && hash === 'google-oauth-managed') {
+      // Give a helpful error for Google-only accounts (including trigger-created ones not yet stamped)
+      if (appUser && (hash === 'google-oauth-managed' || hash === 'managed_by_supabase_auth')) {
         return NextResponse.json(
           { error: 'This account was created with Google. Please sign in with Google.' },
           { status: 401 }

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
 import { generateSessionToken } from '@/lib/auth-simple'
+import { supabaseAdmin } from '@/lib/supabase'
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -58,6 +59,13 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         passwordHash: 'supabase-auth-managed',
       })
+    } else if (appUser.passwordHash === 'managed_by_supabase_auth' || !appUser.passwordHash) {
+      // DB trigger created the row before us — stamp the correct sentinel so settings shows "Change Password"
+      ;(supabaseAdmin as any)
+        .from('users')
+        .update({ password_hash: 'supabase-auth-managed', name: name.trim(), updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .then(() => {}).catch(() => {})
     }
 
     if (!userId) {

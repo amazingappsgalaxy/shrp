@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server';
 import { generateSessionToken } from '@/lib/auth-simple';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
@@ -31,15 +32,24 @@ export async function GET(request: Request) {
                         userId = await createUser({
                             email,
                             name,
-                            passwordHash: 'google-oauth-managed', // Placeholder, they use Google to login
+                            passwordHash: 'google-oauth-managed',
                         });
                         console.log(`[Auth Callback] Created user ${userId}`);
                     } catch (createError) {
                         console.error('[Auth Callback] Failed to create user:', createError);
-                        // If create failed, maybe it exists now (race condition)? Try finding again.
                         user = await findUserByEmail(email);
                         if (user) userId = user.id;
                         else throw createError;
+                    }
+                } else {
+                    // User was created by DB trigger with 'managed_by_supabase_auth'.
+                    // Mark them as Google so settings shows "Set Password" correctly.
+                    if (user.passwordHash === 'managed_by_supabase_auth' || !user.passwordHash) {
+                        ;(supabaseAdmin as any)
+                            .from('users')
+                            .update({ password_hash: 'google-oauth-managed', updated_at: new Date().toISOString() })
+                            .eq('id', userId)
+                            .then(() => {}).catch(() => {})
                     }
                 }
 

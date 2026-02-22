@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       name: user.name,
       email: user.email,
       createdAt: user.created_at,
-      hasPassword: !!user.password_hash && user.password_hash !== 'google-oauth-managed',
+      hasPassword: !!user.password_hash && user.password_hash !== 'google-oauth-managed' && user.password_hash !== 'managed_by_supabase_auth',
     })
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -107,7 +107,7 @@ export async function PATCH(request: NextRequest) {
         const authUser = authList?.users?.find((u: { email?: string }) => u.email?.toLowerCase() === user.email.toLowerCase())
         if (authUser) await authAdmin.auth.admin.updateUserById(authUser.id, { password: newPassword })
       } else {
-        // Google OAuth account (or no password yet) — allow setting without current password verification.
+        // Google OAuth account, trigger-created account, or no password yet — allow setting without current password.
         // Add/update password capability in Supabase Auth so email+password login works after this.
         const authAdmin = getAuthAdminClient()
         const { data: authList } = await authAdmin.auth.admin.listUsers({ perPage: 1000 })

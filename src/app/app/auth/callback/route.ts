@@ -32,15 +32,24 @@ export async function GET(request: Request) {
                         userId = await createUser({
                             email,
                             name,
-                            passwordHash: 'google-oauth-managed', // Placeholder, they use Google to login
+                            passwordHash: 'google-oauth-managed',
                         });
                         console.log(`[Auth Callback] Created user ${userId}`);
                     } catch (createError) {
                         console.error('[Auth Callback] Failed to create user:', createError);
-                        // If create failed, maybe it exists now (race condition)? Try finding again.
                         user = await findUserByEmail(email);
                         if (user) userId = user.id;
                         else throw createError;
+                    }
+                } else {
+                    // User was created by DB trigger with 'managed_by_supabase_auth'.
+                    // Mark them as Google so settings shows "Set Password" correctly.
+                    if (user.passwordHash === 'managed_by_supabase_auth' || !user.passwordHash) {
+                        ;(supabaseAdmin as any)
+                            .from('users')
+                            .update({ password_hash: 'google-oauth-managed', updated_at: new Date().toISOString() })
+                            .eq('id', userId)
+                            .then(() => {}).catch(() => {})
                     }
                 }
 
@@ -65,14 +74,6 @@ export async function GET(request: Request) {
                         maxAge: 60 * 60 * 24 * 7 // 7 days (matching signin route)
                     });
                     console.log(`[Auth Callback] Session bridge established for ${userId}`);
-                    // Mark email as verified — OAuth providers (Google) always verify emails
-                    if (userId) {
-                      (supabaseAdmin as any)
-                        .from('users')
-                        .update({ is_email_verified: true, updated_at: new Date().toISOString() })
-                        .eq('id', userId)
-                        .then(() => {}).catch(() => {})
-                    }
                 }
 
             } catch (bridgeError) {
