@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('id', paymentId)
       .eq('userId', sessionData.user.id)
-      .single()
+      .maybeSingle()
     
     if (error) {
       console.error('Error fetching payment:', error)

@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
             .in('status', ['active', 'pending', 'pending_cancellation', 'trialing'])
             .order('created_at', { ascending: false })
             .limit(1)
-            .single()
+            .maybeSingle()
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
             console.error('Error fetching subscription:', error)
         }
 

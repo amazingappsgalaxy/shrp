@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
     const { data: payments, error } = await supabase
       .from('payments')
       .select('*')
-      .eq('dodoPaymentId', paymentId)
-      .single()
+      .eq('dodo_payment_id', paymentId)
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+    if (error) {
       console.error('Error fetching payment:', error)
     }
 

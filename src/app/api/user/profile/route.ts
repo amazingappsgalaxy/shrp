@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       .from('users')
       .select('id, name, email, created_at, password_hash')
       .eq('id', session.user.id)
-      .single()
+      .maybeSingle()
 
     if (error || !user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest) {
         .from('users')
         .select('email, password_hash')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()
 
       const hash = user?.password_hash as string | undefined
 

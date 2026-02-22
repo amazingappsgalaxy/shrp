@@ -3,6 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '../../../../lib/config';
 
 export async function GET(request: NextRequest) {
+  // Require admin secret — this endpoint exposes sensitive business metrics
+  const authHeader = request.headers.get('authorization')
+  const adminSecret = process.env.ADMIN_SECRET
+  if (!adminSecret || !authHeader || authHeader !== `Bearer ${adminSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     // Initialize Supabase admin client
     const supabaseAdmin = createClient(

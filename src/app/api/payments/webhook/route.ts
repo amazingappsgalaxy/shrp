@@ -168,7 +168,7 @@ async function handlePaymentSucceeded(payment: any) {
           .from('subscriptions')
           .select('user_id')
           .eq('dodo_customer_id', payment.customer?.customer_id || payment.customer_id)
-          .single()
+          .maybeSingle()
 
         // @ts-ignore
         if (subData?.user_id) {

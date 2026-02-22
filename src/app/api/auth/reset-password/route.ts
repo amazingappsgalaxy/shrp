@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       .update({ password_hash: newHash, updated_at: new Date().toISOString() })
       .eq('email', user.email)
       .select('id')
-      .single()
+      .maybeSingle()
 
     // Invalidate all existing custom sessions for security (use public.users.id, not auth.users.id)
     if (appUser?.id) {

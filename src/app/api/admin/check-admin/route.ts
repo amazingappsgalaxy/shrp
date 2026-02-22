@@ -50,9 +50,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Keep the POST method for backwards compatibility
+// POST method requires admin secret — userId check without auth is an info-disclosure risk
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get('authorization')
+    const adminSecret = process.env.ADMIN_SECRET
+    if (!adminSecret || !authHeader || authHeader !== `Bearer ${adminSecret}`) {
+      return NextResponse.json({ isAdmin: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { userId } = await request.json();
 
     if (!userId) {

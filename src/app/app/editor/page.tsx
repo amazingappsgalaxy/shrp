@@ -785,7 +785,7 @@ function EditorContent() {
             <div className="p-5 pt-0">
               <button
                 onClick={handleEnhance}
-                disabled={!uploadedImage}
+                disabled={!uploadedImage || isSubmitting}
                 className="w-full bg-[#FFFF00] hover:bg-[#e6e600] text-black font-bold h-14 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] text-base uppercase tracking-wider"
               >
                 {isSubmitting ? (
