@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
           name: profileRow.name,
           email: profileRow.email,
           createdAt: profileRow.created_at,
-          hasPassword: !!profileRow.password_hash,
+          hasPassword: !!profileRow.password_hash && profileRow.password_hash !== 'google-oauth-managed',
         }
       }
     }
