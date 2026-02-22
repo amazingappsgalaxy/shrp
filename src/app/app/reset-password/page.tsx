@@ -79,22 +79,37 @@ function ResetPasswordForm() {
     if (code) {
       // PKCE code flow — exchange for session
       supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (error || !data.session) {
-          setInvalidLink(true);
-          return;
-        }
+        if (error || !data.session) { setInvalidLink(true); return; }
         markReady(data.session.access_token);
-        // Remove code from URL to prevent re-exchange on refresh
         router.replace("/app/reset-password");
       });
       return;
     }
 
-    // Hash flow (#access_token=...) — listen for PASSWORD_RECOVERY event
+    // Hash flow (#access_token=...&type=recovery).
+    // @supabase/ssr's createBrowserClient doesn't auto-process hash fragments,
+    // so we parse the hash manually and call setSession() explicitly.
+    const hash = typeof window !== "undefined" ? window.location.hash.substring(1) : "";
+    const hashParams = new URLSearchParams(hash);
+    const hashToken = hashParams.get("access_token");
+    const hashRefresh = hashParams.get("refresh_token") ?? "";
+    const hashType = hashParams.get("type");
+
+    if (hashType === "recovery" && hashToken) {
+      supabase.auth.setSession({ access_token: hashToken, refresh_token: hashRefresh })
+        .then(({ data, error }) => {
+          if (error || !data.session) { setInvalidLink(true); return; }
+          markReady(hashToken);
+          // Clean hash from URL so a refresh doesn't re-process it
+          window.history.replaceState(null, "", "/app/reset-password");
+        });
+      return;
+    }
+
+    // Fallback: listen for PASSWORD_RECOVERY auth state event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" && session) markReady(session.access_token);
     });
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.access_token) markReady(session.access_token);
     });

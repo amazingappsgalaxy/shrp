@@ -11,6 +11,12 @@ function getAdminClient() {
   return createSupabaseAdmin(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
+function getAnonClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createSupabaseAdmin(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password, name } = await request.json()
@@ -47,6 +53,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'User already exists with this email' }, { status: 409 })
       }
       return NextResponse.json({ error: msg }, { status: 400 })
+    }
+
+    // Explicitly send confirmation email — admin createUser doesn't always trigger it automatically
+    try {
+      await getAnonClient().auth.resend({ type: 'signup', email: normalizedEmail })
+    } catch {
+      // Non-fatal — user can still sign in, just won't get the confirmation email
     }
 
     // Find or create user in public.users
