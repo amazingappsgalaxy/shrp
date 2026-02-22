@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
 import { generateSessionToken, verifyPassword } from '@/lib/auth-simple'
+
+function getAdminClient() {
+  return createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,17 +50,19 @@ export async function POST(request: NextRequest) {
     } else {
       // Supabase Auth failed — fallback to legacy bcrypt for existing users
       appUser = await findUserByEmail(normalizedEmail)
-      if (!appUser || !appUser.password_hash) {
+      const hash = appUser?.password_hash
+      // Only attempt bcrypt if we have a real bcrypt hash (starts with $2b$ or $2a$)
+      if (!appUser || !hash || !hash.startsWith('$2')) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
       }
-      const validPassword = await verifyPassword(password, appUser.password_hash)
+      const validPassword = await verifyPassword(password, hash)
       if (!validPassword) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
       }
       userId = appUser.id
       // Lazily migrate this user into Supabase Auth so future logins use it
       try {
-        await supabase.auth.admin.createUser({
+        await getAdminClient().auth.admin.createUser({
           email: normalizedEmail,
           password,
           email_confirm: true,
