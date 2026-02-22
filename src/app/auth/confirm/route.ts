@@ -25,10 +25,15 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${siteUrl}/app/signin?error=invalid_link`)
   }
 
-  // For password recovery: just redirect to the reset page — no session bridge needed.
-  // The page calls supabase.auth.updateUser() directly using the Supabase Auth session.
+  // For password recovery: pass session tokens via URL hash fragment so the
+  // client-side reset page can call setSession() and then updateUser().
+  // Hash fragments are never sent to the server, keeping tokens out of logs.
   if (type === 'recovery') {
-    return NextResponse.redirect(`${siteUrl}${next}`)
+    const accessToken = data.session.access_token
+    const refreshToken = data.session.refresh_token
+    return NextResponse.redirect(
+      `${siteUrl}${next}#access_token=${accessToken}&refresh_token=${refreshToken}&type=recovery`
+    )
   }
 
   // For email confirmation (signup): create our custom session so the user is logged in.
