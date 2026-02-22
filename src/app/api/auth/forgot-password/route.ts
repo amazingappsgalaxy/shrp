@@ -66,9 +66,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send the reset email via Supabase (uses Maileroo SMTP configured in dashboard)
+    // Send the reset email. redirectTo points to /auth/confirm which verifies
+    // the token_hash server-side and bridges our custom session before redirecting
+    // to /app/reset-password. Supabase appends ?token_hash=...&type=recovery to this URL.
     const { error } = await anonClient.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: `${siteUrl}/app/reset-password`,
+      redirectTo: `${siteUrl}/auth/confirm?next=/app/reset-password`,
     })
 
     if (error) {

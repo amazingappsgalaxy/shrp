@@ -77,12 +77,26 @@ function ResetPasswordForm() {
     };
 
     if (code) {
-      // PKCE code flow — exchange for session
       supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
         if (error || !data.session) { setInvalidLink(true); return; }
         markReady(data.session.access_token);
         router.replace("/app/reset-password");
       });
+      return;
+    }
+
+    // PKCE token_hash flow — Supabase appends ?token_hash=...&type=recovery to the redirectTo URL.
+    // The /auth/confirm route should handle this before the user lands here, but as a fallback
+    // (e.g. old emails in inbox) we also handle it directly on the page.
+    const tokenHash = searchParams.get("token_hash");
+    const tokenType = searchParams.get("type");
+    if (tokenHash && tokenType === "recovery") {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+        .then(({ data, error }) => {
+          if (error || !data.session) { setInvalidLink(true); return; }
+          markReady(data.session.access_token);
+          router.replace("/app/reset-password");
+        });
       return;
     }
 
