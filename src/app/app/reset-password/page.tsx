@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, useId } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useState, useId, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { MainLogo } from "@/components/ui/main-logo";
-import { Eye, EyeOff, Zap, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Zap } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-// --- Reused UI Components from AuthUI ---
 
 const Button = ({ className, children, disabled, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => {
   return (
@@ -74,7 +71,19 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [invalidToken, setInvalidToken] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const t = searchParams.get("token");
+    if (!t) {
+      setInvalidToken(true);
+    } else {
+      setToken(t);
+    }
+  }, [searchParams]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,16 +95,28 @@ export default function ResetPasswordPage() {
       toast.error("Passwords do not match");
       return;
     }
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    if (!token) {
+      toast.error("Invalid reset link");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password });
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password");
 
-      toast.success("Password updated successfully");
-      router.push("/app/dashboard");
+      toast.success("Password updated! Please sign in with your new password.");
+      router.push("/app/signin");
     } catch (error: any) {
       toast.error(error.message || "Failed to update password");
     } finally {
@@ -119,41 +140,56 @@ export default function ResetPasswordPage() {
       </div>
 
       <div className="relative z-10 w-full max-w-[400px] flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500">
-
         <div className="w-full glass-premium bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl p-6 shadow-2xl ring-1 ring-white/5">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-white mb-2">Set New Password</h1>
-            <p className="text-zinc-400 text-sm">
-              Please enter your new password below.
-            </p>
-          </div>
 
-          <form onSubmit={handleUpdatePassword} className="grid gap-4">
-            <div className="grid gap-1.5">
-              <PasswordInput
-                placeholder="New Password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-black/20"
-              />
+          {invalidToken ? (
+            <div className="text-center space-y-4 py-4">
+              <div className="mx-auto w-12 h-12 bg-red-500/10 rounded-md flex items-center justify-center">
+                <Zap className="size-6 text-red-400" />
+              </div>
+              <h1 className="text-xl font-bold text-white">Invalid Reset Link</h1>
+              <p className="text-zinc-400 text-sm">This link is invalid or has expired. Please request a new password reset.</p>
+              <button
+                onClick={() => router.push('/app/signin')}
+                className="text-[#FFFF00] text-sm hover:underline"
+              >
+                Back to Sign In
+              </button>
             </div>
-            <div className="grid gap-1.5">
-              <PasswordInput
-                placeholder="Confirm Password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-black/20"
-              />
-            </div>
+          ) : (
+            <>
+              <div className="text-center mb-6">
+                <h1 className="text-2xl font-bold text-white mb-2">Set New Password</h1>
+                <p className="text-zinc-400 text-sm">Please enter your new password below.</p>
+              </div>
 
-            <Button type="submit" disabled={isLoading} className="mt-2 w-full">
-              {isLoading ? "Updating..." : "Update Password"}
-            </Button>
-          </form>
+              <form onSubmit={handleUpdatePassword} className="grid gap-4">
+                <div className="grid gap-1.5">
+                  <PasswordInput
+                    placeholder="New Password (min. 8 characters)"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-black/20"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <PasswordInput
+                    placeholder="Confirm Password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="bg-black/20"
+                  />
+                </div>
+
+                <Button type="submit" disabled={isLoading} className="mt-2 w-full">
+                  {isLoading ? "Updating..." : "Update Password"}
+                </Button>
+              </form>
+            </>
+          )}
         </div>
-
       </div>
     </div>
   );

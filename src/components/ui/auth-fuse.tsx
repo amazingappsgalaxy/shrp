@@ -218,12 +218,16 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/app/auth/callback?next=/app/reset-password`,
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to send reset email.');
+      }
 
       setIsSent(true);
       toast.success('Password reset email sent');
@@ -244,6 +248,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
           </div>
           <h3 className="text-white font-bold">Check your email</h3>
           <p className="text-zinc-400 text-sm">We've sent a password reset link to <span className="text-white">{email}</span></p>
+          <p className="text-zinc-500 text-xs mt-2">Didn't receive it? Check your <span className="text-zinc-300">spam or junk folder</span>. The link expires in 1 hour.</p>
         </div>
         <Button variant="outline" onClick={onBack} className="w-full">
           Back to Sign In
