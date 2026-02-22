@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createClient } from '@/utils/supabase/server'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
 import { generateSessionToken } from '@/lib/auth-simple'
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createSupabaseAdmin(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,12 +21,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Register via Supabase Auth
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
+    const normalizedEmail = email.trim().toLowerCase()
+
+    // Use admin API to create user with email pre-confirmed (no confirmation email needed,
+    // matching the old custom auth behaviour where users could sign in immediately)
+    const adminClient = getAdminClient()
+    const { data: { user }, error } = await adminClient.auth.admin.createUser({
+      email: normalizedEmail,
       password,
-      options: { data: { full_name: name.trim() } },
+      email_confirm: true,
+      user_metadata: { full_name: name.trim() },
     })
 
     if (error || !user) {
@@ -32,12 +42,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Find or create user in public.users
-    let appUser = await findUserByEmail(user.email!)
+    let appUser = await findUserByEmail(normalizedEmail)
     let userId = appUser?.id
 
     if (!appUser) {
       userId = await createUser({
-        email: user.email!,
+        email: normalizedEmail,
         name: name.trim(),
         passwordHash: 'supabase-auth-managed',
       })
@@ -67,7 +77,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       user: {
         id: userId,
-        email: user.email,
+        email: normalizedEmail,
         name: name.trim(),
       },
     })
