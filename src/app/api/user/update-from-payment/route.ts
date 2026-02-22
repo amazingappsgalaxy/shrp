@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { getSession } from '@/lib/simple-auth'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user session using better-auth
-    const session = await auth.api.getSession({
-      headers: Object.fromEntries(request.headers) as Record<string, string>
-    })
-    
-    if (!session || !session.user) {
+    // Get user session from cookie
+    const token = request.cookies.get('session')?.value
+    const sessionData = token ? await getSession(token) : null
+
+    if (!sessionData?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       )
     }
+
+    const sessionUser = sessionData.user!
 
     const { paymentData } = await request.json()
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     const userUpdates: any = {}
     
     // Update user information based on payment metadata and billing info
-    if (paymentData.customer_email && paymentData.customer_email !== session.user.email) {
+    if (paymentData.customer_email && paymentData.customer_email !== sessionUser.email) {
       userUpdates.email = paymentData.customer_email
     }
     
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
           ...userUpdates,
           updated_at: new Date().toISOString()
         })
-        .eq('id', session.user.id)
+        .eq('id', sessionUser.id)
 
       if (error) {
         console.error('❌ Error updating user profile:', error)

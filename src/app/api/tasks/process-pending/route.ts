@@ -180,6 +180,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
 
+  // Always expire stale subscription credits, even if no tasks are pending
+  try {
+    const { data: expiredCount } = await supabase.rpc('expire_subscription_credits')
+    if (expiredCount > 0) {
+      console.log(`process-pending: expired ${expiredCount} stale subscription credit(s)`)
+    }
+  } catch (expireErr) {
+    console.error('process-pending: failed to expire credits:', expireErr)
+  }
+
   if (!pendingTasks || pendingTasks.length === 0) {
     return NextResponse.json({ processed: 0, message: 'No pending tasks' })
   }

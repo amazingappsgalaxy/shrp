@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { DODO_PAYMENTS_CONFIG, DODO_PRODUCT_IDS } from '@/lib/dodo-payments-config'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
@@ -56,37 +55,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user session using better-auth (primary)
-    let session: any = null
-    try {
-      session = await auth.api.getSession({
-        headers: Object.fromEntries(request.headers) as Record<string, string>
-      })
-    } catch (e) {
-      // ignore and try fallback
-      session = null
-    }
-
-    // Fallback: support our simple session cookie/Authorization header
+    // Get user from session cookie (or Authorization Bearer header)
     let userId: string | null = null
     let userEmail: string | null = null
 
-    if (session?.user) {
-      userId = session.user.id as string
-      userEmail = session.user.email as string
-    } else {
-      const authHeader = request.headers.get('authorization')
-      const bearer = authHeader?.startsWith('Bearer ')
-        ? authHeader.slice('Bearer '.length)
-        : null
-      const cookieToken = request.cookies.get('session')?.value || null
-      const token = bearer || cookieToken
-      if (token) {
-        const simple = await getSimpleSession(token)
-        if (simple?.user) {
-          userId = (simple.user as any).id
-          userEmail = (simple.user as any).email
-        }
+    const authHeader = request.headers.get('authorization')
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null
+    const cookieToken = request.cookies.get('session')?.value || null
+    const token = bearer || cookieToken
+    if (token) {
+      const simple = await getSimpleSession(token)
+      if (simple?.user) {
+        userId = (simple.user as any).id
+        userEmail = (simple.user as any).email
       }
     }
 

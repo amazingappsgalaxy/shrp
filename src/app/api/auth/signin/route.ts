@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { signInUser } from '@/lib/auth-simple'
+import { createClient } from '@/utils/supabase/server'
+import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
+import { generateSessionToken, verifyPassword } from '@/lib/auth-simple'
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
 
-    console.log('Signin attempt for:', email)
-
-    // Basic validation
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -16,35 +15,86 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract IP and user agent for session tracking
-    // Netlify sets x-forwarded-for as "1.2.3.4, 10.0.0.1" — take only the first IP
-    const rawIp = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1'
-    const ipAddress = rawIp.split(',')[0]?.trim() || '127.0.0.1'
-    const userAgent = request.headers.get('user-agent') || 'unknown'
+    const normalizedEmail = email.trim().toLowerCase()
+    let userId: string | undefined
+    let appUser: Awaited<ReturnType<typeof findUserByEmail>> = null
 
-    console.log('Signin context:', { ipAddress, userAgent: userAgent.substring(0, 50) })
+    // Try Supabase Auth first
+    const supabase = await createClient()
+    const { data: { user: supabaseUser }, error: supabaseError } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    })
 
-    // Use real auth implementation to validate and create a session
-    const { user, session } = await signInUser(email, password, ipAddress)
+    if (supabaseUser && !supabaseError) {
+      // Supabase Auth succeeded — find or sync public.users record
+      appUser = await findUserByEmail(normalizedEmail)
+      userId = appUser?.id
+      if (!appUser) {
+        console.log(`[Signin] Creating public.users record for ${normalizedEmail}`)
+        userId = await createUser({
+          email: normalizedEmail,
+          name: supabaseUser.user_metadata?.full_name || normalizedEmail.split('@')[0],
+          passwordHash: 'supabase-auth-managed',
+        })
+      }
+    } else {
+      // Supabase Auth failed — fallback to legacy bcrypt for existing users
+      appUser = await findUserByEmail(normalizedEmail)
+      if (!appUser || !appUser.password_hash) {
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      }
+      const validPassword = await verifyPassword(password, appUser.password_hash)
+      if (!validPassword) {
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      }
+      userId = appUser.id
+      // Lazily migrate this user into Supabase Auth so future logins use it
+      try {
+        await supabase.auth.admin.createUser({
+          email: normalizedEmail,
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: appUser.name },
+        })
+        console.log(`[Signin] Migrated ${normalizedEmail} to Supabase Auth`)
+      } catch {
+        // Non-fatal — migration will succeed next time or on password reset
+      }
+    }
 
-    // Set session cookie (must match what other routes expect)
+    if (!userId) {
+      return NextResponse.json({ error: 'Failed to resolve user account' }, { status: 500 })
+    }
+
+    // Bridge: create custom session so middleware + all existing API routes work unchanged
+    const sessionToken = generateSessionToken()
+    const rawIp = request.headers.get('x-forwarded-for') || '127.0.0.1'
+    await createSession({
+      userId,
+      token: sessionToken,
+      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
+      ipAddress: rawIp.split(',')[0]?.trim() || '127.0.0.1',
+    })
+
     const cookieStore = await cookies()
-    cookieStore.set('session', session.token, {
+    cookieStore.set('session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7 // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     })
 
-    return NextResponse.json({ user, session })
+    return NextResponse.json({
+      user: {
+        id: userId,
+        email: user.email,
+        name: appUser?.name || user.user_metadata?.full_name || user.email!.split('@')[0],
+      },
+    })
   } catch (error) {
     console.error('Signin error:', error)
-    const message = error instanceof Error ? error.message : 'Signin failed'
-    const status = message === 'User not found' || message === 'Invalid password' ? 401 : 500
-    return NextResponse.json(
-      { error: message },
-      { status }
-    )
+    return NextResponse.json({ error: 'Signin failed' }, { status: 500 })
   }
 }

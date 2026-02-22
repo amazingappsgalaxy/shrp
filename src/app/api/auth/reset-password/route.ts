@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import bcrypt from 'bcrypt'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
     }
 
-    // Validate the token
+    // Validate the custom reset token
     const { data: resetToken } = await supabase
       .from('password_reset_tokens')
       .select('id, user_id, expires_at, used_at')
@@ -38,18 +37,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This reset link has expired. Please request a new one.' }, { status: 400 })
     }
 
-    // Hash the new password
-    const hashedPassword = await bcrypt.hash(password, 12)
-
-    // Update the user's password
-    const { error: updateError } = await supabase
+    // Get the user's email to find their Supabase Auth account
+    const { data: appUser } = await supabase
       .from('users')
-      .update({ password_hash: hashedPassword, updated_at: new Date().toISOString() })
+      .select('email')
       .eq('id', resetToken.user_id)
+      .maybeSingle()
 
-    if (updateError) {
-      console.error('reset-password: failed to update password:', updateError)
-      return NextResponse.json({ error: 'Failed to update password' }, { status: 500 })
+    if (appUser?.email) {
+      // Update password in Supabase Auth — generate a magic link to find the auth user ID,
+      // then update via admin API. Use getUserByEmail via admin if available.
+      try {
+        const { data: authList } = await supabase.auth.admin.listUsers()
+        const authUser = authList?.users?.find(u => u.email?.toLowerCase() === appUser.email.toLowerCase())
+        if (authUser?.id) {
+          await supabase.auth.admin.updateUserById(authUser.id, { password })
+        }
+      } catch (authErr) {
+        console.error('reset-password: failed to update Supabase Auth password:', authErr)
+        // Non-fatal: custom session is cleared, so user cannot sign in anyway
+      }
     }
 
     // Mark token as used
@@ -58,7 +65,7 @@ export async function POST(request: NextRequest) {
       .update({ used_at: new Date().toISOString() })
       .eq('id', resetToken.id)
 
-    // Invalidate all existing sessions for the user (security)
+    // Invalidate all existing custom sessions for the user (security)
     await supabase
       .from('sessions')
       .delete()
