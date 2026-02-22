@@ -36,21 +36,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'If that email exists, a reset link has been sent.' })
     }
 
-    // Look up the user in Supabase Auth by their public.users ID.
-    // For accounts created via Supabase Auth signup, the UUIDs match.
-    // For legacy bcrypt accounts, getUserById may return null — handled below.
-    const { data: authUserData } = await adminClient.auth.admin.getUserById(appUser.id)
-    const authUser = authUserData?.user
+    // Find the user in Supabase Auth by email.
+    // Note: public.users.id != auth.users.id (DB auto-generates separate UUIDs),
+    // so we must use listUsers + email filter — not getUserById.
+    const { data: authList } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
+    const authUser = authList?.users?.find(
+      (u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail
+    )
 
     if (authUser) {
-      // User exists in Supabase Auth — confirm email if not yet confirmed.
-      // resetPasswordForEmail fails for unconfirmed users; a password-reset
-      // request proves intent to access the account, so confirming is safe.
+      // User exists in Supabase Auth.
+      // resetPasswordForEmail fails for unconfirmed users — confirm the email first.
+      // Requesting a password reset proves intent to access the account, so this is safe.
       if (!authUser.email_confirmed_at) {
         await adminClient.auth.admin.updateUserById(authUser.id, { email_confirm: true })
       }
     } else {
-      // User is not in Supabase Auth (old bcrypt-only account) — lazy-migrate.
+      // User is not in Supabase Auth (legacy bcrypt-only account) — lazy-migrate.
       const tempPassword = crypto.randomBytes(32).toString('hex')
       const { error: createError } = await adminClient.auth.admin.createUser({
         email: normalizedEmail,
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
         email_confirm: true,
         user_metadata: { full_name: appUser.email.split('@')[0] },
       })
-      if (createError && !createError.message?.includes('already been registered')) {
+      if (createError) {
         console.error('forgot-password: failed to lazy-migrate user to auth:', createError)
         return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
       }
