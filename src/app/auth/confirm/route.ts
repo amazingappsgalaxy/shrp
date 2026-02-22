@@ -31,8 +31,11 @@ export async function GET(request: Request) {
   if (type === 'recovery') {
     const accessToken = data.session.access_token
     const refreshToken = data.session.refresh_token
+    // Build a clean URL with no leftover query params — only the hash fragment.
+    const resetUrl = new URL(next, siteUrl)
+    resetUrl.search = ''
     return NextResponse.redirect(
-      `${siteUrl}${next}#access_token=${accessToken}&refresh_token=${refreshToken}&type=recovery`
+      `${resetUrl.toString()}#access_token=${accessToken}&refresh_token=${refreshToken}&type=recovery`
     )
   }
 

@@ -76,6 +76,24 @@ function ResetPasswordForm() {
       setSessionReady(true);
     };
 
+    // Hash flow (#access_token=...&type=recovery) — checked FIRST because /auth/confirm
+    // redirects here with session tokens in the hash fragment. The URL may also carry stale
+    // query params (token_hash) that are already consumed, so hash must take priority.
+    const hash = typeof window !== "undefined" ? window.location.hash.substring(1) : "";
+    const hashParams = new URLSearchParams(hash);
+    const hashToken = hashParams.get("access_token");
+    const hashRefresh = hashParams.get("refresh_token") ?? "";
+    const hashType = hashParams.get("type");
+
+    if (hashType === "recovery" && hashToken) {
+      supabase.auth.setSession({ access_token: hashToken, refresh_token: hashRefresh })
+        .then(({ data, error }) => {
+          if (error || !data.session) { setInvalidLink(true); return; }
+          markReady(hashToken);
+        });
+      return;
+    }
+
     if (code) {
       supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
         if (error || !data.session) { setInvalidLink(true); return; }
@@ -95,25 +113,6 @@ function ResetPasswordForm() {
         .then(({ data, error }) => {
           if (error || !data.session) { setInvalidLink(true); return; }
           markReady(data.session.access_token);
-          // Token is consumed (one-time use) — leave URL as-is to avoid triggering a re-render
-        });
-      return;
-    }
-
-    // Hash flow (#access_token=...&type=recovery).
-    // @supabase/ssr's createBrowserClient doesn't auto-process hash fragments,
-    // so we parse the hash manually and call setSession() explicitly.
-    const hash = typeof window !== "undefined" ? window.location.hash.substring(1) : "";
-    const hashParams = new URLSearchParams(hash);
-    const hashToken = hashParams.get("access_token");
-    const hashRefresh = hashParams.get("refresh_token") ?? "";
-    const hashType = hashParams.get("type");
-
-    if (hashType === "recovery" && hashToken) {
-      supabase.auth.setSession({ access_token: hashToken, refresh_token: hashRefresh })
-        .then(({ data, error }) => {
-          if (error || !data.session) { setInvalidLink(true); return; }
-          markReady(hashToken);
         });
       return;
     }
