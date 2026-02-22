@@ -30,7 +30,7 @@ const Button = ({ className, children, disabled, ...props }: React.ButtonHTMLAtt
 const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     className={cn(
-      "flex h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-sm transition-all duration-300 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFFF00] focus-visible:border-[#FFFF00]/50 focus-visible:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 font-sans bg-black/20",
+      "flex h-11 w-full rounded-md border border-white/15 bg-white/8 px-4 py-3 text-sm text-white shadow-sm transition-all duration-300 file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFFF00] focus-visible:border-[#FFFF00]/50 focus-visible:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 font-sans bg-black/20",
       className
     )}
     {...props}
@@ -176,7 +176,7 @@ function ResetPasswordForm() {
       <div className="absolute top-6 left-6 z-50"><MainLogo /></div>
 
       <div className="relative z-10 w-full max-w-[400px] animate-in fade-in zoom-in-95 duration-500">
-        <div className="w-full bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+        <div className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg p-6 shadow-2xl">
           {invalidLink ? (
             <div className="text-center space-y-4 py-4">
               <div className="mx-auto w-12 h-12 bg-red-500/10 rounded-md flex items-center justify-center">
