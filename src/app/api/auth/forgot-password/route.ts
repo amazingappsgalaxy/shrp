@@ -36,16 +36,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'If that email exists, a reset link has been sent.' })
     }
 
-    // Check if this user exists in auth.users — if not, create them first.
-    // Old accounts (pre-Supabase Auth migration) only live in public.users.
-    // resetPasswordForEmail silently does nothing if the email isn't in auth.users.
-    const { data: authList } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
-    const authUser = authList?.users?.find(
-      (u: { email?: string }) => u.email?.toLowerCase() === normalizedEmail
-    )
+    // Look up the user in Supabase Auth by their public.users ID.
+    // For accounts created via Supabase Auth signup, the UUIDs match.
+    // For legacy bcrypt accounts, getUserById may return null — handled below.
+    const { data: authUserData } = await adminClient.auth.admin.getUserById(appUser.id)
+    const authUser = authUserData?.user
 
-    if (!authUser) {
-      // Lazy-migrate: create in Supabase Auth with a random unusable password
+    if (authUser) {
+      // User exists in Supabase Auth — confirm email if not yet confirmed.
+      // resetPasswordForEmail fails for unconfirmed users; a password-reset
+      // request proves intent to access the account, so confirming is safe.
+      if (!authUser.email_confirmed_at) {
+        await adminClient.auth.admin.updateUserById(authUser.id, { email_confirm: true })
+      }
+    } else {
+      // User is not in Supabase Auth (old bcrypt-only account) — lazy-migrate.
       const tempPassword = crypto.randomBytes(32).toString('hex')
       const { error: createError } = await adminClient.auth.admin.createUser({
         email: normalizedEmail,
@@ -53,18 +58,13 @@ export async function POST(request: NextRequest) {
         email_confirm: true,
         user_metadata: { full_name: appUser.email.split('@')[0] },
       })
-      if (createError) {
+      if (createError && !createError.message?.includes('already been registered')) {
         console.error('forgot-password: failed to lazy-migrate user to auth:', createError)
         return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
       }
-    } else if (!authUser.email_confirmed_at) {
-      // User exists in Supabase Auth but email is unconfirmed — confirm it now.
-      // resetPasswordForEmail fails for unconfirmed users; requesting a password
-      // reset implicitly proves intent to access the account, so confirming is safe.
-      await adminClient.auth.admin.updateUserById(authUser.id, { email_confirm: true })
     }
 
-    // Now send the reset email via Supabase (uses Maileroo SMTP configured in dashboard)
+    // Send the reset email via Supabase (uses Maileroo SMTP configured in dashboard)
     const { error } = await anonClient.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: `${siteUrl}/app/reset-password`,
     })
