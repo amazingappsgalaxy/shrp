@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { hashPassword } from '@/lib/auth-simple'
+import { cookies } from 'next/headers'
 
 const adminClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,6 +39,16 @@ export async function POST(request: NextRequest) {
       .from('sessions')
       .delete()
       .eq('user_id', user.id)
+
+    // Clear the session cookie so middleware doesn't redirect on the next request
+    const cookieStore = await cookies()
+    cookieStore.set('session', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    })
 
     return NextResponse.json({ message: 'Password updated successfully' })
   } catch (error) {

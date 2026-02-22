@@ -126,13 +126,26 @@ export async function GET(request: NextRequest) {
     if (profileResult.status === 'fulfilled') {
       const { data: profileRow } = profileResult.value as any
       if (profileRow) {
+        // OAuth-only users are always considered verified (Google verifies email for us)
+        const isOAuthUser = profileRow.password_hash === 'google-oauth-managed'
+        const emailVerified = !!profileRow.is_email_verified || isOAuthUser
+
+        // Lazily fix DB for OAuth users who predate the is_email_verified column
+        if (isOAuthUser && !profileRow.is_email_verified) {
+          ;(supabase as any)
+            .from('users')
+            .update({ is_email_verified: true, updated_at: new Date().toISOString() })
+            .eq('id', profileRow.id)
+            .then(() => {}).catch(() => {})
+        }
+
         profile = {
           id: profileRow.id,
           name: profileRow.name,
           email: profileRow.email,
           createdAt: profileRow.created_at,
           hasPassword: !!profileRow.password_hash,
-          emailVerified: !!profileRow.is_email_verified,
+          emailVerified,
         }
       }
     }

@@ -69,6 +69,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
       }
       userId = appUser.id
+      // Legacy user proved ownership via password — mark email as verified
+      ;(supabaseAdmin as any)
+        .from('users')
+        .update({ is_email_verified: true, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .then(() => {}).catch(() => {})
       // Lazily migrate this user into Supabase Auth so future logins use it
       try {
         await getAdminClient().auth.admin.createUser({
