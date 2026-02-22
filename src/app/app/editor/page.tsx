@@ -386,6 +386,8 @@ function EditorContent() {
         pageName: 'app/editor',
         smartUpscale: shouldSmartUpscale,
         upscaleResolution,
+        imageWidth: imageMetadata?.width,
+        imageHeight: imageMetadata?.height,
         ...modelSettings
       }
 

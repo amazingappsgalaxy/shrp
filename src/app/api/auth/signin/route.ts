@@ -17,7 +17,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract IP and user agent for session tracking
-    const ipAddress = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1'
+    // Netlify sets x-forwarded-for as "1.2.3.4, 10.0.0.1" — take only the first IP
+    const rawIp = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1'
+    const ipAddress = rawIp.split(',')[0]?.trim() || '127.0.0.1'
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
     console.log('Signin context:', { ipAddress, userAgent: userAgent.substring(0, 50) })
