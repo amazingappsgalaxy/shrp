@@ -4,6 +4,8 @@ import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { dodoClient as dodo } from '@/lib/dodo-client'
 
 export async function GET(request: NextRequest) {
+    if (!supabase) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+
     try {
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '') || request.cookies.get('session')?.value

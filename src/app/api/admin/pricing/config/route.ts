@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Pricing configuration saved successfully',
-      timestamp: pricingConfig.lastUpdated
+      timestamp: new Date().toISOString()
     })
 
   } catch (error) {

@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const amount = planConfig.price[billingPeriod as 'monthly' | 'yearly']
-    const productId = DODO_PRODUCT_IDS[plan.toLowerCase() as PlanType][billingPeriod as BillingPeriod]
+    const amount = planConfig.price[billingPeriod as 'monthly' | 'yearly'] ?? 0
+    const productId = (DODO_PRODUCT_IDS[plan.toLowerCase() as PlanType] as Record<string, string | undefined>)[billingPeriod]
 
     console.log('💰 [FIXED CHECKOUT] Plan details:', { plan, billingPeriod, amount, productId })
 

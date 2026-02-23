@@ -33,7 +33,7 @@ function verifyDodoSignature(
 ): boolean {
   const webhookSecret = process.env.DODO_WEBHOOK_SECRET || process.env.DODO_PAYMENTS_WEBHOOK_SECRET
   if (!webhookSecret) {
-    console.warn('⚠️ Webhook secret not set (DODO_WEBHOOK_SECRET / DODO_PAYMENTS_WEBHOOK_SECRET)')
+    console.error('❌ Webhook secret env var not set — rejecting all webhooks')
     return false
   }
 

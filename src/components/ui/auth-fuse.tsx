@@ -153,7 +153,7 @@ function SignUpForm() {
 
   const handleSignUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!formData.name || !formData.email || !formData.password) return toast.error('Check fields');
+    if (!formData.name || !formData.email || !formData.password) { toast.error('Check fields'); return; }
 
     setIsLoading(true);
     try {
@@ -214,7 +214,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
   const handleReset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email.trim()) return toast.error('Please enter your email');
+    if (!email.trim()) { toast.error('Please enter your email'); return; }
 
     setIsLoading(true);
     try {

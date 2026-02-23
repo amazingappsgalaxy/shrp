@@ -45,12 +45,12 @@ export async function GET(request: NextRequest) {
         status: (dodoPayment as any).status || localPayment?.status || 'unknown',
         amount: (dodoPayment as any).total_amount || localPayment?.amount || 0,
         currency: (dodoPayment as any).currency || localPayment?.currency || 'INR',
-        created_at: (dodoPayment as any).created_at || localPayment?.createdAt,
+        created_at: (dodoPayment as any).created_at || localPayment?.created_at,
         local_payment: localPayment ? {
           id: localPayment.id,
           status: localPayment.status,
           plan: localPayment.plan,
-          credits_granted: localPayment.creditsGranted
+          credits_granted: localPayment.credits_granted
         } : null,
         dodo_payment: {
           status: (dodoPayment as any).status,
@@ -69,12 +69,12 @@ export async function GET(request: NextRequest) {
           status: localPayment.status,
           amount: localPayment.amount,
           currency: localPayment.currency,
-          created_at: localPayment.createdAt,
+          created_at: localPayment.created_at,
           local_payment: {
             id: localPayment.id,
             status: localPayment.status,
             plan: localPayment.plan,
-            credits_granted: localPayment.creditsGranted
+            credits_granted: localPayment.credits_granted
           },
           note: 'Retrieved from local database (Dodo API unavailable)'
         })

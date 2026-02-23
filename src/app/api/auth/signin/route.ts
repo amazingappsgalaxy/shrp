@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Supabase Auth failed — fallback to legacy bcrypt for existing users
       appUser = await findUserByEmail(normalizedEmail)
-      const hash = appUser?.password_hash
+      const hash = appUser?.passwordHash
 
       // Give a helpful error for Google-only accounts (including trigger-created ones not yet stamped)
       if (appUser && (hash === 'google-oauth-managed' || hash === 'managed_by_supabase_auth')) {

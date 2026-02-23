@@ -4,6 +4,8 @@ import { getSession } from '@/lib/auth-simple'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
+    if (!supabase) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+
     try {
         // Get user session from cookie or auth header
         const authHeader = request.headers.get('authorization')

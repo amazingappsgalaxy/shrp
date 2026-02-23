@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     let amount = 0
     if (billingPeriod === 'monthly' || billingPeriod === 'yearly') {
-      amount = planConfig.price[billingPeriod]
+      amount = planConfig.price[billingPeriod as 'monthly' | 'yearly']
     } else if (billingPeriod === 'daily' && plan.toLowerCase() === 'day pass') {
       // Manual override for day pass price if not in types properly yet
       amount = 10
@@ -324,8 +324,8 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         status: subscription.status,
-        sessionId: subscription.dodoSubscriptionId,
-        customerId: subscription.dodoCustomerId,
+        sessionId: subscription.dodo_subscription_id,
+        customerId: subscription.dodo_customer_id,
         subscriptionId: subscription.id
       })
 

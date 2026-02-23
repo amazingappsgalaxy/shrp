@@ -92,7 +92,7 @@ export default function SimpleUsageSection({ className }: SimpleUsageSectionProp
           type: credit.type,
           amount: credit.amount,
           description: credit.description || credit.reason,
-          timestamp: credit.createdAt,
+          timestamp: new Date(credit.created_at).getTime(),
           balanceAfter: 0 // We don't track running balance in this view
         })
       })

@@ -1,5 +1,6 @@
 // Authentication system with Supabase integration
 import * as bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import {
   createUser,
   createSession,
@@ -43,7 +44,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 // Generate session token
 export function generateSessionToken(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  return crypto.randomBytes(32).toString('hex');
 }
 
 // Sign up user
@@ -285,7 +286,7 @@ export async function uploadImage(userId: string, imageData: {
       imageId: created.id,
       filename: created.filename,
       size: created.fileSize
-    }).catch(() => {});
+    }).catch((err) => console.error('Failed to track activity:', err));
     
     console.log('Image uploaded:', { imageId: created.id, userId, filename: created.filename });
     

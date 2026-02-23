@@ -58,7 +58,7 @@ export default function UsageSection({ className }: UsageSectionProps) {
         description: item.description,
         balanceBefore: 0, // Calculate if needed
         balanceAfter: 0,  // Calculate if needed
-        createdAt: item.createdAt,
+        createdAt: new Date(item.created_at).getTime(),
         metadata: item.metadata
       }))
       setCreditHistory(mappedHistory)

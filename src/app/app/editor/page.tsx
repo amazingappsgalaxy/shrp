@@ -203,7 +203,7 @@ function EditorContent() {
     fetch('/api/credits/balance')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.balance !== undefined) setCreditBalance(d.balance) })
-      .catch(() => {})
+      .catch((err) => console.error('Failed to fetch credit balance:', err))
   }, [])
 
   // UI State
@@ -227,6 +227,14 @@ function EditorContent() {
     const items = Array.from(activeTasks.values()).filter(task => !dismissedTaskIds.has(task.id))
     return items.sort((a, b) => b.createdAt - a.createdAt)
   }, [activeTasks, dismissedTaskIds])
+
+  // Clear all intervals on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      taskIntervalsRef.current.forEach(clearInterval)
+      pollIntervalsRef.current.forEach(clearInterval)
+    }
+  }, [])
 
   // Initialize from URL param
   useEffect(() => {
@@ -293,14 +301,30 @@ function EditorContent() {
     const file = files[0]
     const reader = new FileReader()
     reader.onload = (e) => {
+      const dataUri = e.target?.result as string
       const img = new Image()
       img.onload = () => {
         setImageMetadata({ width: img.width, height: img.height })
-        setUploadedImage(e.target?.result as string)
+        setUploadedImage(dataUri)
+        setRemoteImageUrl(null)
         setEnhancedOutputs([])
         setSelectedOutputIndex(0)
+
+        // Immediately upload to Bunny CDN in background
+        setIsUploading(true)
+        fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUri })
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.imageUrl) setRemoteImageUrl(data.imageUrl)
+          })
+          .catch(err => console.error('Background upload failed:', err))
+          .finally(() => setIsUploading(false))
       }
-      img.src = e.target?.result as string
+      img.src = dataUri
     }
     reader.readAsDataURL(file)
   }
@@ -359,14 +383,15 @@ function EditorContent() {
       const progressInterval = startSmartProgress(taskId, taskDurationSecs, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
 
-      // If the image is a local base64 data URI, upload it to RunningHub first.
-      // This keeps the enhance-image request body small (Netlify 6MB body limit).
-      let imageUrlForApi = inputImage
-      if (inputImage.startsWith('data:')) {
+      // Use the pre-uploaded Bunny CDN URL if available, otherwise upload now.
+      // remoteImageUrl is set as soon as the user drops the image, so in normal
+      // usage it will already be ready by the time they click Enhance.
+      let imageUrlForApi = remoteImageUrl || inputImage
+      if (imageUrlForApi.startsWith('data:')) {
         const uploadRes = await fetch('/api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataUri: inputImage })
+          body: JSON.stringify({ dataUri: imageUrlForApi })
         })
         if (!uploadRes.ok) {
           const uploadErr = await uploadRes.json().catch(() => ({}))
@@ -595,6 +620,12 @@ function EditorContent() {
                       <span className="text-[10px] text-gray-600 font-medium">Select Image</span>
                     </div>
                   )}
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 z-10 pointer-events-none">
+                      <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      <span className="text-[10px] text-white/60 font-medium tracking-wide">Uploading</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -785,10 +816,15 @@ function EditorContent() {
             <div className="p-5 pt-0">
               <button
                 onClick={handleEnhance}
-                disabled={!uploadedImage || isSubmitting}
+                disabled={!uploadedImage || isSubmitting || isUploading}
                 className="w-full bg-[#FFFF00] hover:bg-[#e6e600] text-black font-bold h-14 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] text-base uppercase tracking-wider"
               >
-                {isSubmitting ? (
+                {isUploading ? (
+                  <>
+                    <IconLoader2 className="w-5 h-5 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : isSubmitting ? (
                   <>
                     <IconLoader2 className="w-5 h-5 animate-spin" />
                     <span>Starting...</span>

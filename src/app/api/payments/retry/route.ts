@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         plan: failedPayment.plan,
-        billingPeriod: failedPayment.billingPeriod
+        billingPeriod: failedPayment.billing_period
       })
     })
     
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       originalPayment: {
         id: failedPayment.id,
         plan: failedPayment.plan,
-        billingPeriod: failedPayment.billingPeriod,
+        billingPeriod: failedPayment.billing_period,
         amount: failedPayment.amount
       }
     })

@@ -51,7 +51,7 @@ export default function MinimalUsageSection({ className }: MinimalUsageSectionPr
         type: credit.type,
         amount: credit.amount,
         description: credit.description || credit.reason,
-        timestamp: credit.createdAt,
+        timestamp: new Date(credit.created_at).getTime(),
         balanceAfter: 0
       }))
 

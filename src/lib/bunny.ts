@@ -31,7 +31,7 @@ function cdnBase() {
 
 /** Today's UTC date as YYYY-MM-DD */
 function todayUtc(): string {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toISOString().split('T')[0]!
 }
 
 /** Bunny storage path for an input file */
@@ -64,7 +64,7 @@ export async function uploadBuffer(
       AccessKey: cfg('BUNNY_STORAGE_API_KEY'),
       'Content-Type': contentType,
     },
-    body: data,
+    body: data as BodyInit,
   })
 
   if (!res.ok) {
@@ -126,8 +126,9 @@ const EXT_MIME: Record<string, string> = {
 }
 
 export function extFromUrl(url: string): string {
-  const m = url.split('?')[0].match(/\.(\w+)$/)
-  return m ? m[1].toLowerCase() : 'jpg'
+  const base = url.split('?')[0] ?? url
+  const m = base.match(/\.(\w+)$/)
+  return (m?.[1] ?? 'jpg').toLowerCase()
 }
 
 export function mimeFromExt(ext: string): string {

@@ -30,5 +30,5 @@ export function getExpiryDate(policy: RetentionPolicy): string | null {
   if (policy.type === 'permanent') return null
   const d = new Date()
   d.setUTCDate(d.getUTCDate() - policy.days)
-  return d.toISOString().split('T')[0]
+  return d.toISOString().split('T')[0] ?? null
 }

@@ -340,59 +340,59 @@ export interface Database {
       , payments: {
         Row: {
           id: string
-          userId: string
-          subscriptionId: string | null
-          dodoPaymentId: string | null
-          dodoCustomerId: string | null
+          user_id: string
+          subscription_id: string | null
+          dodo_payment_id: string | null
+          dodo_customer_id: string | null
           amount: number
           currency: string
           status: string
-          paymentMethod: string | null
+          payment_method: string | null
           plan: string | null
-          billingPeriod: string | null
-          creditsGranted: number
-          paidAt: string | null
-          failedAt: string | null
-          createdAt: string
-          updatedAt: string
+          billing_period: string | null
+          credits_granted: number
+          paid_at: string | null
+          failed_at: string | null
+          created_at: string
+          updated_at: string
           metadata: Json | null
         }
         Insert: {
           id?: string
-          userId: string
-          subscriptionId?: string | null
-          dodoPaymentId?: string | null
-          dodoCustomerId?: string | null
+          user_id: string
+          subscription_id?: string | null
+          dodo_payment_id?: string | null
+          dodo_customer_id?: string | null
           amount: number
           currency: string
           status: string
-          paymentMethod?: string | null
+          payment_method?: string | null
           plan?: string | null
-          billingPeriod?: string | null
-          creditsGranted?: number
-          paidAt?: string | null
-          failedAt?: string | null
-          createdAt?: string
-          updatedAt?: string
+          billing_period?: string | null
+          credits_granted?: number
+          paid_at?: string | null
+          failed_at?: string | null
+          created_at?: string
+          updated_at?: string
           metadata?: Json | null
         }
         Update: {
           id?: string
-          userId?: string
-          subscriptionId?: string | null
-          dodoPaymentId?: string | null
-          dodoCustomerId?: string | null
+          user_id?: string
+          subscription_id?: string | null
+          dodo_payment_id?: string | null
+          dodo_customer_id?: string | null
           amount?: number
           currency?: string
           status?: string
-          paymentMethod?: string | null
+          payment_method?: string | null
           plan?: string | null
-          billingPeriod?: string | null
-          creditsGranted?: number
-          paidAt?: string | null
-          failedAt?: string | null
-          createdAt?: string
-          updatedAt?: string
+          billing_period?: string | null
+          credits_granted?: number
+          paid_at?: string | null
+          failed_at?: string | null
+          created_at?: string
+          updated_at?: string
           metadata?: Json | null
         }
         Relationships: []
@@ -401,39 +401,39 @@ export interface Database {
       , subscriptions: {
         Row: {
           id: string
-          userId: string
+          user_id: string
           plan: string
           status: string
-          billingPeriod: string
-          dodoSubscriptionId: string | null
-          dodoCustomerId: string | null
-          nextBillingDate: string | null
-          createdAt: string
-          updatedAt: string
+          billing_period: string
+          dodo_subscription_id: string | null
+          dodo_customer_id: string | null
+          next_billing_date: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          userId: string
+          user_id: string
           plan: string
           status?: string
-          billingPeriod: string
-          dodoSubscriptionId?: string | null
-          dodoCustomerId?: string | null
-          nextBillingDate?: string | null
-          createdAt?: string
-          updatedAt?: string
+          billing_period: string
+          dodo_subscription_id?: string | null
+          dodo_customer_id?: string | null
+          next_billing_date?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          userId?: string
+          user_id?: string
           plan?: string
           status?: string
-          billingPeriod?: string
-          dodoSubscriptionId?: string | null
-          dodoCustomerId?: string | null
-          nextBillingDate?: string | null
-          createdAt?: string
-          updatedAt?: string
+          billing_period?: string
+          dodo_subscription_id?: string | null
+          dodo_customer_id?: string | null
+          next_billing_date?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

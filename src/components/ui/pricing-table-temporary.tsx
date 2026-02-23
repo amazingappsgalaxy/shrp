@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { PRICING_PLANS, PRICING_CONFIG } from "@/lib/pricing-config"
 import { useSession } from "@/lib/auth-client-simple"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface PricingTableTemporaryProps {
   showHeader?: boolean
