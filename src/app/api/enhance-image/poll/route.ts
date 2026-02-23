@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '../../../../lib/config'
@@ -7,6 +7,7 @@ import { ProviderType } from '../../../../services/ai-providers/common/types'
 import { RunningHubProvider } from '../../../../services/ai-providers/runninghub/runninghub-provider'
 import { getSession } from '@/lib/auth-simple'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
+import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
 
@@ -124,6 +125,32 @@ export async function GET(request: NextRequest) {
           } catch (e) {
             console.error('Poll: credit deduction failed (non-fatal):', e)
           }
+        }
+
+        // Background: upload outputs to Bunny CDN after response is sent
+        if (outputs.length > 0) {
+          after(async () => {
+            try {
+              const bunnyItems = await Promise.all(
+                outputs.map(async (item) => {
+                  try {
+                    const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
+                    const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), item.url, mimeFromExt(ext))
+                    console.log(`✅ Bunny (poll): output uploaded — ${bunnyUrl}`)
+                    return { ...item, bunny_url: bunnyUrl }
+                  } catch (err) {
+                    console.error(`❌ Bunny (poll): failed to upload ${item.url}:`, err)
+                    return item
+                  }
+                })
+              )
+              const supabaseAfter = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
+              await supabaseAfter.from('history_items').update({ output_urls: bunnyItems }).eq('id', taskId)
+              console.log(`✅ Bunny (poll): history updated for task ${taskId}`)
+            } catch (err) {
+              console.error('❌ Bunny (poll): background upload error:', err)
+            }
+          })
         }
       }
 

@@ -18,6 +18,7 @@ import { AIProviderFactory } from '../../../../services/ai-providers/provider-fa
 import { ProviderType } from '../../../../services/ai-providers/common/types'
 import { RunningHubProvider } from '../../../../services/ai-providers/runninghub/runninghub-provider'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
+import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
 
@@ -83,12 +84,27 @@ async function processPendingTask(
       const outputs = normalizeOutputs(rawUrls)
       const generationTimeMs = Date.now() - new Date(task.created_at).getTime()
 
+      // Upload outputs to Bunny CDN and attach bunny_url to each item
+      const outputsWithBunny = await Promise.all(
+        outputs.map(async (item) => {
+          try {
+            const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
+            const bunnyUrl = await uploadFromUrl(getOutputPath(task.user_id, ext), item.url, mimeFromExt(ext))
+            console.log(`✅ Bunny: output uploaded — ${bunnyUrl}`)
+            return { ...item, bunny_url: bunnyUrl }
+          } catch (err) {
+            console.error(`❌ Bunny: failed to upload output ${item.url}:`, err)
+            return item // keep item without bunny_url on failure
+          }
+        })
+      )
+
       // Atomic update — only wins if status is still 'processing' (prevents race with client poll)
       const { data: won } = await supabase
         .from('history_items')
         .update({
           status: 'completed',
-          output_urls: outputs,
+          output_urls: outputsWithBunny,
           generation_time_ms: generationTimeMs,
           updated_at: new Date().toISOString()
         })
