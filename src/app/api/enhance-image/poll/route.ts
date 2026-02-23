@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Background: upload outputs to Bunny CDN after response is sent
+        // Replaces url with Bunny CDN URL so history UI shows CDN-hosted images
         if (outputs.length > 0) {
           after(async () => {
             try {
@@ -137,10 +138,11 @@ export async function GET(request: NextRequest) {
                     const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
                     const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), item.url, mimeFromExt(ext))
                     console.log(`✅ Bunny (poll): output uploaded — ${bunnyUrl}`)
-                    return { ...item, bunny_url: bunnyUrl }
+                    // Replace url with Bunny CDN URL; keep original RunningHub URL as fallback reference
+                    return { ...item, url: bunnyUrl, original_url: item.url }
                   } catch (err) {
                     console.error(`❌ Bunny (poll): failed to upload ${item.url}:`, err)
-                    return item
+                    return item // keep original RunningHub url on failure
                   }
                 })
               )

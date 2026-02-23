@@ -84,17 +84,18 @@ async function processPendingTask(
       const outputs = normalizeOutputs(rawUrls)
       const generationTimeMs = Date.now() - new Date(task.created_at).getTime()
 
-      // Upload outputs to Bunny CDN and attach bunny_url to each item
+      // Upload outputs to Bunny CDN — replace url with Bunny CDN URL so UI uses it directly
       const outputsWithBunny = await Promise.all(
         outputs.map(async (item) => {
           try {
             const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
             const bunnyUrl = await uploadFromUrl(getOutputPath(task.user_id, ext), item.url, mimeFromExt(ext))
             console.log(`✅ Bunny: output uploaded — ${bunnyUrl}`)
-            return { ...item, bunny_url: bunnyUrl }
+            // Replace url with Bunny CDN URL; keep original RunningHub URL as fallback reference
+            return { ...item, url: bunnyUrl, original_url: item.url }
           } catch (err) {
             console.error(`❌ Bunny: failed to upload output ${item.url}:`, err)
-            return item // keep item without bunny_url on failure
+            return item // keep original RunningHub url on failure
           }
         })
       )
