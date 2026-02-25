@@ -5,8 +5,6 @@ import {
   IconLoader2,
   IconTrash,
   IconSparkles,
-  IconChevronDown,
-  IconChevronUp,
 } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
@@ -437,114 +435,131 @@ function UpscalerContent() {
                 </div>
               </div>
 
-              {/* Model selector + Pro Upscaler options */}
-              <div className="flex flex-col gap-3">
-                {/* Model toggle pills */}
-                <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+              {/* Model selector only */}
+              <div className="flex flex-col justify-start pt-0.5">
+                <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-xl border border-[rgb(255_255_255_/_0.04)] flex-col gap-1">
                   {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
                       className={cn(
-                        "flex-1 py-1.5 text-[9px] font-black rounded-md transition-all uppercase tracking-wider leading-tight px-1",
+                        "w-full py-2.5 px-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider text-center",
                         selectedModel === m
                           ? "bg-[#FFFF00] text-black shadow-md"
                           : "text-gray-400 hover:text-white"
                       )}
                     >
-                      {m === 'pro-upscaler' ? 'Pro\nUpscaler' : 'Smart\nUpscaler'}
+                      {m === 'pro-upscaler' ? 'Professional Upscaler' : 'Smart Upscaler'}
                     </button>
                   ))}
                 </div>
-
-                {/* Pro Upscaler inline controls */}
-                {selectedModel === 'pro-upscaler' && (
-                  <div className="flex flex-col gap-2.5">
-                    {/* Portrait / Skin Enhancement toggle */}
-                    <div className="rounded-lg border border-white/8 bg-white/2 p-2.5">
-                      <div className="flex items-center justify-between mb-1">
-                        <div>
-                          <div className="text-[10px] font-bold text-white leading-none">Skin Enhancement</div>
-                          <div className="text-[9px] text-gray-500 leading-snug mt-0.5">Optimized for portraits</div>
-                        </div>
-                        <Toggle checked={portrait} onChange={setPortrait} />
-                      </div>
-
-                      {/* Skin presets (show when portrait ON) */}
-                      {portrait && (
-                        <div className="mt-2 flex flex-col gap-1.5">
-                          <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Select Skin</div>
-                          <div className="flex gap-1">
-                            {skinPresets.map((preset) => (
-                              <button
-                                key={preset}
-                                onClick={() => setSkinPreset(preset)}
-                                className={cn(
-                                  "flex-1 py-1 text-[9px] font-bold rounded transition-all",
-                                  skinPreset === preset
-                                    ? "bg-[#FFFF00] text-black"
-                                    : "bg-white/5 text-gray-400 hover:text-white border border-white/10"
-                                )}
-                              >
-                                {preset}
-                              </button>
-                            ))}
-                          </div>
-
-                          {/* Fine-tune prompt */}
-                          <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mt-0.5">Fine-tune</div>
-                          <input
-                            type="text"
-                            value={customPrompt}
-                            onChange={e => setCustomPrompt(e.target.value)}
-                            placeholder="maintain glossy lip, maintain eyes shape"
-                            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[9px] text-white placeholder-gray-600 focus:outline-none focus:border-[#FFFF00]/40 transition-colors"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Max Mode toggle */}
-                    <div className="rounded-lg border border-white/8 bg-white/2 p-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="text-[10px] font-bold text-white">Max Mode</div>
-                        <Toggle checked={maxmode} onChange={setMaxmode} />
-                      </div>
-
-                      {/* 4K / 8K selector (show when maxmode ON) */}
-                      {maxmode && (
-                        <div className="mt-2 flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-md border border-[rgb(255_255_255_/_0.04)]">
-                          {(['4k', '8k'] as const).map((res) => (
-                            <button
-                              key={res}
-                              onClick={() => setMaxResolution(res)}
-                              className={cn(
-                                "flex-1 py-1 text-[9px] font-black rounded transition-all uppercase tracking-wider",
-                                maxResolution === res
-                                  ? "bg-[#FFFF00] text-black"
-                                  : "text-gray-400 hover:text-white"
-                              )}
-                            >
-                              {res === '4k' ? '4K' : '8K'}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Smart Upscaler: show description when selected */}
-                {selectedModel === 'smart-upscaler' && (
-                  <div className="rounded-lg border border-white/8 bg-white/2 p-2.5">
-                    <p className="text-[9px] text-gray-500 leading-relaxed">
-                      High-quality AI upscaling. Crisp detail enhancement up to 4K or 8K.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
+
+          {/* SKIN ENHANCEMENT (Pro Upscaler only) */}
+          {selectedModel === 'pro-upscaler' && (
+            <div className="border-b border-white/5 px-5 py-5">
+              <div className="flex items-center justify-between mb-1">
+                <div>
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Skin Enhancement</span>
+                  <p className="text-[10px] text-gray-600 mt-0.5">Optimized for portraits with realistic skin.</p>
+                </div>
+                <Toggle checked={portrait} onChange={setPortrait} />
+              </div>
+
+              {portrait && (
+                <div className="mt-4 flex flex-col gap-3">
+                  {/* Skin preset segmented control */}
+                  <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+                    {skinPresets.map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setSkinPreset(preset)}
+                        className={cn(
+                          "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
+                          skinPreset === preset
+                            ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
+                            : "text-white hover:text-white"
+                        )}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Fine-tune prompt */}
+                  <div>
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider block mb-1.5">Fine-tune Prompt</span>
+                    <input
+                      type="text"
+                      value={customPrompt}
+                      onChange={e => setCustomPrompt(e.target.value)}
+                      placeholder="maintain glossy lip, maintain eyes shape..."
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FFFF00]/40 transition-colors"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MAX MODE (Pro Upscaler only) */}
+          {selectedModel === 'pro-upscaler' && (
+            <div className="border-b border-white/5 px-5 py-5">
+              <div className="flex items-center justify-between mb-1">
+                <div>
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Max Mode</span>
+                  <p className="text-[10px] text-gray-600 mt-0.5">Higher resolution output with more detail.</p>
+                </div>
+                <Toggle checked={maxmode} onChange={setMaxmode} />
+              </div>
+
+              {maxmode && (
+                <div className="mt-4">
+                  <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+                    {(['4k', '8k'] as const).map((res) => (
+                      <button
+                        key={res}
+                        onClick={() => setMaxResolution(res)}
+                        className={cn(
+                          "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
+                          maxResolution === res
+                            ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
+                            : "text-white hover:text-white"
+                        )}
+                      >
+                        {res === '4k' ? '4K Crisp' : '8K Ultra'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setMaxResolution('4k')}
+                      className={cn(
+                        "rounded-lg border p-3 transition-all text-left",
+                        maxResolution === '4k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                      )}
+                    >
+                      <div className="text-sm font-semibold text-white">4096 × 4096</div>
+                      <div className="text-[10px] text-gray-500 mt-1 leading-snug">Balanced quality and speed</div>
+                    </button>
+                    <button
+                      onClick={() => setMaxResolution('8k')}
+                      className={cn(
+                        "rounded-lg border p-3 transition-all text-left",
+                        maxResolution === '8k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                      )}
+                    >
+                      <div className="text-sm font-semibold text-white">8192 × 8192</div>
+                      <div className="text-[10px] text-gray-500 mt-1 leading-snug">Maximum detail and sharpness</div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* UPSCALE FACTOR (Smart Upscaler only) */}
           {selectedModel === 'smart-upscaler' && (
