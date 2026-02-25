@@ -443,7 +443,7 @@ function UpscalerContent() {
                       key={m}
                       onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
                       className={cn(
-                        "w-full py-2.5 px-2 text-xs font-bold rounded-md transition-all uppercase tracking-wider text-center",
+                        "w-full py-2.5 px-2 text-xs font-[900] rounded-md transition-all uppercase tracking-wider text-center",
                         selectedModel === m
                           ? "bg-[#FFFF00] text-black shadow-md"
                           : "text-gray-400 hover:text-white"
@@ -461,16 +461,19 @@ function UpscalerContent() {
           {selectedModel === 'pro-upscaler' && (
             <div className="border-b border-white/5 px-5 py-5">
               {/* Section heading + toggle */}
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-white">Portrait Mode</span>
+              <div className="flex items-center justify-between mb-1">
+                <div>
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Portrait Mode</span>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Optimized for portraits with realistic skin.</p>
+                </div>
                 <Toggle checked={portrait} onChange={setPortrait} />
               </div>
 
               {portrait && (
-                <div className="flex flex-col gap-4">
+                <div className="mt-4 rounded-xl overflow-hidden border border-white/5">
                   {/* Skin Enhancement sub-section — label left, segmented control right */}
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-white shrink-0">Skin Enhancement</p>
+                  <div className="flex items-center justify-between gap-3 p-3 bg-white/[0.02] border-b border-white/5">
+                    <p className="text-xs font-semibold text-white shrink-0">Skin Enhancement</p>
                     <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
                       {skinPresets.map((preset) => (
                         <button
@@ -490,13 +493,13 @@ function UpscalerContent() {
                   </div>
 
                   {/* Fine-tune Prompt sub-section */}
-                  <div>
-                    <p className="text-sm font-semibold text-white mb-1.5">Fine-tune Prompt</p>
+                  <div className="p-3 bg-white/[0.02]">
+                    <p className="text-xs font-semibold text-white mb-2">Fine-tune Prompt</p>
                     <input
                       type="text"
                       value={customPrompt}
                       onChange={e => setCustomPrompt(e.target.value)}
-                      placeholder="maintain glossy lip, maintain eyes shape..."
+                      placeholder="maintain glossy lip, add subtle freckles..."
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FFFF00]/40 transition-colors"
                     />
                   </div>
@@ -510,7 +513,7 @@ function UpscalerContent() {
             <div className="border-b border-white/5 px-5 py-5">
               <div className="flex items-center justify-between mb-1">
                 <div>
-                  <span className="text-xs font-semibold text-white">Max Mode</span>
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Max Mode</span>
                   <p className="text-[10px] text-gray-500 mt-0.5">Higher resolution output with more detail.</p>
                 </div>
                 <Toggle checked={maxmode} onChange={setMaxmode} />
