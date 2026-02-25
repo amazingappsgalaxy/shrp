@@ -1444,6 +1444,37 @@ export class RunningHubProvider extends BaseAIProvider {
         return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: isSmartUpscale ? ['215', '136'] : ['136'] }
       }
 
+      if (modelId === 'pro-upscaler') {
+        const { getProUpscalerWorkflow, PRO_UPSCALER_NODES } = await import('../../../models/pro-upscaler/config')
+        const settings = request.settings as any
+        const portrait = settings.portrait !== false   // default true
+        const maxmode  = settings.maxmode  === true    // default false
+        const resolution: '4k' | '8k' = (settings.resolution as '4k' | '8k') || '4k'
+        const skinPath = Number(settings.skinPreset ?? 1)
+        const promptText = settings.customPrompt ?? ''
+
+        const workflow = getProUpscalerWorkflow(portrait, maxmode)
+
+        const nodeInfoListOverride: Array<{ nodeId: string; fieldName: string; fieldValue: string | number }> = [
+          { nodeId: PRO_UPSCALER_NODES.LOAD_IMAGE, fieldName: 'image', fieldValue: request.imageUrl.trim() },
+        ]
+
+        if (portrait) {
+          nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.SKIN_PATH, fieldName: 'path_index', fieldValue: skinPath })
+          nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.PROMPT,    fieldName: 'text',        fieldValue: promptText })
+        }
+
+        if (maxmode) {
+          const resValue = resolution === '8k' ? 8192 : 4096
+          nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.RESOLUTION, fieldName: 'width',  fieldValue: resValue })
+          nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.RESOLUTION, fieldName: 'height', fieldValue: resValue })
+        }
+
+        const taskResponse = await this.createTask(request.imageUrl, { workflowId: workflow.workflowId, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: [workflow.outputNodeId] }
+      }
+
       return { success: false, error: `Unknown model: ${modelId}` }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
