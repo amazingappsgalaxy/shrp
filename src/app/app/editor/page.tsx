@@ -690,8 +690,8 @@ function EditorContent() {
                         className={cn(
                           "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider disabled:opacity-100 disabled:cursor-not-allowed",
                           upscaleResolution === res
-                            ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
-                            : "text-white hover:text-white"
+                            ? "bg-white/[0.09] text-[#FFFF00] shadow-sm"
+                            : "text-gray-500 hover:text-white"
                         )}
                       >
                         {res === '4k' ? '4K Crisp' : '8K Ultra'}

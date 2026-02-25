@@ -401,7 +401,7 @@ function UpscalerContent() {
                 )}
               </div>
               <div className="h-6 flex items-center">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Model</span>
+                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Upscaler Model</span>
               </div>
             </div>
 
@@ -436,12 +436,12 @@ function UpscalerContent() {
               </div>
 
               {/* Model selector */}
-              <div className="flex flex-col justify-start pt-0.5">
+              <div className="flex flex-col justify-start pt-0.5 gap-2">
                 <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)] flex-col gap-1">
                   {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
                     <button
                       key={m}
-                      onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
+                      onClick={() => { setSelectedModel(m); if (upscaledImage !== DEMO_OUTPUT_URL) setUpscaledImage(null) }}
                       className={cn(
                         "w-full py-2.5 px-2 text-xs font-[900] rounded-md transition-all uppercase tracking-wider text-center",
                         selectedModel === m
@@ -453,6 +453,12 @@ function UpscalerContent() {
                     </button>
                   ))}
                 </div>
+                <p className="text-[10px] text-gray-500 leading-relaxed px-1">
+                  {selectedModel === 'pro-upscaler'
+                    ? 'Unblur anything. Enhances clarity in heavily blurred images, making them sharper and more defined. Advanced upscaling to improve detail and recover lost visual information.'
+                    : 'Performs Smart Upscale to produce a sharper, high-detail output. Maintains existing details.'
+                  }
+                </p>
               </div>
             </div>
           </div>
@@ -482,8 +488,8 @@ function UpscalerContent() {
                           className={cn(
                             "py-1.5 px-3 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
                             skinPreset === preset
-                              ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
-                              : "text-white hover:text-white"
+                              ? "bg-white/[0.09] text-[#FFFF00] shadow-sm"
+                              : "text-gray-500 hover:text-white"
                           )}
                         >
                           {preset}
@@ -500,7 +506,7 @@ function UpscalerContent() {
                       value={customPrompt}
                       onChange={e => setCustomPrompt(e.target.value)}
                       placeholder="maintain glossy lip, add subtle freckles..."
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FFFF00]/40 transition-colors"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/25 transition-all"
                     />
                   </div>
                 </div>
@@ -529,8 +535,8 @@ function UpscalerContent() {
                         className={cn(
                           "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
                           maxResolution === res
-                            ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
-                            : "text-white hover:text-white"
+                            ? "bg-white/[0.09] text-[#FFFF00] shadow-sm"
+                            : "text-gray-500 hover:text-white"
                         )}
                       >
                         {res === '4k' ? '4K Crisp' : '8K Ultra'}
@@ -543,20 +549,20 @@ function UpscalerContent() {
                       onClick={() => setMaxResolution('4k')}
                       className={cn(
                         "rounded-lg border p-3 transition-all text-left",
-                        maxResolution === '4k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                        maxResolution === '4k' ? "border-white/20 bg-white/5" : "border-white/5"
                       )}
                     >
-                      <div className="text-sm font-semibold text-white">4096 × 4096</div>
+                      <div className={cn("text-sm font-semibold", maxResolution === '4k' ? "text-[#FFFF00]" : "text-white")}>4096 × 4096</div>
                       <div className="text-[10px] text-gray-500 mt-1 leading-snug">Balanced quality and speed</div>
                     </button>
                     <button
                       onClick={() => setMaxResolution('8k')}
                       className={cn(
                         "rounded-lg border p-3 transition-all text-left",
-                        maxResolution === '8k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                        maxResolution === '8k' ? "border-white/20 bg-white/5" : "border-white/5"
                       )}
                     >
-                      <div className="text-sm font-semibold text-white">8192 × 8192</div>
+                      <div className={cn("text-sm font-semibold", maxResolution === '8k' ? "text-[#FFFF00]" : "text-white")}>8192 × 8192</div>
                       <div className="text-[10px] text-gray-500 mt-1 leading-snug">Maximum detail and sharpness</div>
                     </button>
                   </div>
@@ -579,8 +585,8 @@ function UpscalerContent() {
                     className={cn(
                       "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
                       smartResolution === res
-                        ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
-                        : "text-white hover:text-white"
+                        ? "bg-white/[0.09] text-[#FFFF00] shadow-sm"
+                        : "text-gray-500 hover:text-white"
                     )}
                   >
                     {res === '4k' ? '4K Crisp' : '8K Ultra'}
@@ -593,53 +599,26 @@ function UpscalerContent() {
                   onClick={() => setSmartResolution('4k')}
                   className={cn(
                     "rounded-lg border p-3 transition-all text-left",
-                    smartResolution === '4k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                    smartResolution === '4k' ? "border-white/20 bg-white/5" : "border-white/5"
                   )}
                 >
-                  <div className="text-sm font-semibold text-white">4096 × 4096</div>
+                  <div className={cn("text-sm font-semibold", smartResolution === '4k' ? "text-[#FFFF00]" : "text-white")}>4096 × 4096</div>
                   <div className="text-[10px] text-gray-500 mt-1 leading-snug">Balanced quality and speed</div>
                 </button>
                 <button
                   onClick={() => setSmartResolution('8k')}
                   className={cn(
                     "rounded-lg border p-3 transition-all text-left",
-                    smartResolution === '8k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                    smartResolution === '8k' ? "border-white/20 bg-white/5" : "border-white/5"
                   )}
                 >
-                  <div className="text-sm font-semibold text-white">8192 × 8192</div>
+                  <div className={cn("text-sm font-semibold", smartResolution === '8k' ? "text-[#FFFF00]" : "text-white")}>8192 × 8192</div>
                   <div className="text-[10px] text-gray-500 mt-1 leading-snug">Maximum detail and sharpness</div>
                 </button>
               </div>
             </div>
           )}
 
-          {/* INFO */}
-          <div className="px-5 py-4 border-b border-white/5">
-            <div className="rounded-xl border border-white/5 bg-white/2 p-4 space-y-2">
-              <div className="flex items-center gap-2 mb-3">
-                <IconSparkles className="w-4 h-4 text-[#FFFF00]" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  {selectedModel === 'pro-upscaler' ? 'Professional Upscaler' : 'Smart Upscaler'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                {selectedModel === 'pro-upscaler'
-                  ? 'Unblur anything. Enhances clarity in heavily blurred images, making them sharper and more defined. Advanced upscaling to improve detail and recover lost visual information.'
-                  : 'Improves skin quality and overall clarity, then performs Smart Upscale to produce a sharper, high-detail output.'
-                }
-              </p>
-              <div className="pt-1 flex flex-wrap gap-2">
-                {(selectedModel === 'pro-upscaler'
-                  ? ['AI Enhanced', 'Portrait-Ready', 'Lossless Output']
-                  : ['Crisp Detail', 'AI Enhanced', 'Lossless Output']
-                ).map(tag => (
-                  <span key={tag} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-gray-500 uppercase tracking-wider font-medium">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
 
           {/* FOOTER CTA */}
           <div className="lg:fixed lg:bottom-0 lg:left-0 lg:w-[420px] relative w-full bg-[#0c0c0e] border-t border-white/5 z-40">
