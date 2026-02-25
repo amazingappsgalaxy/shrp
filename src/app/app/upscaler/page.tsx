@@ -435,30 +435,24 @@ function UpscalerContent() {
                 </div>
               </div>
 
-              {/* Model selector — same pill language as the rest of the UI */}
-              <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)] flex-col gap-1 h-full">
-                {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
-                    className={cn(
-                      "flex-1 w-full flex flex-col items-start justify-center px-3 rounded-md transition-all",
-                      selectedModel === m
-                        ? "bg-[#FFFF00] text-black shadow-md"
-                        : "text-gray-400 hover:text-white"
-                    )}
-                  >
-                    <span className="text-[10px] font-black uppercase tracking-wider leading-none">
-                      {m === 'pro-upscaler' ? 'Professional' : 'Smart'}
-                    </span>
-                    <span className={cn(
-                      "text-[9px] font-medium mt-0.5 leading-none",
-                      selectedModel === m ? "text-black/60" : "text-gray-600"
-                    )}>
-                      Upscaler
-                    </span>
-                  </button>
-                ))}
+              {/* Model selector */}
+              <div className="flex flex-col justify-start pt-0.5">
+                <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)] flex-col gap-1">
+                  {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
+                      className={cn(
+                        "w-full py-2.5 px-2 text-[10px] font-black rounded-md transition-all uppercase tracking-wider text-center",
+                        selectedModel === m
+                          ? "bg-[#FFFF00] text-black shadow-md"
+                          : "text-gray-400 hover:text-white"
+                      )}
+                    >
+                      {m === 'pro-upscaler' ? 'Professional Upscaler' : 'Smart Upscaler'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
