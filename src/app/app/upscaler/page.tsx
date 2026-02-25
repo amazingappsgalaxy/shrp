@@ -5,6 +5,8 @@ import {
   IconLoader2,
   IconTrash,
   IconSparkles,
+  IconChevronDown,
+  IconChevronUp,
 } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
@@ -14,15 +16,42 @@ import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator
 import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
-import { startSmartProgress, type TaskStatus, type TaskEntry } from "@/lib/task-progress"
+import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
 import { SMART_UPSCALER_TASK_DURATION_SECS } from "@/models/smart-upscaler/config"
+import {
+  PRO_UPSCALER_TASK_DURATION_SECS,
+  getProUpscalerCredits,
+  type SkinPreset,
+} from "@/models/pro-upscaler/config"
 
 // --- Demo images ---
 const DEMO_INPUT_URL = 'https://i.postimg.cc/vTtwPDVt/90s-Futuristic-Portrait-3.png'
 const DEMO_OUTPUT_URL = 'https://i.postimg.cc/NjJBqyPS/Comfy-UI-00022-psmsy-1770811094.png'
 
-// --- Credits by resolution ---
-const UPSCALER_CREDITS = { '4k': 80, '8k': 120 } as const
+// --- Credits by resolution (Smart Upscaler) ---
+const SMART_UPSCALER_CREDITS = { '4k': 80, '8k': 120 } as const
+
+type UpscalerModel = 'pro-upscaler' | 'smart-upscaler'
+
+// ─── Small toggle switch ─────────────────────────────────────────────────────
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none flex-shrink-0",
+        checked ? "bg-[#FFFF00]" : "bg-white/10"
+      )}
+    >
+      <span
+        className={cn(
+          "absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200",
+          checked ? "bg-black translate-x-5" : "bg-white/60 translate-x-0"
+        )}
+      />
+    </button>
+  )
+}
 
 function UpscalerContent() {
   const { user, isLoading, isDemo } = useAuth()
@@ -32,8 +61,18 @@ function UpscalerContent() {
   const [upscaledImage, setUpscaledImage] = useState<string | null>(DEMO_OUTPUT_URL)
   const [imageMetadata, setImageMetadata] = useState({ width: 1024, height: 1024 })
 
-  // Settings
-  const [resolution, setResolution] = useState<'4k' | '8k'>('4k')
+  // ── Model selection ──────────────────────────────────────────────────────
+  const [selectedModel, setSelectedModel] = useState<UpscalerModel>('pro-upscaler')
+
+  // ── Smart Upscaler settings ──────────────────────────────────────────────
+  const [smartResolution, setSmartResolution] = useState<'4k' | '8k'>('4k')
+
+  // ── Pro Upscaler settings ────────────────────────────────────────────────
+  const [portrait, setPortrait] = useState(true)
+  const [skinPreset, setSkinPreset] = useState<SkinPreset>('Subtle')
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [maxmode, setMaxmode] = useState(false)
+  const [maxResolution, setMaxResolution] = useState<'4k' | '8k'>('4k')
 
   // Credit balance
   const [creditBalance, setCreditBalance] = useState<number | null>(null)
@@ -44,8 +83,10 @@ function UpscalerContent() {
       .catch((err) => console.error('Failed to fetch credit balance:', err))
   }, [])
 
-  // Credit cost (flat pricing)
-  const creditCost = UPSCALER_CREDITS[resolution]
+  // Compute credit cost based on selected model + settings
+  const creditCost = selectedModel === 'pro-upscaler'
+    ? getProUpscalerCredits(maxmode, maxResolution)
+    : SMART_UPSCALER_CREDITS[smartResolution]
 
   // Upload-on-drop state
   const [isUploading, setIsUploading] = useState(false)
@@ -150,12 +191,14 @@ function UpscalerContent() {
     setTimeout(() => setIsSubmitting(false), 1000)
 
     try {
-      const progressInterval = startSmartProgress(taskId, SMART_UPSCALER_TASK_DURATION_SECS, setActiveTasks)
+      const durationSecs = selectedModel === 'pro-upscaler'
+        ? PRO_UPSCALER_TASK_DURATION_SECS
+        : SMART_UPSCALER_TASK_DURATION_SECS
+      const progressInterval = startSmartProgress(taskId, durationSecs, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
 
       // remoteImageUrl is set as soon as the user drops the image, so in normal
       // usage it will already be available here — skip re-uploading the data URI.
-      // Fall back to inline upload only if the pre-upload hasn't finished yet.
       let imageUrlForApi = remoteImageUrl || inputImage
       if (imageUrlForApi.startsWith('data:')) {
         const uploadRes = await fetch('/api/upload', {
@@ -171,19 +214,33 @@ function UpscalerContent() {
         imageUrlForApi = uploadData.imageUrl
       }
 
+      // Build settings based on selected model
+      const settings = selectedModel === 'pro-upscaler'
+        ? {
+            portrait,
+            maxmode,
+            skinPreset: skinPreset === 'Subtle' ? '1' : skinPreset === 'Real' ? '2' : '3',
+            customPrompt,
+            resolution: maxResolution,
+            imageWidth: imageMetadata.width,
+            imageHeight: imageMetadata.height,
+            pageName: 'app/upscaler',
+          }
+        : {
+            resolution: smartResolution,
+            imageWidth: imageMetadata.width,
+            imageHeight: imageMetadata.height,
+            pageName: 'app/upscaler',
+          }
+
       // POST returns immediately with { taskId: dbTaskId, status: 'processing' }
       const response = await fetch('/api/enhance-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: imageUrlForApi,
-          modelId: 'smart-upscaler',
-          settings: {
-            resolution,
-            imageWidth: imageMetadata.width,
-            imageHeight: imageMetadata.height,
-            pageName: 'app/upscaler',
-          }
+          modelId: selectedModel,
+          settings,
         })
       })
 
@@ -201,9 +258,6 @@ function UpscalerContent() {
 
       const dbTaskId: string = data.taskId
 
-      // NOTE: intentionally do NOT clear taskIntervalsRef (smart progress animation).
-      // Let it keep animating toward 96% while we poll for the real result.
-
       const pollInterval = setInterval(async () => {
         try {
           const pollRes = await fetch(`/api/enhance-image/poll?taskId=${dbTaskId}`)
@@ -212,8 +266,8 @@ function UpscalerContent() {
           if (pollData.status === 'success') {
             clearInterval(pollInterval)
             pollIntervalsRef.current.delete(taskId)
-            const progressInterval = taskIntervalsRef.current.get(taskId)
-            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
+            const pInterval = taskIntervalsRef.current.get(taskId)
+            if (pInterval) { clearInterval(pInterval); taskIntervalsRef.current.delete(taskId) }
 
             const outputUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url
               ? pollData.outputs[0].url
@@ -238,8 +292,8 @@ function UpscalerContent() {
           } else if (pollData.status === 'failed') {
             clearInterval(pollInterval)
             pollIntervalsRef.current.delete(taskId)
-            const progressInterval = taskIntervalsRef.current.get(taskId)
-            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
+            const pInterval = taskIntervalsRef.current.get(taskId)
+            if (pInterval) { clearInterval(pInterval); taskIntervalsRef.current.delete(taskId) }
 
             setActiveTasks(prev => {
               const newMap = new Map(prev)
@@ -253,7 +307,6 @@ function UpscalerContent() {
               setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
             }, 4000)
           }
-          // status === 'running': keep polling, progress animation keeps going
         } catch (pollError) {
           console.warn('Poll error (will retry):', pollError)
         }
@@ -285,13 +338,16 @@ function UpscalerContent() {
 
   const handleDownload = async () => {
     if (!upscaledImage) return
+    const suffix = selectedModel === 'pro-upscaler'
+      ? `pro-${maxmode ? maxResolution : 'std'}`
+      : `smart-${smartResolution}`
     try {
       const response = await fetch(upscaledImage)
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `upscaled-${resolution}-${Date.now()}.png`
+      a.download = `upscaled-${suffix}-${Date.now()}.png`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -299,7 +355,7 @@ function UpscalerContent() {
     } catch {
       const a = document.createElement('a')
       a.href = upscaledImage
-      a.download = `upscaled-${resolution}-${Date.now()}.png`
+      a.download = `upscaled-${suffix}-${Date.now()}.png`
       a.click()
     }
   }
@@ -310,6 +366,8 @@ function UpscalerContent() {
     if (typeof window !== 'undefined') window.location.href = '/app/signin'
     return <ElegantLoading message="Redirecting to login..." />
   }
+
+  const skinPresets: SkinPreset[] = ['Subtle', 'Real', 'Cinema']
 
   return (
     <div className="flex flex-col min-h-screen bg-[#09090b] text-white font-sans">
@@ -328,9 +386,9 @@ function UpscalerContent() {
         {/* LEFT SIDEBAR */}
         <div className="flex flex-col border-r border-white/5 bg-[#0c0c0e] z-20 relative min-h-[calc(100vh-6rem)] lg:pb-32 order-2 lg:order-1">
 
-          {/* INPUT IMAGE */}
+          {/* INPUT IMAGE + MODEL SELECTOR */}
           <div className="border-b border-white/5">
-            {/* Header row — exactly matches editor: label left, delete icon right */}
+            {/* Header row */}
             <div className="grid grid-cols-[40%_60%] gap-4 px-5 pt-5 pb-[0.3rem]">
               <div className="flex items-center justify-between h-6">
                 <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Input Image</span>
@@ -344,11 +402,14 @@ function UpscalerContent() {
                   </button>
                 )}
               </div>
-              <div className="h-6" />
+              <div className="h-6 flex items-center">
+                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Model</span>
+              </div>
             </div>
 
-            {/* Image row — 40% column with square thumbnail, matching editor exactly */}
+            {/* Image + model selector row */}
             <div className="grid grid-cols-[40%_60%] gap-4 px-5 pt-1 pb-3">
+              {/* Thumbnail */}
               <div className="flex flex-col gap-4">
                 <div
                   className="w-full aspect-square rounded-lg bg-black border border-white/10 overflow-hidden relative cursor-pointer group hover:border-[#FFFF00]/50 transition-colors"
@@ -375,68 +436,184 @@ function UpscalerContent() {
                   )}
                 </div>
               </div>
-              <div />
+
+              {/* Model selector + Pro Upscaler options */}
+              <div className="flex flex-col gap-3">
+                {/* Model toggle pills */}
+                <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+                  {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
+                      className={cn(
+                        "flex-1 py-1.5 text-[9px] font-black rounded-md transition-all uppercase tracking-wider leading-tight px-1",
+                        selectedModel === m
+                          ? "bg-[#FFFF00] text-black shadow-md"
+                          : "text-gray-400 hover:text-white"
+                      )}
+                    >
+                      {m === 'pro-upscaler' ? 'Pro\nUpscaler' : 'Smart\nUpscaler'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Pro Upscaler inline controls */}
+                {selectedModel === 'pro-upscaler' && (
+                  <div className="flex flex-col gap-2.5">
+                    {/* Portrait / Skin Enhancement toggle */}
+                    <div className="rounded-lg border border-white/8 bg-white/2 p-2.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <div>
+                          <div className="text-[10px] font-bold text-white leading-none">Skin Enhancement</div>
+                          <div className="text-[9px] text-gray-500 leading-snug mt-0.5">Optimized for portraits</div>
+                        </div>
+                        <Toggle checked={portrait} onChange={setPortrait} />
+                      </div>
+
+                      {/* Skin presets (show when portrait ON) */}
+                      {portrait && (
+                        <div className="mt-2 flex flex-col gap-1.5">
+                          <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Select Skin</div>
+                          <div className="flex gap-1">
+                            {skinPresets.map((preset) => (
+                              <button
+                                key={preset}
+                                onClick={() => setSkinPreset(preset)}
+                                className={cn(
+                                  "flex-1 py-1 text-[9px] font-bold rounded transition-all",
+                                  skinPreset === preset
+                                    ? "bg-[#FFFF00] text-black"
+                                    : "bg-white/5 text-gray-400 hover:text-white border border-white/10"
+                                )}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Fine-tune prompt */}
+                          <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mt-0.5">Fine-tune</div>
+                          <input
+                            type="text"
+                            value={customPrompt}
+                            onChange={e => setCustomPrompt(e.target.value)}
+                            placeholder="maintain glossy lip, maintain eyes shape"
+                            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[9px] text-white placeholder-gray-600 focus:outline-none focus:border-[#FFFF00]/40 transition-colors"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Max Mode toggle */}
+                    <div className="rounded-lg border border-white/8 bg-white/2 p-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] font-bold text-white">Max Mode</div>
+                        <Toggle checked={maxmode} onChange={setMaxmode} />
+                      </div>
+
+                      {/* 4K / 8K selector (show when maxmode ON) */}
+                      {maxmode && (
+                        <div className="mt-2 flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-md border border-[rgb(255_255_255_/_0.04)]">
+                          {(['4k', '8k'] as const).map((res) => (
+                            <button
+                              key={res}
+                              onClick={() => setMaxResolution(res)}
+                              className={cn(
+                                "flex-1 py-1 text-[9px] font-black rounded transition-all uppercase tracking-wider",
+                                maxResolution === res
+                                  ? "bg-[#FFFF00] text-black"
+                                  : "text-gray-400 hover:text-white"
+                              )}
+                            >
+                              {res === '4k' ? '4K' : '8K'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Smart Upscaler: show description when selected */}
+                {selectedModel === 'smart-upscaler' && (
+                  <div className="rounded-lg border border-white/8 bg-white/2 p-2.5">
+                    <p className="text-[9px] text-gray-500 leading-relaxed">
+                      High-quality AI upscaling. Crisp detail enhancement up to 4K or 8K.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* UPSCALE FACTOR */}
-          <div className="border-b border-white/5 px-5 py-5">
-            <span className="text-xs font-black text-gray-500 uppercase tracking-wider block mb-3">Upscale Factor</span>
+          {/* UPSCALE FACTOR (Smart Upscaler only) */}
+          {selectedModel === 'smart-upscaler' && (
+            <div className="border-b border-white/5 px-5 py-5">
+              <span className="text-xs font-black text-gray-500 uppercase tracking-wider block mb-3">Upscale Factor</span>
 
-            {/* Cupertino segmented pill — matches editor page style */}
-            <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
-              {(['4k', '8k'] as const).map((res) => (
+              {/* Cupertino segmented pill */}
+              <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+                {(['4k', '8k'] as const).map((res) => (
+                  <button
+                    key={res}
+                    onClick={() => setSmartResolution(res)}
+                    className={cn(
+                      "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
+                      smartResolution === res
+                        ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
+                        : "text-white hover:text-white"
+                    )}
+                  >
+                    {res === '4k' ? '4K Crisp' : '8K Ultra'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
-                  key={res}
-                  onClick={() => setResolution(res)}
+                  onClick={() => setSmartResolution('4k')}
                   className={cn(
-                    "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
-                    resolution === res
-                      ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
-                      : "text-white hover:text-white"
+                    "rounded-lg border p-3 transition-all text-left",
+                    smartResolution === '4k' ? "border-[#FFFF00] border-2" : "border-white/5"
                   )}
                 >
-                  {res === '4k' ? '4K Crisp' : '8K Ultra'}
+                  <div className="text-sm font-semibold text-white">4096 × 4096</div>
+                  <div className="text-[10px] text-gray-500 mt-1 leading-snug">Balanced quality and speed</div>
                 </button>
-              ))}
+                <button
+                  onClick={() => setSmartResolution('8k')}
+                  className={cn(
+                    "rounded-lg border p-3 transition-all text-left",
+                    smartResolution === '8k' ? "border-[#FFFF00] border-2" : "border-white/5"
+                  )}
+                >
+                  <div className="text-sm font-semibold text-white">8192 × 8192</div>
+                  <div className="text-[10px] text-gray-500 mt-1 leading-snug">Maximum detail and sharpness</div>
+                </button>
+              </div>
             </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setResolution('4k')}
-                className={cn(
-                  "rounded-lg border p-3 transition-all text-left",
-                  resolution === '4k' ? "border-[#FFFF00] border-2" : "border-white/5"
-                )}
-              >
-                <div className="text-sm font-semibold text-white">4096 × 4096</div>
-                <div className="text-[10px] text-gray-500 mt-1 leading-snug">Balanced quality and speed</div>
-              </button>
-              <button
-                onClick={() => setResolution('8k')}
-                className={cn(
-                  "rounded-lg border p-3 transition-all text-left",
-                  resolution === '8k' ? "border-[#FFFF00] border-2" : "border-white/5"
-                )}
-              >
-                <div className="text-sm font-semibold text-white">8192 × 8192</div>
-                <div className="text-[10px] text-gray-500 mt-1 leading-snug">Maximum detail and sharpness</div>
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* INFO */}
           <div className="px-5 py-4 border-b border-white/5">
             <div className="rounded-xl border border-white/5 bg-white/2 p-4 space-y-2">
               <div className="flex items-center gap-2 mb-3">
                 <IconSparkles className="w-4 h-4 text-[#FFFF00]" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider">Smart Upscaler</span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  {selectedModel === 'pro-upscaler' ? 'Professional Upscaler' : 'Smart Upscaler'}
+                </span>
               </div>
               <p className="text-xs text-gray-400 leading-relaxed">
-                Improves skin quality and overall clarity, then performs Smart Upscale to produce a sharper, high-detail output.
+                {selectedModel === 'pro-upscaler'
+                  ? 'Unblur anything. Enhances clarity in heavily blurred images, making them sharper and more defined. Advanced upscaling to improve detail and recover lost visual information.'
+                  : 'Improves skin quality and overall clarity, then performs Smart Upscale to produce a sharper, high-detail output.'
+                }
               </p>
               <div className="pt-1 flex flex-wrap gap-2">
-                {['Crisp Detail', 'AI Enhanced', 'Lossless Output'].map(tag => (
+                {(selectedModel === 'pro-upscaler'
+                  ? ['AI Enhanced', 'Portrait-Ready', 'Lossless Output']
+                  : ['Crisp Detail', 'AI Enhanced', 'Lossless Output']
+                ).map(tag => (
                   <span key={tag} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-gray-500 uppercase tracking-wider font-medium">
                     {tag}
                   </span>
@@ -475,7 +652,12 @@ function UpscalerContent() {
                 ) : (
                   <>
                     <IconSparkles className="w-5 h-5" />
-                    <span>Upscale to {resolution.toUpperCase()}</span>
+                    <span>
+                      {selectedModel === 'pro-upscaler'
+                        ? `Upscale${maxmode ? ` to ${maxResolution.toUpperCase()}` : ''}`
+                        : `Upscale to ${smartResolution.toUpperCase()}`
+                      }
+                    </span>
                   </>
                 )}
               </button>

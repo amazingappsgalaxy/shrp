@@ -202,6 +202,42 @@ export const MODEL_PRICING_CONFIGS: Record<string, ModelPricingConfiguration> = 
     ],
     lastUpdated: Date.now(),
     description: 'Flat pricing based on output resolution. 4K = 80 credits, 8K = 120 credits.'
+  },
+
+  // Professional Upscaler Pricing (flat pricing based on mode)
+  'pro-upscaler': {
+    modelId: 'pro-upscaler',
+    modelName: 'Professional Upscaler',
+    enabled: true,
+    globalMultiplier: 1.0,
+    flatFee: 0,
+    resolutionPricing: [
+      {
+        resolution: 'Any Input',
+        width: 99999,
+        height: 99999,
+        megapixels: 9999,
+        baseCredits: 100,
+        description: 'Standard Output (100 credits)'
+      }
+    ],
+    settingIncrements: [
+      {
+        settingKey: 'maxmodeResolution',
+        settingName: 'Max Mode Resolution',
+        incrementType: 'conditional',
+        defaultIncrement: 0,
+        enabled: true,
+        defaultValue: 0,
+        conditions: [
+          { when: (val: string) => val === '4k', increment: 40, description: '+40 credits for Max Mode 4K (140 total)' },
+          { when: (val: string) => val === '8k', increment: 100, description: '+100 credits for Max Mode 8K (200 total)' }
+        ],
+        description: 'Max Mode output resolution: 4K = 140 credits, 8K = 200 credits'
+      }
+    ],
+    lastUpdated: Date.now(),
+    description: 'Flat pricing: Standard = 100 credits, Max Mode 4K = 140 credits, Max Mode 8K = 200 credits.'
   }
 };
 

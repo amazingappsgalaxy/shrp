@@ -146,6 +146,28 @@ export class RunningHubProvider extends BaseAIProvider {
         }
       },
       {
+        id: 'pro-upscaler',
+        name: 'Professional Upscaler',
+        displayName: 'Professional Upscaler',
+        description: 'Advanced upscaling with portrait skin enhancement. Recovers lost visual information and sharpens blurred images.',
+        provider: {
+          name: ProviderType.RUNNINGHUB,
+          displayName: 'RunningHub.ai',
+          description: 'ComfyUI cloud platform for advanced image processing',
+          supportedFeatures: ['upscaling', 'skin-enhancement', 'portrait', '4k', '8k']
+        },
+        version: '1.0',
+        capabilities: ['upscaling', 'portrait-enhancement', 'skin-enhancement', '4k-output', '8k-output'],
+        parameters: {
+          portrait: { type: 'boolean', default: true, description: 'Enable portrait / skin enhancement' },
+          maxmode:  { type: 'boolean', default: false, description: 'Enable Max Mode (higher resolution output)' },
+          skinPreset: { type: 'select', default: '1', options: ['1', '2', '3'], description: 'Skin preset: 1=Subtle, 2=Real, 3=Cinema' },
+          customPrompt: { type: 'string', default: '', description: 'Optional fine-tune prompt' },
+          resolution: { type: 'select', default: '4k', options: ['4k', '8k'], description: 'Max Mode output resolution' },
+        },
+        pricing: { costPerImage: 0.01, currency: 'USD' }
+      },
+      {
         id: 'skin-editor',
         name: 'Skin Editor',
         displayName: 'Skin Editor',
@@ -228,6 +250,10 @@ export class RunningHubProvider extends BaseAIProvider {
 
       if (modelId === 'smart-upscaler') {
         return this.handleSmartUpscalerRequest(request, model)
+      }
+
+      if (modelId === 'pro-upscaler') {
+        return this.handleProUpscalerRequest(request, model)
       }
 
       if (modelId === 'skin-editor') {
@@ -399,6 +425,96 @@ export class RunningHubProvider extends BaseAIProvider {
           taskId: taskResponse.taskId,
           workflowId: SMART_UPSCALER_WORKFLOW_ID,
           resolution
+        }
+      }
+    }
+  }
+
+  private async handleProUpscalerRequest(
+    request: EnhancementRequest,
+    model: ModelInfo
+  ): Promise<EnhancementResponse> {
+    const settings = request.settings as RunningHubSettings & {
+      portrait?: boolean
+      maxmode?: boolean
+      skinPreset?: string
+      customPrompt?: string
+      resolution?: '4k' | '8k'
+    }
+
+    const {
+      getProUpscalerWorkflow,
+      PRO_UPSCALER_NODES,
+    } = await import('../../../models/pro-upscaler/config')
+
+    const portrait = settings.portrait !== false // default true
+    const maxmode  = settings.maxmode  === true  // default false
+    const resolution: '4k' | '8k' = (settings.resolution as '4k' | '8k') || '4k'
+    const skinPath = Number(settings.skinPreset ?? 1)
+    const promptText = settings.customPrompt ?? ''
+
+    const workflow = getProUpscalerWorkflow(portrait, maxmode)
+
+    console.log(`🚀 RunningHub: Processing Pro Upscaler`, {
+      portrait,
+      maxmode,
+      resolution,
+      skinPath,
+      workflowId: workflow.workflowId,
+      outputNodeId: workflow.outputNodeId,
+    })
+
+    const nodeInfoListOverride: Array<{ nodeId: string; fieldName: string; fieldValue: string | number }> = [
+      { nodeId: PRO_UPSCALER_NODES.LOAD_IMAGE, fieldName: 'image',    fieldValue: request.imageUrl.trim() },
+    ]
+
+    if (portrait) {
+      nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.SKIN_PATH, fieldName: 'path_index', fieldValue: skinPath })
+      nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.PROMPT,    fieldName: 'text',        fieldValue: promptText })
+    }
+
+    if (maxmode) {
+      const resValue = resolution === '8k' ? 8192 : 4096
+      nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.RESOLUTION, fieldName: 'width',  fieldValue: resValue })
+      nodeInfoListOverride.push({ nodeId: PRO_UPSCALER_NODES.RESOLUTION, fieldName: 'height', fieldValue: resValue })
+    }
+
+    const taskResponse = await this.createTask(request.imageUrl, {
+      workflowId: workflow.workflowId,
+      nodeInfoListOverride,
+    } as any)
+
+    if (!taskResponse.success) {
+      return this.createErrorResponse(taskResponse.error || 'Failed to create Pro Upscaler task')
+    }
+
+    const result = await this.pollTaskCompletion(taskResponse.taskId!, [workflow.outputNodeId])
+
+    if (!result.success) {
+      return this.createErrorResponse(result.error || 'Pro Upscaler task failed')
+    }
+
+    console.log(`✅ RunningHub: Pro Upscaler completed successfully`)
+
+    return {
+      success: true,
+      enhancedUrl: result.outputUrl,
+      metadata: {
+        modelVersion: model.version,
+        processingTime: result.processingTime,
+        settings: settings as EnhancementSettings,
+        userId: request.userId,
+        imageId: request.imageId,
+        outputFormat: 'png',
+        provider: this.getProviderName(),
+        model: model.id,
+        timestamp: Date.now(),
+        details: {
+          taskId: taskResponse.taskId,
+          workflowId: workflow.workflowId,
+          portrait,
+          maxmode,
+          resolution,
         }
       }
     }
