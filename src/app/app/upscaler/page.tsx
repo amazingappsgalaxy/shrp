@@ -443,7 +443,7 @@ function UpscalerContent() {
                       key={m}
                       onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
                       className={cn(
-                        "w-full py-2.5 px-2 text-[10px] font-black rounded-md transition-all uppercase tracking-wider text-center",
+                        "w-full py-2.5 px-2 text-xs font-bold rounded-md transition-all uppercase tracking-wider text-center",
                         selectedModel === m
                           ? "bg-[#FFFF00] text-black shadow-md"
                           : "text-gray-400 hover:text-white"
@@ -462,22 +462,22 @@ function UpscalerContent() {
             <div className="border-b border-white/5 px-5 py-5">
               {/* Section heading + toggle */}
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Portrait Mode</span>
+                <span className="text-xs font-semibold text-white">Portrait Mode</span>
                 <Toggle checked={portrait} onChange={setPortrait} />
               </div>
 
               {portrait && (
                 <div className="flex flex-col gap-4">
-                  {/* Skin Enhancement sub-section */}
-                  <div>
-                    <p className="text-sm font-semibold text-white mb-2">Skin Enhancement</p>
+                  {/* Skin Enhancement sub-section — label left, segmented control right */}
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white shrink-0">Skin Enhancement</p>
                     <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
                       {skinPresets.map((preset) => (
                         <button
                           key={preset}
                           onClick={() => setSkinPreset(preset)}
                           className={cn(
-                            "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
+                            "py-1.5 px-3 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
                             skinPreset === preset
                               ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
                               : "text-white hover:text-white"
@@ -510,8 +510,8 @@ function UpscalerContent() {
             <div className="border-b border-white/5 px-5 py-5">
               <div className="flex items-center justify-between mb-1">
                 <div>
-                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Max Mode</span>
-                  <p className="text-[10px] text-gray-600 mt-0.5">Higher resolution output with more detail.</p>
+                  <span className="text-xs font-semibold text-white">Max Mode</span>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Higher resolution output with more detail.</p>
                 </div>
                 <Toggle checked={maxmode} onChange={setMaxmode} />
               </div>
@@ -670,7 +670,9 @@ function UpscalerContent() {
                     <IconSparkles className="w-5 h-5" />
                     <span>
                       {selectedModel === 'pro-upscaler'
-                        ? `Upscale${maxmode ? ` to ${maxResolution.toUpperCase()}` : ''}`
+                        ? portrait
+                          ? `Upscale Portrait${maxmode ? ` to ${maxResolution.toUpperCase()}` : ''}`
+                          : `Upscale${maxmode ? ` to ${maxResolution.toUpperCase()}` : ''}`
                         : `Upscale to ${smartResolution.toUpperCase()}`
                       }
                     </span>
