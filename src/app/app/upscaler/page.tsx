@@ -435,62 +435,69 @@ function UpscalerContent() {
                 </div>
               </div>
 
-              {/* Model selector only */}
-              <div className="flex flex-col justify-start pt-0.5">
-                <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-xl border border-[rgb(255_255_255_/_0.04)] flex-col gap-1">
-                  {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
-                      className={cn(
-                        "w-full py-2.5 px-2 text-[10px] font-black rounded-lg transition-all uppercase tracking-wider text-center",
-                        selectedModel === m
-                          ? "bg-[#FFFF00] text-black shadow-md"
-                          : "text-gray-400 hover:text-white"
-                      )}
-                    >
-                      {m === 'pro-upscaler' ? 'Professional Upscaler' : 'Smart Upscaler'}
-                    </button>
-                  ))}
-                </div>
+              {/* Model selector — same pill language as the rest of the UI */}
+              <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)] flex-col gap-1 h-full">
+                {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setSelectedModel(m); setUpscaledImage(null) }}
+                    className={cn(
+                      "flex-1 w-full flex flex-col items-start justify-center px-3 rounded-md transition-all",
+                      selectedModel === m
+                        ? "bg-[#FFFF00] text-black shadow-md"
+                        : "text-gray-400 hover:text-white"
+                    )}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-wider leading-none">
+                      {m === 'pro-upscaler' ? 'Professional' : 'Smart'}
+                    </span>
+                    <span className={cn(
+                      "text-[9px] font-medium mt-0.5 leading-none",
+                      selectedModel === m ? "text-black/60" : "text-gray-600"
+                    )}>
+                      Upscaler
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* SKIN ENHANCEMENT (Pro Upscaler only) */}
+          {/* PORTRAIT MODE (Pro Upscaler only) */}
           {selectedModel === 'pro-upscaler' && (
             <div className="border-b border-white/5 px-5 py-5">
-              <div className="flex items-center justify-between mb-1">
-                <div>
-                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Skin Enhancement</span>
-                  <p className="text-[10px] text-gray-600 mt-0.5">Optimized for portraits with realistic skin.</p>
-                </div>
+              {/* Section heading + toggle */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Portrait Mode</span>
                 <Toggle checked={portrait} onChange={setPortrait} />
               </div>
 
               {portrait && (
-                <div className="mt-4 flex flex-col gap-3">
-                  {/* Skin preset segmented control */}
-                  <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
-                    {skinPresets.map((preset) => (
-                      <button
-                        key={preset}
-                        onClick={() => setSkinPreset(preset)}
-                        className={cn(
-                          "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
-                          skinPreset === preset
-                            ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
-                            : "text-white hover:text-white"
-                        )}
-                      >
-                        {preset}
-                      </button>
-                    ))}
+                <div className="flex flex-col gap-4">
+                  {/* Skin Enhancement sub-section */}
+                  <div>
+                    <p className="text-sm font-semibold text-white mb-2">Skin Enhancement</p>
+                    <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+                      {skinPresets.map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => setSkinPreset(preset)}
+                          className={cn(
+                            "flex-1 py-2 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
+                            skinPreset === preset
+                              ? "bg-[#FFFF00] text-black shadow-md scale-[1.02]"
+                              : "text-white hover:text-white"
+                          )}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Fine-tune prompt */}
+                  {/* Fine-tune Prompt sub-section */}
                   <div>
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider block mb-1.5">Fine-tune Prompt</span>
+                    <p className="text-sm font-semibold text-white mb-1.5">Fine-tune Prompt</p>
                     <input
                       type="text"
                       value={customPrompt}
