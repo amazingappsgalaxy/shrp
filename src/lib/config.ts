@@ -50,7 +50,11 @@ export const config = {
       baseUrl: process.env.RUNNINGHUB_BASE_URL || 'https://www.runninghub.ai',
       timeout: 300000, // 5 minutes
       retries: 3,
-    }
+    },
+    synvow: {
+      apiKey: process.env.SYNVOW_API_KEY || '',
+      baseUrl: process.env.SYNVOW_BASE_URL || 'https://api.gptbest.vip',
+    },
   }
 }
 

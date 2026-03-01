@@ -1,0 +1,77 @@
+// Synvow inference provider — type definitions
+
+export type SynvowModelType = 'image' | 'video'
+
+export interface SynvowModelControls {
+  aspectRatios?: string[]
+  quality?: string[]
+  durations?: string[]
+  referenceImage?: boolean
+  firstFrameImage?: boolean
+  audioSync?: boolean
+  strictReference?: boolean
+}
+
+export interface SynvowModelConfig {
+  label: string
+  type: SynvowModelType
+  description: string
+  controls: SynvowModelControls
+  /** Approximate cost in USD per generation */
+  costUsd?: number
+}
+
+export interface SynvowImageInput {
+  /** 'url' = Bunny CDN URL (preferred); 'base64' = raw base64 string */
+  type: 'base64' | 'url'
+  data: string
+}
+
+export interface SynvowGenerateRequest {
+  model: string
+  prompt: string
+  aspect_ratio?: string
+  quality?: string
+  duration?: number
+  audio_sync?: boolean
+  images?: SynvowImageInput[]
+  /** CDN URL or base64 string for strict reference matching (nano-banana-pro) */
+  reference_image?: string
+  /** CDN URL or base64 string for first-frame video seeding */
+  first_frame?: string
+}
+
+export type SynvowTaskStatus =
+  | 'NOT_START'
+  | 'SUBMITTED'
+  | 'QUEUED'
+  | 'IN_PROGRESS'
+  | 'SUCCESS'
+  | 'FAILURE'
+  | 'FAILED'
+  | 'ERROR'
+  | string
+
+export interface SynvowTaskData {
+  output?: string
+  outputs?: string[]
+}
+
+export interface SynvowRawTaskResponse {
+  status?: SynvowTaskStatus
+  task_id?: string
+  data?: SynvowTaskData
+}
+
+export interface SynvowSubmitResult {
+  taskId: string
+  type: SynvowModelType
+  /** URL returned synchronously (image models only). If set, polling is not needed. */
+  immediateOutput: string | null
+}
+
+export interface SynvowPollResult {
+  status: SynvowTaskStatus
+  output: string | null
+  raw?: unknown
+}
