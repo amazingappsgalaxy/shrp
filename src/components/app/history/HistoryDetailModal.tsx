@@ -13,11 +13,16 @@ type HistoryDetail = {
     status: string;
     generationTimeMs: number | null;
     settings: {
+        // Editor / upscaler fields
         style?: string | null;
         mode?: string | null;
         transformationStrength?: number | null;
         skinTextureSize?: number | null;
         detailLevel?: number | null;
+        // Image generation fields (app/image)
+        prompt?: string | null;
+        aspect_ratio?: string | null;
+        count?: number | null;
         failure_reason?: string;
     };
     createdAt: string;
@@ -230,6 +235,11 @@ export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModal
                                         <Sparkles className="w-3 h-3" /> configuration
                                     </h3>
                                     <div className="grid gap-3">
+                                        {/* Image generation fields */}
+                                        <DetailRow label="Prompt" value={item.settings?.prompt} />
+                                        <DetailRow label="Aspect Ratio" value={item.settings?.aspect_ratio} />
+                                        <DetailRow label="Count" value={item.settings?.count} />
+                                        {/* Editor / upscaler fields */}
                                         <DetailRow label="Style" value={item.settings?.style} />
                                         <DetailRow label="Mode" value={item.settings?.mode} />
                                         <DetailRow label="Texture Size" value={item.settings?.skinTextureSize} />

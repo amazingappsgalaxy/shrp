@@ -31,6 +31,8 @@ export interface SynvowGenerateRequest {
   model: string
   prompt: string
   aspect_ratio?: string
+  /** Resolution tier — sent as imageSize in Gemini-format models (e.g. nano-banana-pro) */
+  imageSize?: '1K' | '2K' | '4K'
   quality?: string
   duration?: number
   audio_sync?: boolean
@@ -66,8 +68,12 @@ export interface SynvowRawTaskResponse {
 export interface SynvowSubmitResult {
   taskId: string
   type: SynvowModelType
-  /** URL returned synchronously (image models only). If set, polling is not needed. */
+  /** URL or data: URI returned synchronously (image models only). If set, polling is not needed. */
   immediateOutput: string | null
+  /** Raw request sent to the upstream API (for dev debugging) */
+  _debugRequest?: unknown
+  /** Raw response received from the upstream API (for dev debugging) */
+  _debugResponse?: unknown
 }
 
 export interface SynvowPollResult {

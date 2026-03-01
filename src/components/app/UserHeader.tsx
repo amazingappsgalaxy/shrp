@@ -118,6 +118,7 @@ export function UserHeader({ className }: UserHeaderProps) {
         { name: 'Upscaler', href: '/app/upscaler' },
         { name: 'History', href: '/app/history' },
         { name: 'Image Editor', href: '/app/image-editor' },
+        { name: 'Image', href: '/app/image' },
         { name: 'Generate', href: '/app/generate-image' },
     ]
 
@@ -127,7 +128,8 @@ export function UserHeader({ className }: UserHeaderProps) {
         { name: 'Upscaler', href: '/app/upscaler', icon: Sparkles },
         { name: 'History', href: '/app/history', icon: BarChart3 },
         { name: 'Image Editor', href: '/app/image-editor', icon: Wand2 },
-        { name: 'Generate', href: '/app/generate-image', icon: ImageIcon },
+        { name: 'Image', href: '/app/image', icon: ImageIcon },
+        { name: 'Generate', href: '/app/generate-image', icon: Sparkles },
     ]
 
     const hasActivePlan = currentPlan !== 'free'

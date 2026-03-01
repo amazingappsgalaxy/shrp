@@ -23,11 +23,16 @@ type HistoryDetail = {
   status: string
   generationTimeMs: number | null
   settings: {
+    // Editor / upscaler fields
     style?: string | null
     mode?: string | null
     transformationStrength?: number | null
     skinTextureSize?: number | null
     detailLevel?: number | null
+    // Image generation fields (app/image)
+    prompt?: string | null
+    aspect_ratio?: string | null
+    count?: number | null
     failure_reason?: string
   }
   createdAt: string

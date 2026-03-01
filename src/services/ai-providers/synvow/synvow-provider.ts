@@ -50,6 +50,11 @@ export class SynvowProvider {
   }
 
   private async submitImageTask(req: SynvowGenerateRequest): Promise<SynvowSubmitResult> {
+    // nano-banana-pro uses a distinct Gemini-style API regardless of whether a reference is provided
+    if (req.model === 'nano-banana-pro') {
+      return this.submitNanaBanaProTask(req)
+    }
+
     const hasReferenceImage = !!(req.images?.length || req.reference_image)
 
     // When a reference image is provided, use the chat completions API (vision-style).
@@ -88,7 +93,7 @@ export class SynvowProvider {
     const url = data.data?.[0]?.url ?? null
     if (!url) throw new Error('Image API returned no URL')
 
-    return { taskId: `sync_${Date.now()}`, type: 'image', immediateOutput: url }
+    return { taskId: `sync_${Date.now()}`, type: 'image', immediateOutput: url, _debugRequest: body, _debugResponse: data }
   }
 
   /**
@@ -104,19 +109,20 @@ export class SynvowProvider {
   private async submitImageTaskWithReference(req: SynvowGenerateRequest): Promise<SynvowSubmitResult> {
     const endpoint = `${getBase()}/v1/chat/completions`
 
-    // Resolve image URL — prefer explicit images array, fall back to reference_image
-    let imageUrl: string | null = null
+    // Build all reference image URLs — supports multiple references
+    const imageUrls: string[] = []
     if (req.images?.length) {
-      const img = req.images[0]!
-      imageUrl = img.type === 'url' ? img.data : `data:image/jpeg;base64,${img.data}`
+      for (const img of req.images) {
+        imageUrls.push(img.type === 'url' ? img.data : `data:image/jpeg;base64,${img.data}`)
+      }
     } else if (req.reference_image) {
       const isUrl = req.reference_image.startsWith('http')
-      imageUrl = isUrl ? req.reference_image : `data:image/jpeg;base64,${req.reference_image}`
+      imageUrls.push(isUrl ? req.reference_image : `data:image/jpeg;base64,${req.reference_image}`)
     }
 
     const content: unknown[] = [{ type: 'text', text: req.prompt }]
-    if (imageUrl) {
-      content.push({ type: 'image_url', image_url: { url: imageUrl } })
+    for (const url of imageUrls) {
+      content.push({ type: 'image_url', image_url: { url } })
     }
 
     const body: Record<string, unknown> = {
@@ -152,7 +158,131 @@ export class SynvowProvider {
       throw new Error(`Image URL not found in response. Response content: ${content0.slice(0, 200)}`)
     }
 
-    return { taskId: `sync_${Date.now()}`, type: 'image', immediateOutput: url }
+    return { taskId: `sync_${Date.now()}`, type: 'image', immediateOutput: url, _debugRequest: body, _debugResponse: data }
+  }
+
+  /**
+   * nano-banana-pro uses a Gemini-style generateContent API.
+   *
+   * Format:
+   *   POST /v1beta/models/nano-banana-pro:generateContent
+   *   {
+   *     "contents": [{ "role": "user", "parts": [
+   *       { "inlineData": { "data": "<base64>", "mimeType": "image/jpeg" } },  // each reference
+   *       { "text": "<prompt>" }
+   *     ]}],
+   *     "generationConfig": {
+   *       "imageConfig": { "aspectRatio": "3:4", "imageSize": "2K" },
+   *       "responseModalities": ["IMAGE"]
+   *     }
+   *   }
+   *
+   * References are passed as base64 (inlineData). If the caller passes CDN URLs,
+   * they are fetched and converted to base64 here.
+   *
+   * The response is expected to contain the generated image either as:
+   *   a) candidates[0].content.parts[n].inlineData.data  (base64 JPEG/PNG)
+   *   b) candidates[0].content.parts[n].text             (markdown with embedded URL)
+   * The immediateOutput is either a data: URI (case a) or a plain URL (case b).
+   */
+  private async submitNanaBanaProTask(req: SynvowGenerateRequest): Promise<SynvowSubmitResult> {
+    const endpoint = `${getBase()}/v1beta/models/nano-banana-pro:generateContent`
+
+    // Build parts: reference images first (as inlineData), then the prompt text
+    const parts: unknown[] = []
+
+    const imageInputs = req.images ?? (req.reference_image ? [{ type: 'url' as const, data: req.reference_image }] : [])
+    for (const img of imageInputs) {
+      let base64Data: string
+      let mimeType = 'image/jpeg'
+
+      if (img.type === 'base64') {
+        base64Data = img.data
+      } else {
+        // Fetch URL and convert to base64
+        const resp = await fetch(img.data)
+        if (!resp.ok) throw new Error(`Failed to fetch reference image (${resp.status}): ${img.data}`)
+        const ct = resp.headers.get('content-type') || 'image/jpeg'
+        mimeType = ct.split(';')[0]?.trim() ?? 'image/jpeg'
+        const buf = await resp.arrayBuffer()
+        base64Data = Buffer.from(buf).toString('base64')
+      }
+      parts.push({ inlineData: { data: base64Data, mimeType } })
+    }
+
+    parts.push({ text: req.prompt })
+
+    const requestBody = {
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        imageConfig: {
+          ...(req.aspect_ratio ? { aspectRatio: req.aspect_ratio } : {}),
+          imageSize: req.imageSize ?? '1K',
+        },
+        responseModalities: ['IMAGE'],
+      },
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    const rawResponse = (await res.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            inlineData?: { data?: string; mimeType?: string }
+            text?: string
+          }>
+        }
+      }>
+      error?: { message?: string }
+    }
+
+    if (!res.ok) {
+      throw new Error(rawResponse.error?.message ?? `NB Pro API error ${res.status}`)
+    }
+
+    const responseParts = rawResponse.candidates?.[0]?.content?.parts ?? []
+
+    // Case a: inline image data (base64)
+    const inlinePart = responseParts.find(p => p.inlineData?.data)
+    if (inlinePart?.inlineData?.data) {
+      const mime = inlinePart.inlineData.mimeType ?? 'image/jpeg'
+      const dataUri = `data:${mime};base64,${inlinePart.inlineData.data}`
+      return {
+        taskId: `sync_nbpro_${Date.now()}`,
+        type: 'image',
+        immediateOutput: dataUri,
+        _debugRequest: requestBody,
+        _debugResponse: rawResponse,
+      }
+    }
+
+    // Case b: text part may contain a markdown image URL
+    const textPart = responseParts.find(p => p.text)
+    if (textPart?.text) {
+      const match = textPart.text.match(/!\[image\d*\]\((https?:\/\/[^)]+)\)/)
+      const url = match?.[1] ?? null
+      if (url) {
+        return {
+          taskId: `sync_nbpro_${Date.now()}`,
+          type: 'image',
+          immediateOutput: url,
+          _debugRequest: requestBody,
+          _debugResponse: rawResponse,
+        }
+      }
+    }
+
+    throw new Error(
+      `NB Pro returned no image. Response: ${JSON.stringify(rawResponse).slice(0, 400)}`
+    )
   }
 
   private async submitVideoTask(req: SynvowGenerateRequest): Promise<SynvowSubmitResult> {
