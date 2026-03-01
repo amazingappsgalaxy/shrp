@@ -611,8 +611,10 @@ export default function ImagePage() {
   ]
   const hasRefs = allRefs.length > 0
 
-  // Aspect ratio is locked for strict-reference models when a reference image is active
-  const aspectLocked = modelStrictRef && hasRefs
+  // Lock aspect ratio only for strict-reference models that use quality-group variants (nano-banana-2 family).
+  // Models with supportedImageSizes (NB Pro via Gemini API) always let the user control aspect ratio —
+  // the Gemini imageConfig.aspectRatio param is what drives the output, not the reference image dimensions.
+  const aspectLocked = modelStrictRef && hasRefs && !activeModel.supportedImageSizes?.length
 
   const creditsPerImage = activeModel.credits
   const totalCredits    = creditsPerImage * count

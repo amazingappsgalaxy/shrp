@@ -120,7 +120,13 @@ export class SynvowProvider {
       imageUrls.push(isUrl ? req.reference_image : `data:image/jpeg;base64,${req.reference_image}`)
     }
 
-    const content: unknown[] = [{ type: 'text', text: req.prompt }]
+    // Inject aspect ratio as a text instruction — the chat completions endpoint ignores the `size`
+    // body param for image-to-image tasks; only the prompt text reliably controls output dimensions.
+    const promptText = req.aspect_ratio
+      ? `${req.prompt}. The output image must be in ${req.aspect_ratio} aspect ratio.`
+      : req.prompt
+
+    const content: unknown[] = [{ type: 'text', text: promptText }]
     for (const url of imageUrls) {
       content.push({ type: 'image_url', image_url: { url } })
     }
@@ -130,6 +136,8 @@ export class SynvowProvider {
       messages: [{ role: 'user', content }],
       stream: false,
     }
+    // Also pass size param as a hint (may be ignored by some proxy versions)
+    if (req.aspect_ratio) body.size = aspectRatioToSize(req.aspect_ratio)
 
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -210,16 +218,38 @@ export class SynvowProvider {
       parts.push({ inlineData: { data: base64Data, mimeType } })
     }
 
-    parts.push({ text: req.prompt })
+    // The gptbest.vip proxy ignores imageConfig when responseModalities includes TEXT.
+    // Inject both aspect ratio and resolution as text instructions — the only reliable path.
+    const imageSizeLabels: Record<string, string> = {
+      '1K': '1024×1024 pixels',
+      '2K': '2048×2048 pixels',
+      '4K': '4096×4096 pixels (4K ultra high resolution)',
+    }
+    const aspectHint = req.aspect_ratio
+      ? ` Output image must be in ${req.aspect_ratio} aspect ratio.`
+      : ''
+    const sizeHint = req.imageSize && req.imageSize !== '1K'
+      ? ` Generate in ${imageSizeLabels[req.imageSize] ?? req.imageSize} resolution.`
+      : ''
+    parts.push({ text: `${req.prompt}${aspectHint}${sizeHint}` })
+
+    // Map our internal size tokens to multiple formats — different proxy forks expect different things.
+    // Primary: Gemini imageConfig.imageSize with both the enum token and pixel dimensions.
+    const imageSizePixels: Record<string, string> = { '1K': '1024x1024', '2K': '2048x2048', '4K': '4096x4096' }
+    const imageSizeToken = req.imageSize ?? '1K'
+    const imageSizePixel = imageSizePixels[imageSizeToken] ?? imageSizePixels['1K']
 
     const requestBody = {
       contents: [{ role: 'user', parts }],
       generationConfig: {
+        // ['TEXT', 'IMAGE'] is required — proxies drop imageConfig when only ['IMAGE'] is set
+        responseModalities: ['TEXT', 'IMAGE'],
         imageConfig: {
           ...(req.aspect_ratio ? { aspectRatio: req.aspect_ratio } : {}),
-          imageSize: req.imageSize ?? '1K',
+          // Send both token and pixel format — proxies vary in which they accept
+          imageSize: imageSizeToken,
+          imageSizePixels: imageSizePixel,
         },
-        responseModalities: ['IMAGE'],
       },
     }
 
