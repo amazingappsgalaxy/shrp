@@ -122,7 +122,8 @@ const IMAGE_MODELS: ModelConfig[] = [
       referenceImage: true,
       strictReference: true,
     },
-    supportedImageSizes: ['1K', '2K', '4K'],
+    // Resolution is hard-capped at 1K by the api.gptbest.vip proxy — 2K/4K are non-functional.
+    // Use nano-banana-2-4k for 4K output instead.
     providers: ['synvow'],
   },
   {

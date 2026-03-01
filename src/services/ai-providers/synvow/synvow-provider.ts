@@ -219,25 +219,12 @@ export class SynvowProvider {
     }
 
     // The gptbest.vip proxy ignores imageConfig when responseModalities includes TEXT.
-    // Inject both aspect ratio and resolution as text instructions — the only reliable path.
-    const imageSizeLabels: Record<string, string> = {
-      '1K': '1024×1024 pixels',
-      '2K': '2048×2048 pixels',
-      '4K': '4096×4096 pixels (4K ultra high resolution)',
-    }
+    // Aspect ratio via text injection is the only reliable approach (confirmed working).
+    // Resolution is hard-capped at 1K by this proxy — no parameter or prompt trick changes it.
     const aspectHint = req.aspect_ratio
       ? ` Output image must be in ${req.aspect_ratio} aspect ratio.`
       : ''
-    const sizeHint = req.imageSize && req.imageSize !== '1K'
-      ? ` Generate in ${imageSizeLabels[req.imageSize] ?? req.imageSize} resolution.`
-      : ''
-    parts.push({ text: `${req.prompt}${aspectHint}${sizeHint}` })
-
-    // Map our internal size tokens to multiple formats — different proxy forks expect different things.
-    // Primary: Gemini imageConfig.imageSize with both the enum token and pixel dimensions.
-    const imageSizePixels: Record<string, string> = { '1K': '1024x1024', '2K': '2048x2048', '4K': '4096x4096' }
-    const imageSizeToken = req.imageSize ?? '1K'
-    const imageSizePixel = imageSizePixels[imageSizeToken] ?? imageSizePixels['1K']
+    parts.push({ text: `${req.prompt}${aspectHint}` })
 
     const requestBody = {
       contents: [{ role: 'user', parts }],
@@ -246,9 +233,6 @@ export class SynvowProvider {
         responseModalities: ['TEXT', 'IMAGE'],
         imageConfig: {
           ...(req.aspect_ratio ? { aspectRatio: req.aspect_ratio } : {}),
-          // Send both token and pixel format — proxies vary in which they accept
-          imageSize: imageSizeToken,
-          imageSizePixels: imageSizePixel,
         },
       },
     }
