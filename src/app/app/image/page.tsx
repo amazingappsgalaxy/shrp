@@ -413,7 +413,7 @@ function JustifiedGrid({
                       }}
                     />
 
-                    {/* Action row */}
+                    {/* Action row — hover-gated */}
                     <div
                       className="absolute bottom-0 inset-x-0 px-2 pb-2.5 flex items-end justify-between z-20 pointer-events-none transition-opacity duration-200"
                       style={{ opacity: showOverlay ? 1 : 0 }}
@@ -428,11 +428,11 @@ function JustifiedGrid({
                             isSelected ? "bg-[#FFFF00] text-black" : "bg-white text-black hover:scale-110",
                           )}
                         >
-                          {isSelected ? <IconCheck size={12} /> : <IconPlus size={12} />}
+                          {isSelected ? <IconCheck size={11} /> : <IconPlus size={11} />}
                         </button>
                       ) : <span />}
 
-                      {/* Right: vary (prompt-only) + download */}
+                      {/* Right: vary + download */}
                       <div className="pointer-events-auto flex gap-1">
                         {img.hasRefs === false && (
                           <button
@@ -489,7 +489,9 @@ export default function ImagePage() {
   const [debugEntries,  setDebugEntries]  = useState<DebugEntry[]>([])
   const [debugOpenId,   setDebugOpenId]   = useState<string | null>(null)
 
-  const taRef     = useRef<HTMLTextAreaElement>(null)
+  const [pillHover, setPillHover] = useState<{ text: string; url: string; rect: DOMRect } | null>(null)
+
+  const taRef     = useRef<HTMLDivElement>(null)
   const endRef    = useRef<HTMLDivElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const dockRef   = useRef<HTMLDivElement>(null)
@@ -597,15 +599,61 @@ export default function ImagePage() {
       .catch(() => {}) // silently ignore — user can still generate
   }, [])
 
-  // Textarea auto-resize
-  useEffect(() => {
-    const el = taRef.current; if (!el) return
-    el.style.height = "auto"
-    el.style.height = Math.min(el.scrollHeight, 120) + "px"
-  }, [prompt])
-
   function scroll() {
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 80)
+  }
+
+  // Serialize contenteditable DOM → plain text (img-pill spans become their data-imgRef value)
+  function serializeEditor(el: HTMLElement): string {
+    let text = ''
+    for (const node of Array.from(el.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent ?? ''
+      } else if (node instanceof HTMLElement) {
+        if (node.dataset.imgRef) {
+          text += node.dataset.imgRef
+        } else if (node.tagName === 'BR') {
+          text += '\n'
+        } else {
+          text += serializeEditor(node)
+        }
+      }
+    }
+    return text
+  }
+
+  // Insert an image-ref pill at the current cursor position in the contenteditable editor
+  function insertAtCursor(text: string, refUrl?: string) {
+    const el = taRef.current
+    if (!el) return
+    el.focus()
+
+    const sel = window.getSelection()
+    let range: Range
+    if (sel && sel.rangeCount > 0 && el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      range = sel.getRangeAt(0)
+      range.deleteContents()
+    } else {
+      range = document.createRange()
+      range.selectNodeContents(el)
+      range.collapse(false)
+    }
+
+    const span = document.createElement('span')
+    span.contentEditable = 'false'
+    span.dataset.imgRef = text
+    if (refUrl) span.dataset.refUrl = refUrl
+    span.className = 'img-pill'
+    span.textContent = text
+    range.insertNode(span)
+
+    // Place cursor just after the inserted pill
+    const afterRange = document.createRange()
+    afterRange.setStartAfter(span)
+    afterRange.collapse(true)
+    if (sel) { sel.removeAllRanges(); sel.addRange(afterRange) }
+
+    setPrompt(serializeEditor(el))
   }
 
   function toggleSelect(img: GridImage) {
@@ -799,6 +847,10 @@ export default function ImagePage() {
       <style>{`
         @keyframes fadeIn   { from { opacity: 0 } to { opacity: 1 } }
         @keyframes pickerIn { from { opacity: 0; transform: translateY(6px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+        .prompt-editor { min-height: 40px; max-height: 140px; overflow-y: auto; outline: none; line-height: 1.7; font-size: 14px; color: white; white-space: pre-wrap; word-break: break-word; }
+        .prompt-editor:empty::before { content: attr(data-placeholder); color: rgba(255,255,255,0.2); pointer-events: none; }
+        .prompt-editor .img-pill { display: inline-flex; align-items: center; background: #FFFF00; border: none; color: #111111; font-size: 11px; font-weight: 800; padding: 1px 9px 2px; border-radius: 100px; cursor: default; user-select: none; white-space: nowrap; vertical-align: middle; margin: 0 2px; line-height: 1.6; letter-spacing: 0.01em; transition: background 0.12s; }
+        .prompt-editor .img-pill:hover { background: #e6e600; }
       `}</style>
 
       {/* ── Scroll area ── */}
@@ -836,6 +888,24 @@ export default function ImagePage() {
         onClose={() => setModalIndex(null)}
         onNavigate={setModalIndex}
       />
+
+      {/* Pill hover preview — floating image preview above the hovered Image [N] token */}
+      {pillHover && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed z-[99999] pointer-events-none"
+          style={{
+            left: pillHover.rect.left + pillHover.rect.width / 2,
+            top: pillHover.rect.top - 12,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="rounded-xl overflow-hidden border border-white/15 shadow-[0_8px_40px_rgba(0,0,0,0.9)]"
+            style={{ width: 112, height: 112 }}>
+            <img src={pillHover.url} alt="" className="w-full h-full object-cover" />
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Generation task indicator — plays success sound, auto-dismisses */}
       <MyLoadingProcessIndicator
@@ -927,36 +997,103 @@ export default function ImagePage() {
 
             {/* Row 1: Reference images */}
             {hasRefs && (
-              <div className="px-4 pt-3 pb-2 flex items-center flex-wrap gap-1.5 border-b border-white/5">
-                {allRefs.map(ref => (
-                  <div key={ref.id}
-                    className="relative shrink-0 group/ref rounded overflow-hidden"
-                    style={{
-                      width: 52, height: 52,
-                      border: "1px solid rgba(255,255,255,0.10)",
-                    }}
+              <div className="px-4 pt-3 pb-2.5 flex items-center flex-wrap gap-2 border-b border-white/5">
+                {allRefs.map((ref, idx) => (
+                  <div
+                    key={ref.id}
+                    className="relative shrink-0 rounded-lg overflow-hidden cursor-pointer group/ref"
+                    style={{ width: 64, height: 64 }}
+                    onClick={() => insertAtCursor(`Image [${idx + 1}]`, ref.url)}
+                    title={`Click to insert Image [${idx + 1}] reference into prompt`}
                   >
                     <img src={ref.url} className="w-full h-full object-cover" alt="" />
-                    <button onClick={() => removeRef(ref.id)}
-                      className="absolute inset-0 flex items-center justify-center bg-black/70 opacity-0 group-hover/ref:opacity-100 transition-opacity">
-                      <IconX size={12} className="text-white" />
+
+                    {/* Hover tint */}
+                    <div className="absolute inset-0 bg-white/0 group-hover/ref:bg-white/10 transition-colors pointer-events-none" />
+
+                    {/* Figure number badge — bottom */}
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-5 pb-1 flex items-end justify-center pointer-events-none">
+                      <span className="text-[8px] font-black text-white/80 uppercase tracking-widest">Img {idx + 1}</span>
+                    </div>
+
+                    {/* X button — top-right, always visible */}
+                    <button
+                      onClick={e => { e.stopPropagation(); removeRef(ref.id) }}
+                      className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-black text-white flex items-center justify-center hover:bg-[#FFFF00] hover:text-black transition-all"
+                      title="Remove"
+                    >
+                      <IconX size={8} />
                     </button>
                   </div>
                 ))}
+
+                {/* Hint label */}
+                <p className="text-[9px] text-white/20 self-end pb-1 ml-1 leading-tight max-w-[80px]">
+                  Tap to insert<br />Image ref
+                </p>
               </div>
             )}
 
-            {/* Row 2: Prompt textarea */}
+            {/* Row 2: Prompt editor (contenteditable — supports styled image-ref pills) */}
             <div className="px-4 pt-3 pb-3">
-              <textarea
+              <div
                 ref={taRef}
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate() }}
-                placeholder="Describe what you want to create…"
-                rows={2}
-                className="w-full bg-transparent text-sm text-white placeholder:text-white/20 resize-none outline-none leading-[1.7]"
-                style={{ minHeight: 40, maxHeight: 140, overflowY: "auto" }}
+                contentEditable
+                suppressContentEditableWarning
+                className="prompt-editor w-full bg-transparent"
+                data-placeholder="Describe what you want to create…"
+                onInput={e => setPrompt(serializeEditor(e.currentTarget))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleGenerate(); return }
+                  // Atomic delete of img-pill on Backspace / Delete
+                  if (e.key === 'Backspace' || e.key === 'Delete') {
+                    const sel = window.getSelection()
+                    if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return
+                    const range = sel.getRangeAt(0)
+                    const { startContainer, startOffset } = range
+                    let pill: HTMLElement | null = null
+                    if (e.key === 'Backspace') {
+                      if (startOffset === 0) {
+                        const prev = startContainer.previousSibling
+                        if (prev instanceof HTMLElement && prev.dataset.imgRef) pill = prev
+                      } else if (startContainer.nodeType === Node.ELEMENT_NODE) {
+                        const ch = (startContainer as Element).childNodes[startOffset - 1]
+                        if (ch instanceof HTMLElement && ch.dataset.imgRef) pill = ch
+                      }
+                    } else {
+                      if (startContainer.nodeType === Node.TEXT_NODE) {
+                        const txt = startContainer.textContent ?? ''
+                        if (startOffset === txt.length) {
+                          const nxt = startContainer.nextSibling
+                          if (nxt instanceof HTMLElement && nxt.dataset.imgRef) pill = nxt
+                        }
+                      } else if (startContainer.nodeType === Node.ELEMENT_NODE) {
+                        const ch = (startContainer as Element).childNodes[startOffset]
+                        if (ch instanceof HTMLElement && ch.dataset.imgRef) pill = ch
+                      }
+                    }
+                    if (pill) {
+                      e.preventDefault()
+                      pill.remove()
+                      setPrompt(serializeEditor(taRef.current!))
+                    }
+                  }
+                }}
+                onPaste={e => {
+                  e.preventDefault()
+                  const text = e.clipboardData.getData('text/plain')
+                  document.execCommand('insertText', false, text)
+                }}
+                onMouseMove={e => {
+                  const target = e.target as HTMLElement
+                  if (target.dataset.imgRef && target.dataset.refUrl) {
+                    const rect = target.getBoundingClientRect()
+                    setPillHover({ text: target.dataset.imgRef, url: target.dataset.refUrl, rect })
+                  } else if (pillHover) {
+                    setPillHover(null)
+                  }
+                }}
+                onMouseLeave={() => setPillHover(null)}
               />
             </div>
 
