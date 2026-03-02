@@ -54,13 +54,16 @@ export default function MyLoadingProcessIndicator({
     })
   }, [tasks])
 
+  // Only show error tasks — success tasks trigger the sound but display nothing
+  const errorTasks = tasks.filter(t => t.status === 'error')
+
   return (
     <AnimatePresence>
-      {isVisible && (
-        // Fixed bottom-right, with enough clearance to sit above the dock (~220px) + breathing room
+      {errorTasks.length > 0 && (
+        // Sit just above the bottom dock (~130px tall) with a little breathing room
         <div
           className="fixed z-[9990] pointer-events-none"
-          style={{ bottom: 240, right: 24 }}
+          style={{ bottom: 150, right: 24 }}
         >
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -70,36 +73,22 @@ export default function MyLoadingProcessIndicator({
             style={{ pointerEvents: 'auto' }}
             className="flex flex-col gap-1.5"
           >
-            {tasks.map(task => (
+            {errorTasks.map(task => (
               <div
                 key={task.id}
                 className="flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-xl border border-white/10 bg-[#111111]"
-                style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.7)', backdropFilter: 'blur(16px)', minWidth: 220, maxWidth: 300 }}
+                style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.7)', backdropFilter: 'blur(16px)', minWidth: 220, maxWidth: 320 }}
               >
-                {/* Status dot */}
-                <div className="shrink-0">
-                  {task.status === 'loading' && (
-                    <div className="w-4 h-4 border-[1.5px] border-white/20 border-t-white rounded-full animate-spin" />
-                  )}
-                  {task.status === 'success' && (
-                    <div className="w-4 h-4 bg-[#FFFF00] rounded-full flex items-center justify-center">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                  {task.status === 'error' && (
-                    <div className="w-4 h-4 bg-white/10 border border-white/20 rounded-full flex items-center justify-center">
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="3" strokeLinecap="round">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                      </svg>
-                    </div>
-                  )}
+                {/* Error icon */}
+                <div className="shrink-0 w-4 h-4 bg-white/10 border border-white/20 rounded-full flex items-center justify-center">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="3" strokeLinecap="round">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
                 </div>
 
                 {/* Message */}
-                <span className="flex-1 text-[11px] font-medium text-white/75 truncate leading-none">
-                  {task.message ?? (task.status === 'loading' ? 'Generating…' : task.status === 'success' ? 'Done' : 'Failed')}
+                <span className="flex-1 text-[11px] font-medium text-white/75 leading-tight" style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                  {task.message ?? 'Failed'}
                 </span>
 
                 {/* Dismiss */}

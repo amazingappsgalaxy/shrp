@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     model: modelId,
     prompt: prompt.trim(),
     ...(aspect_ratio ? { aspect_ratio } : {}),
-    ...(imageSize ? { imageSize: imageSize as '1K' | '2K' | '4K' } : {}),
+    ...(imageSize ? { imageSize: imageSize as '1K' | '2K' | '3K' | '4K' } : {}),
     ...(referenceUrls.length > 0
       ? { images: referenceUrls.map(u => ({ type: 'url' as const, data: u })) }
       : {}),

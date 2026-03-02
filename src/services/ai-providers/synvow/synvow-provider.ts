@@ -55,6 +55,12 @@ export class SynvowProvider {
       return this.submitNanaBanaProTask(req)
     }
 
+    // Seedream models (doubao-seedream-*) use the standard images/generations endpoint for BOTH
+    // text-to-image AND image-to-image — reference images go in the `image` array, not chat completions.
+    if (isSeedreamModel(req.model)) {
+      return this.submitSeedreamTask(req)
+    }
+
     const hasReferenceImage = !!(req.images?.length || req.reference_image)
 
     // When a reference image is provided, use the chat completions API (vision-style).
@@ -165,6 +171,88 @@ export class SynvowProvider {
     if (!url) {
       throw new Error(`Image URL not found in response. Response content: ${content0.slice(0, 200)}`)
     }
+
+    return { taskId: `sync_${Date.now()}`, type: 'image', immediateOutput: url, _debugRequest: body, _debugResponse: data }
+  }
+
+  /**
+   * Seedream 4.5 / 5.0 Lite image generation.
+   *
+   * API source: https://www.volcengine.com/docs/82379/1541523 (official Volcengine)
+   * Proxy: https://gpt-best.apifox.cn (api-347833949, api-332061825 — same /v1/images/generations endpoint)
+   *
+   * Key differences from other Synvow image models:
+   *   • Reference images go in `image: [url1, url2]` — NOT chat completions
+   *   • `size` must be a quality tier label "2K" or "3K" (Method 1 per Volcengine docs).
+   *     Pixel strings like "2848x1600" are officially supported (Method 2) but the gptbest
+   *     proxy only documents tier labels and may ignore pixel strings, producing 1:1 output.
+   *   • Aspect ratio is expressed as natural language appended to the prompt — the model
+   *     composes the output at the requested ratio when told in the prompt.
+   *   • `sequential_image_generation: "disabled"` forces single-image output
+   *   • Up to 14 reference images supported
+   */
+  private async submitSeedreamTask(req: SynvowGenerateRequest): Promise<SynvowSubmitResult> {
+    const endpoint = `${getBase()}/v1/images/generations`
+
+    const tier = req.imageSize ?? '2K'
+    // Append aspect ratio as natural language so the model composes correctly.
+    // Method 1 from Volcengine docs: size = tier label, aspect ratio = prompt description.
+    const aspectHint = seedreamAspectRatioHint(req.aspect_ratio)
+    const prompt = aspectHint ? `${req.prompt}, ${aspectHint}` : req.prompt
+
+    const body: Record<string, unknown> = {
+      model: req.model,
+      prompt,
+      size: tier,
+      sequential_image_generation: 'disabled',
+      watermark: false,
+      n: 1,
+    }
+
+    // Reference images: Volcengine API servers (China) cannot reach external CDN URLs.
+    // Always convert URLs to base64 data URIs before sending.
+    const imageInputs: string[] = []
+    const allImageInputs = req.images?.length
+      ? req.images
+      : req.reference_image
+        ? [{ type: (req.reference_image.startsWith('http') ? 'url' : 'base64') as 'url' | 'base64', data: req.reference_image }]
+        : []
+    for (const img of allImageInputs) {
+      if (img.type === 'base64') {
+        imageInputs.push(`data:image/jpeg;base64,${img.data}`)
+      } else {
+        // Fetch URL and convert to base64 so the Volcengine API can access it
+        const resp = await fetch(img.data)
+        if (!resp.ok) throw new Error(`Failed to fetch reference image (${resp.status}): ${img.data}`)
+        const ct = resp.headers.get('content-type') || 'image/jpeg'
+        const mime = ct.split(';')[0]?.trim() ?? 'image/jpeg'
+        const buf = await resp.arrayBuffer()
+        const b64 = Buffer.from(buf).toString('base64')
+        imageInputs.push(`data:${mime};base64,${b64}`)
+      }
+    }
+    if (imageInputs.length > 0) body.image = imageInputs
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    })
+
+    const data = (await res.json()) as {
+      data?: Array<{ url?: string }>
+      error?: { message?: string }
+    }
+
+    if (!res.ok) {
+      throw new Error(data.error?.message ?? `Seedream API error ${res.status}`)
+    }
+
+    const url = data.data?.[0]?.url ?? null
+    if (!url) throw new Error('Seedream API returned no URL')
 
     return { taskId: `sync_${Date.now()}`, type: 'image', immediateOutput: url, _debugRequest: body, _debugResponse: data }
   }
@@ -378,7 +466,35 @@ export class SynvowProvider {
   }
 }
 
-/** Convert aspect ratio string to OpenAI image size format */
+/** Returns true for Seedream / doubao-seedream model IDs */
+function isSeedreamModel(modelId: string): boolean {
+  return modelId.startsWith('doubao-seedream')
+}
+
+/**
+ * Returns a natural-language aspect ratio hint to append to the Seedream prompt.
+ *
+ * Seedream uses Method 1 from Volcengine docs: `size` = quality tier label ("2K"/"3K"),
+ * aspect ratio = described in natural language in the prompt. The model then composes
+ * the output at the intended ratio.
+ *
+ * Source: https://www.volcengine.com/docs/82379/1541523
+ */
+function seedreamAspectRatioHint(ratio: string | undefined): string {
+  if (!ratio || ratio === '1:1') return ''
+  const map: Record<string, string> = {
+    '16:9':  'wide landscape 16:9 aspect ratio',
+    '9:16':  'tall portrait 9:16 aspect ratio',
+    '4:3':   'horizontal 4:3 aspect ratio',
+    '3:4':   'vertical 3:4 aspect ratio',
+    '3:2':   'horizontal 3:2 aspect ratio',
+    '2:3':   'vertical 2:3 aspect ratio',
+    '21:9':  'ultrawide cinematic 21:9 aspect ratio',
+  }
+  return map[ratio] ?? ''
+}
+
+/** Convert aspect ratio string to OpenAI image size format (used by non-Seedream models) */
 function aspectRatioToSize(ratio: string): string {
   const map: Record<string, string> = {
     '1:1':  '1024x1024',
@@ -386,7 +502,6 @@ function aspectRatioToSize(ratio: string): string {
     '9:16': '1024x1792',
     '4:3':  '1365x1024',
     '3:4':  '1024x1365',
-    // Extended ratios used by Seedream and other ByteDance models
     '3:2':  '1536x1024',
     '2:3':  '1024x1536',
     '21:9': '2048x768',

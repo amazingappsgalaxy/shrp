@@ -32,7 +32,7 @@ export interface SynvowGenerateRequest {
   prompt: string
   aspect_ratio?: string
   /** Resolution tier — sent as imageSize in Gemini-format models (e.g. nano-banana-pro) */
-  imageSize?: '1K' | '2K' | '4K'
+  imageSize?: '1K' | '2K' | '3K' | '4K'
   quality?: string
   duration?: number
   audio_sync?: boolean

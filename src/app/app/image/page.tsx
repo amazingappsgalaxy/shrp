@@ -17,8 +17,8 @@ import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Count      = 1 | 2 | 4
-type Aspect     = "1:1" | "4:3" | "3:4" | "16:9" | "9:16"
-type Resolution = "1K" | "2K" | "4K"
+type Aspect     = "1:1" | "4:3" | "3:4" | "16:9" | "9:16" | "3:2" | "2:3" | "21:9"
+type Resolution = "1K" | "2K" | "3K" | "4K"
 type PickerType = "ratio" | "style" | "model" | "resolution" | null
 
 interface GridImage {
@@ -75,13 +75,14 @@ const STYLE_SUFFIX: Record<string, string> = {
   "Editorial": ", fashion editorial, magazine quality",
 }
 
-const ASPECTS: Aspect[] = ["1:1", "4:3", "3:4", "16:9", "9:16"]
+const ASPECTS: Aspect[] = ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9"]
 const ASPECT_LABEL: Record<Aspect, string> = {
   "1:1": "Square", "4:3": "Landscape", "3:4": "Portrait",
-  "16:9": "Wide", "9:16": "Story",
+  "16:9": "Wide", "9:16": "Story", "3:2": "Photo", "2:3": "Portrait", "21:9": "Cinema",
 }
 const ASPECT_NUM: Record<Aspect, number> = {
   "1:1": 1, "4:3": 4/3, "3:4": 3/4, "16:9": 16/9, "9:16": 9/16,
+  "3:2": 3/2, "2:3": 2/3, "21:9": 21/9,
 }
 
 const GAP = 9
@@ -547,9 +548,11 @@ export default function ImagePage() {
       setUploadedRefs([])
       setRefOrder([])
     }
-    // Reset imageSize resolution when switching to a model that doesn't support it
+    // Reset imageSize resolution when switching models
     if (!activeModel.supportedImageSizes?.length) {
       setResolution("1K")
+    } else if (!activeModel.supportedImageSizes.includes(resolution as never)) {
+      setResolution(activeModel.supportedImageSizes[0] as Resolution)
     }
   }, [modelId])
 
@@ -737,30 +740,39 @@ export default function ImagePage() {
     const fullPrompt = prompt.trim() + (STYLE_SUFFIX[style] ?? "")
     const supportsImageSize = !!activeModel.supportedImageSizes?.length
 
+    const reqBody = {
+      model: modelId,
+      prompt: fullPrompt,
+      aspect_ratio: aspect,
+      count,
+      ...(supportsImageSize ? { imageSize: resolution } : {}),
+      ...(referenceUrls.length > 0 && modelSupportsRef ? { referenceUrls } : {}),
+    }
+
+    // Show request immediately — responses filled in when task completes
+    setDebugEntries(prev => [...prev, {
+      id: indicatorId,
+      label: `${activeModel.label} — generating…`,
+      requests: [reqBody],
+      responses: [],
+    }])
+
     fetch("/api/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: modelId,
-        prompt: fullPrompt,
-        aspect_ratio: aspect,
-        count,
-        ...(supportsImageSize ? { imageSize: resolution } : {}),
-        ...(referenceUrls.length > 0 && modelSupportsRef ? { referenceUrls } : {}),
-      }),
+      body: JSON.stringify(reqBody),
     })
       .then(r => r.json() as Promise<{ success?: boolean; outputUrls?: string[]; taskId?: string; error?: string; _debug?: Array<{ request?: unknown; response?: unknown }> }>)
       .then(data => {
         if (!data.outputUrls?.length) throw new Error(data.error ?? "Generation failed")
 
-        if (data._debug?.length) {
-          setDebugEntries(prev => [...prev, {
-            id: indicatorId,
-            label,
-            requests: data._debug!.map(d => d.request),
-            responses: data._debug!.map(d => d.response),
-          }])
-        }
+        // Update debug entry with provider-level request/response
+        setDebugEntries(prev => prev.map(e => e.id === indicatorId ? {
+          ...e,
+          label,
+          requests: data._debug?.length ? data._debug.map(d => d.request) : e.requests,
+          responses: data._debug?.length ? data._debug.map(d => d.response) : [],
+        } : e))
 
         const newIds = new Set<string>()
         const resolveTs = Date.now()
@@ -794,6 +806,8 @@ export default function ImagePage() {
         setImages(prev => prev.filter(img => !placeholders.some(p => p.id === img.id)))
         setGenTasks(prev => [...prev, { id: indicatorId, status: 'error', progress: 0, message: msg }])
         setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== indicatorId)), 6000)
+        // Update debug entry label to show failure
+        setDebugEntries(prev => prev.map(e => e.id === indicatorId ? { ...e, label: `${activeModel.label} — failed` } : e))
       })
       .finally(() => setInFlightCount(c => c - 1))
   }
@@ -1387,7 +1401,7 @@ export default function ImagePage() {
                                     <div>
                                       <p className={cn("text-[11px] font-semibold", active ? "text-[#FFFF00]" : "text-white/80")}>{r}</p>
                                       <p className="text-[9px] text-gray-600">
-                                        {r === '1K' ? '1024 × 1024' : r === '2K' ? '2048 × 2048' : '4096 × 4096'}
+                                        {r === '1K' ? '1024 × 1024' : r === '2K' ? '2048 × 2048' : r === '3K' ? '3072 × 3072' : '4096 × 4096'}
                                       </p>
                                     </div>
                                     {active && <IconCheck size={11} className="text-[#FFFF00] shrink-0 ml-3" />}

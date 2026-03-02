@@ -47,12 +47,12 @@ export interface ModelConfig {
    */
   qualityGroupId?: string
   /** Resolution tier within a quality group */
-  qualityTier?: '1K' | '2K' | '4K'
+  qualityTier?: '1K' | '2K' | '3K' | '4K'
   /**
    * For models that accept an imageSize parameter (e.g. nano-banana-pro via Gemini API).
    * These are a single model ID that supports multiple output sizes via a request param.
    */
-  supportedImageSizes?: ('1K' | '2K' | '4K')[]
+  supportedImageSizes?: ('1K' | '2K' | '3K' | '4K')[]
   /**
    * Ordered list of provider IDs that can fulfill this model.
    * First entry is the primary provider; subsequent entries are fallbacks.
@@ -171,38 +171,22 @@ const IMAGE_MODELS: ModelConfig[] = [
       referenceImage: true,
       maxReferenceImages: 5,
     },
-    qualityGroupId: 'nano-banana-v1',
-    qualityTier: '1K',
-    providers: ['synvow'],
-  },
-  {
-    id: 'nano-banana-hd',
-    label: 'Nano Banana',
-    type: 'image',
-    description: 'HD — higher-fidelity variant with improved detail',
-    credits: 40,
-    costUsd: 0.04,
-    tag: 'Fast',
-    controls: {
-      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
-      referenceImage: true,
-      maxReferenceImages: 5,
-    },
-    qualityGroupId: 'nano-banana-v1',
-    qualityTier: '2K',
     providers: ['synvow'],
   },
   {
     id: 'doubao-seedream-5-0-260128',
     label: 'Seedream 5.0 Lite',
     type: 'image',
-    description: 'ByteDance Seedream 5.0 Lite — photorealistic text-to-image',
+    description: 'ByteDance Seedream 5.0 Lite — photorealistic, multi-ref image generation',
     credits: 25,
     costUsd: 0.025,
     tag: 'ByteDance',
+    // 1K/2K/4K resolution picker; single model ID, size param controls output resolution
+    supportedImageSizes: ['2K', '3K'],
     controls: {
-      // Seedream supports a wider set of aspect ratios
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
+      referenceImage: true,
+      maxReferenceImages: 14,
     },
     providers: ['synvow'],
   },
@@ -214,8 +198,11 @@ const IMAGE_MODELS: ModelConfig[] = [
     credits: 20,
     costUsd: 0.02,
     tag: 'ByteDance',
+    supportedImageSizes: ['2K', '3K'],
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
+      referenceImage: true,
+      maxReferenceImages: 14,
     },
     providers: ['synvow'],
   },
