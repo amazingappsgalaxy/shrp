@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useRef, useEffect, useMemo } from "react"
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -78,7 +78,7 @@ const STYLE_SUFFIX: Record<string, string> = {
 const ASPECTS: Aspect[] = ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9"]
 const ASPECT_LABEL: Record<Aspect, string> = {
   "1:1": "Square", "4:3": "Landscape", "3:4": "Portrait",
-  "16:9": "Wide", "9:16": "Story", "3:2": "Photo", "2:3": "Portrait", "21:9": "Cinema",
+  "16:9": "Wide", "9:16": "Story", "3:2": "Photo", "2:3": "Tall", "21:9": "Cinema",
 }
 const ASPECT_NUM: Record<Aspect, number> = {
   "1:1": 1, "4:3": 4/3, "3:4": 3/4, "16:9": 16/9, "9:16": 9/16,
@@ -462,6 +462,63 @@ function JustifiedGrid({
   )
 }
 
+// ─── History helpers ───────────────────────────────────────────────────────────
+interface HistoryItem {
+  id: string
+  outputUrls: Array<{ type: string; url: string } | string>
+  status: string
+  createdAt: string
+  modelName?: string | null
+  settings?: { prompt?: string; aspect_ratio?: string }
+}
+
+interface HistoryApiResp {
+  items?: HistoryItem[]
+  hasMore?: boolean
+  nextCursor?: string | null
+}
+
+function parseHistItems(items: HistoryItem[]): { images: GridImage[]; pendingIds: string[] } {
+  const images: GridImage[] = []
+  const pendingIds: string[] = []
+  for (const item of items) {
+    const rawAspect = item.settings?.aspect_ratio
+    const aspect: Aspect = (ASPECTS as readonly string[]).includes(rawAspect ?? '') ? rawAspect as Aspect : '1:1'
+    if (item.status === 'completed') {
+      for (const out of item.outputUrls) {
+        const url = typeof out === 'string' ? out : out.url
+        if (!url) continue
+        images.push({ id: `hist-${item.id}-${url.slice(-12)}`, url, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined })
+      }
+    } else if (item.status === 'processing') {
+      pendingIds.push(item.id)
+      images.push({ id: `hist-proc-${item.id}`, url: '', aspect, loading: true })
+    }
+  }
+  return { images, pendingIds }
+}
+
+// ─── Skeleton loading grid ─────────────────────────────────────────────────────
+function SkeletonGrid() {
+  const rows = [[1, 4/3, 9/16], [16/9, 1, 3/4]]
+  return (
+    <div className="w-full">
+      {rows.map((row, ri) => (
+        <div key={ri} className="flex gap-[9px] mb-[9px]">
+          {row.map((ratio, ii) => (
+            <div key={ii} className="rounded-lg overflow-hidden" style={{ height: 200, flex: ratio }}>
+              <div
+                className="w-full h-full bg-white/[0.04] animate-pulse"
+                style={{ animationDelay: `${(ri * 3 + ii) * 80}ms` }}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ImagePage() {
   const { mutate } = useSWRConfig()
@@ -490,6 +547,13 @@ export default function ImagePage() {
   const [debugOpenId,   setDebugOpenId]   = useState<string | null>(null)
   const [isDragOver,    setIsDragOver]    = useState(false)
 
+  // History pagination
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isLoadingMore,    setIsLoadingMore]    = useState(false)
+  const [hasMore,          setHasMore]          = useState(false)
+  const [histCursor,       setHistCursor]       = useState<string | null>(null)
+  const [processingDbIds,  setProcessingDbIds]  = useState<string[]>([])
+
   const [pillHover, setPillHover] = useState<{ text: string; url: string; rect: DOMRect } | null>(null)
 
   const taRef     = useRef<HTMLDivElement>(null)
@@ -497,6 +561,10 @@ export default function ImagePage() {
   const uploadRef = useRef<HTMLInputElement>(null)
   const dockRef   = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Scroll-preservation during history prepend
+  const prependScrollHeight = useRef(0)
+  // Always-fresh ref to loadMore (avoids stale closure in scroll handler)
+  const loadMoreFnRef = useRef<(() => void) | null>(null)
   // Keep scroll area bottom-padding equal to full dock height (card + pt-3 + pb-5 outer wrapper = +32px) + breathing room
   useEffect(() => {
     const dock = dockRef.current; const scroll = scrollRef.current
@@ -566,44 +634,106 @@ export default function ImagePage() {
     return () => document.removeEventListener("mousedown", fn)
   }, [openPicker])
 
-  // Load saved images from history on mount
-  useEffect(() => {
-    interface HistoryItem {
-      id: string
-      outputUrls: Array<{ type: string; url: string } | string>
-      status: string
-      createdAt: string
-      modelName?: string
-      settings?: { prompt?: string; aspect_ratio?: string }
+  // ── loadMore: fetches older history and prepends to the grid ──────────────────
+  async function loadMore() {
+    if (isLoadingMore || !hasMore || !histCursor) return
+    setIsLoadingMore(true)
+    prependScrollHeight.current = scrollRef.current?.scrollHeight ?? 0
+    try {
+      const r = await fetch(`/api/history/list?page_name=app%2Fimage&limit=20&order=desc&cursor=${encodeURIComponent(histCursor)}`)
+      const data = await r.json() as HistoryApiResp
+      if (data.items?.length) {
+        const { images: older, pendingIds } = parseHistItems(data.items.slice().reverse())
+        setImages(prev => [...older, ...prev])
+        setProcessingDbIds(prev => [...new Set([...prev, ...pendingIds])])
+        setHasMore(data.hasMore ?? false)
+        setHistCursor(data.nextCursor ?? null)
+      } else {
+        setHasMore(false)
+        prependScrollHeight.current = 0
+      }
+    } catch {
+      prependScrollHeight.current = 0
+    } finally {
+      setIsLoadingMore(false)
     }
-    fetch('/api/history/list?page_name=app%2Fimage&limit=200&order=asc')
-      .then(r => r.json() as Promise<{ items: HistoryItem[] }>)
+  }
+  // Keep loadMoreFnRef fresh so the scroll handler never has a stale closure
+  useEffect(() => { loadMoreFnRef.current = loadMore })
+
+  // Initial history load — newest 20 first, then scroll to bottom
+  useEffect(() => {
+    fetch('/api/history/list?page_name=app%2Fimage&limit=20&order=desc')
+      .then(r => r.json() as Promise<HistoryApiResp>)
       .then(data => {
-        if (!data.items?.length) return
-        const loaded: GridImage[] = []
-        for (const item of data.items) {
-          if (item.status !== 'completed') continue
-          const rawAspect = item.settings?.aspect_ratio
-          const aspect: Aspect = (ASPECTS as readonly string[]).includes(rawAspect ?? '')
-            ? rawAspect as Aspect
-            : '1:1'
-          for (const out of item.outputUrls) {
-            const url = typeof out === 'string' ? out : out.url
-            if (!url) continue
-            loaded.push({
-              id: `hist-${item.id}-${url.slice(-12)}`,
-              url,
-              aspect,
-              loading: false,
-              prompt: item.settings?.prompt,
-              model: item.modelName ?? undefined,
-            })
-          }
+        if (data.items?.length) {
+          const { images: loaded, pendingIds } = parseHistItems(data.items.slice().reverse())
+          setImages(loaded)
+          setProcessingDbIds(pendingIds)
+          setHasMore(data.hasMore ?? false)
+          setHistCursor(data.nextCursor ?? null)
         }
-        setImages(loaded)
+        setIsInitialLoading(false)
+        // Scroll to bottom after images render (double rAF ensures layout is complete)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
+        }))
       })
-      .catch(() => {}) // silently ignore — user can still generate
+      .catch(() => setIsInitialLoading(false))
   }, [])
+
+  // Scroll up past the threshold → load older items
+  useEffect(() => {
+    const scroll = scrollRef.current
+    if (!scroll) return
+    const handler = () => {
+      if (scroll.scrollTop < 120) loadMoreFnRef.current?.()
+    }
+    scroll.addEventListener('scroll', handler, { passive: true })
+    return () => scroll.removeEventListener('scroll', handler)
+  }, []) // stable — loadMoreFnRef.current is always fresh
+
+  // After prepending older images, restore scroll so the view doesn't jump
+  useLayoutEffect(() => {
+    if (prependScrollHeight.current > 0 && scrollRef.current) {
+      scrollRef.current.scrollTop += scrollRef.current.scrollHeight - prependScrollHeight.current
+      prependScrollHeight.current = 0
+    }
+  })
+
+  // Poll DB for processing items every 15 s — background cron keeps status updated
+  useEffect(() => {
+    if (processingDbIds.length === 0) return
+    const timer = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/history/list?ids=${processingDbIds.join(',')}`)
+        const data = await r.json() as HistoryApiResp
+        if (!data.items?.length) return
+        const completedItems = data.items.filter(i => i.status === 'completed')
+        if (completedItems.length === 0) return
+        const completedIds = new Set(completedItems.map(i => i.id))
+        setImages(prev => {
+          const updated = [...prev]
+          for (const item of completedItems) {
+            const rawAspect = item.settings?.aspect_ratio
+            const aspect: Aspect = (ASPECTS as readonly string[]).includes(rawAspect ?? '') ? rawAspect as Aspect : '1:1'
+            const idx = updated.findIndex(img => img.id === `hist-proc-${item.id}`)
+            const newImgs: GridImage[] = []
+            for (const out of item.outputUrls) {
+              const url = typeof out === 'string' ? out : out.url
+              if (!url) continue
+              newImgs.push({ id: `hist-${item.id}-${url.slice(-12)}`, url, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined })
+            }
+            if (idx !== -1 && newImgs.length > 0) updated.splice(idx, 1, ...newImgs)
+            else if (newImgs.length > 0) updated.push(...newImgs)
+          }
+          return updated
+        })
+        setProcessingDbIds(prev => prev.filter(id => !completedIds.has(id)))
+      } catch { /* ignore — retry next tick */ }
+    }, 15000)
+    return () => clearInterval(timer)
+  }, [processingDbIds])
 
   function scroll() {
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 80)
@@ -905,7 +1035,18 @@ export default function ImagePage() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-[88px]">
 
 
-          {images.length === 0 && !anyGenerating && (
+          {/* Initial skeleton — shown while history is loading */}
+          {isInitialLoading && <SkeletonGrid />}
+
+          {/* Load-more spinner — shown at top while fetching older items */}
+          {isLoadingMore && (
+            <div className="flex justify-center py-4">
+              <div className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white/40 animate-spin" />
+            </div>
+          )}
+
+          {/* Empty state — only after history has loaded */}
+          {!isInitialLoading && images.length === 0 && !anyGenerating && (
             <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
               <IconSparkles size={32} className="text-gray-700" />
               <p className="text-sm text-gray-600">Describe what you want to create</p>
