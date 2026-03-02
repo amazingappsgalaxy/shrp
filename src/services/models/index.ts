@@ -120,7 +120,8 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
-      strictReference: true,
+      // strictReference removed — was only used for UI aspect lock, which we don't want for NB Pro.
+      // The model's reference-matching behavior is handled by the Gemini API, not the UI.
     },
     // Resolution is hard-capped at 1K by the api.gptbest.vip proxy — 2K/4K are non-functional.
     // Use nano-banana-2-4k for 4K output instead.

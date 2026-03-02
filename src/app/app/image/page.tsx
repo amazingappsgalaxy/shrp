@@ -29,6 +29,8 @@ interface GridImage {
   prompt?: string
   model?: string
   taskId?: string
+  /** True if this image was generated with reference images — hides Vary button since refs are ephemeral */
+  hasRefs?: boolean
 }
 
 interface JRow { images: GridImage[]; height: number; widths: number[] }
@@ -143,17 +145,30 @@ function AspectShape({ aspect, active }: { aspect: Aspect; active: boolean }) {
 }
 
 // ─── Image modal ──────────────────────────────────────────────────────────────
-function ImageModal({ img, onClose }: { img: GridImage | null; onClose: () => void }) {
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
+function ImageModal({
+  images, index, onClose, onNavigate,
+}: {
+  images: GridImage[]
+  index: number | null
+  onClose: () => void
+  onNavigate: (index: number) => void
+}) {
+  const img = index !== null ? images[index] ?? null : null
 
+  const [dims,    setDims]    = useState<{ w: number; h: number } | null>(null)
+  const [zoom,    setZoom]    = useState(1)
+  const [pan,     setPan]     = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null)
+
+  // Reset zoom/pan when navigating
   useEffect(() => {
-    if (!img) return
-    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    document.addEventListener("keydown", fn)
-    return () => document.removeEventListener("keydown", fn)
-  }, [img, onClose])
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    setDims(null)
+  }, [index])
 
-  // Detect actual pixel dimensions by loading the image
+  // Detect actual pixel dimensions
   useEffect(() => {
     if (!img?.url) { setDims(null); return }
     const image = new window.Image()
@@ -162,25 +177,127 @@ function ImageModal({ img, onClose }: { img: GridImage | null; onClose: () => vo
     image.src = img.url
   }, [img?.url])
 
+  // Keyboard: Escape, ArrowLeft, ArrowRight
+  useEffect(() => {
+    if (index === null) return
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === "Escape")      { onClose(); return }
+      if (e.key === "ArrowLeft"  && index > 0)               onNavigate(index - 1)
+      if (e.key === "ArrowRight" && index < images.length - 1) onNavigate(index + 1)
+    }
+    document.addEventListener("keydown", fn)
+    return () => document.removeEventListener("keydown", fn)
+  }, [index, images.length, onClose, onNavigate])
+
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault()
+    setZoom(prev => {
+      const next = prev - e.deltaY * 0.003
+      const clamped = Math.min(5, Math.max(1, next))
+      if (clamped === 1) setPan({ x: 0, y: 0 })
+      return clamped
+    })
+  }
+
+  function handleMouseDown(e: React.MouseEvent) {
+    if (zoom <= 1) return
+    e.preventDefault()
+    setIsDragging(true)
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y }
+  }
+
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!isDragging || !dragStart.current) return
+    setPan({
+      x: dragStart.current.px + (e.clientX - dragStart.current.mx),
+      y: dragStart.current.py + (e.clientY - dragStart.current.my),
+    })
+  }
+
+  function handleMouseUp() {
+    setIsDragging(false)
+    dragStart.current = null
+  }
+
   if (!img || typeof document === "undefined") return null
+
+  const hasPrev = index! > 0
+  const hasNext = index! < images.length - 1
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8">
       <div className="absolute inset-0 bg-black/90" style={{ backdropFilter: "blur(20px)" }} onClick={onClose} />
+
+      {/* Close button — top-right outside the modal box */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.08] border border-white/[0.12] text-white/50 hover:text-white hover:bg-white/[0.15] transition-all"
+      >
+        <IconX size={14} />
+      </button>
+
+      {/* Prev arrow — floating left of modal */}
+      {hasPrev && (
+        <button
+          onClick={e => { e.stopPropagation(); onNavigate(index! - 1) }}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/90 transition-all"
+          style={{ backdropFilter: "blur(8px)" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      )}
+
+      {/* Next arrow — floating right of modal (left of the info panel gutter) */}
+      {hasNext && (
+        <button
+          onClick={e => { e.stopPropagation(); onNavigate(index! + 1) }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/90 transition-all"
+          style={{ backdropFilter: "blur(8px)" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      )}
+
       <div
         className="relative z-10 flex w-full max-w-5xl bg-[#0c0c0e] border border-white/[0.08] rounded-xl overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.9)]"
         style={{ maxHeight: "88vh" }}
       >
-        <button onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.05] border border-white/[0.08] text-white/40 hover:text-white hover:bg-white/[0.1] transition-all">
-          <IconX size={14} />
-        </button>
+        {/* ── Image pane ── */}
+        <div
+          className="flex-1 relative flex items-center justify-center bg-black/40 overflow-hidden min-h-[360px]"
+          style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "default" }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          <img
+            src={img.url} alt=""
+            className="max-w-full max-h-full object-contain rounded-lg select-none"
+            draggable={false}
+            style={{
+              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+              transition: isDragging ? "none" : "transform 0.15s ease-out",
+              boxShadow: zoom === 1 ? "0 24px 64px rgba(0,0,0,0.8)" : "none",
+              maxHeight: "calc(88vh - 4rem)",
+            }}
+          />
 
-        <div className="flex-1 flex items-center justify-center bg-black/40 p-8 min-h-[360px]">
-          <img src={img.url} alt="" className="max-w-full max-h-full object-contain rounded-lg"
-            style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.8)" }} />
+          {/* Zoom % indicator */}
+          {zoom > 1 && (
+            <div className="absolute top-3 left-3 px-2 py-1 rounded-md bg-black/60 text-white/50 text-[10px] font-mono pointer-events-none">
+              {Math.round(zoom * 100)}%
+            </div>
+          )}
+
+          {/* Counter */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-black/50 text-white/40 text-[10px] font-mono pointer-events-none">
+            {index! + 1} / {images.length}
+          </div>
         </div>
 
+        {/* ── Info pane ── */}
         <div className="w-[260px] shrink-0 border-l border-white/[0.06] flex flex-col">
           <div className="flex-1 p-6 space-y-5 overflow-y-auto">
             {img.prompt && (
@@ -205,6 +322,10 @@ function ImageModal({ img, onClose }: { img: GridImage | null; onClose: () => vo
                 <p className="text-sm text-white font-semibold">{dims.w} × {dims.h}</p>
               </div>
             )}
+            <div>
+              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Scroll to zoom</p>
+              <p className="text-[11px] text-white/30">Drag to pan when zoomed in</p>
+            </div>
           </div>
           <div className="p-5 border-t border-white/[0.06]">
             <a href={img.url} download target="_blank" rel="noreferrer"
@@ -227,13 +348,15 @@ function JustifiedGrid({
   generatedIds: Set<string>
   onOpen: (img: GridImage) => void
   onVary: (img: GridImage) => void
-  selectedIds: Set<string>
+  selectedIds: string[]
   onToggleSelect: (img: GridImage) => void
   showSelectButton: boolean
   isBusy: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerW, setContainerW] = useState(0)
+  // React-state hover is more reliable than CSS group-hover at card edges
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   useEffect(() => {
     const el = containerRef.current; if (!el) return
@@ -251,17 +374,27 @@ function JustifiedGrid({
       {rows.map((row) => (
         <div key={row.images[0]!.id} style={{ display: "flex", gap: GAP, marginBottom: GAP, height: row.height }}>
           {row.images.map((img, ii) => {
-            const isSelected = selectedIds.has(img.id)
+            const isSelected = selectedIds.includes(img.id)
             const isGenerated = generatedIds.has(img.id)
+            const isHovered = hoveredId === img.id
+            // Show overlay when hovered OR when selected (so user always sees the + checkmark)
+            const showOverlay = isHovered || isSelected
             return (
-              <div key={img.id} className="group relative"
+              <div
+                key={img.id}
+                draggable={!img.loading}
+                onDragStart={e => {
+                  if (!img.loading) e.dataTransfer.setData("text/x-image-id", img.id)
+                }}
                 style={{
                   width: row.widths[ii], height: row.height, flexShrink: 0,
-                  overflow: "hidden", borderRadius: 8,
+                  overflow: "hidden", borderRadius: 8, position: "relative",
                   boxShadow: isSelected ? "inset 0 0 0 2.5px #FFFF00" : "none",
                   cursor: img.loading ? "default" : "pointer",
                   animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined,
                 }}
+                onMouseEnter={() => !img.loading && setHoveredId(img.id)}
+                onMouseLeave={() => setHoveredId(null)}
                 onClick={() => !img.loading && onOpen(img)}
               >
                 {img.loading ? <GenerationAnimation /> : (
@@ -271,40 +404,54 @@ function JustifiedGrid({
 
                 {!img.loading && (
                   <>
-                    {showSelectButton && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onToggleSelect(img) }}
-                        title={isSelected ? "Remove from references" : "Use as reference"}
-                        className={cn(
-                          "absolute top-2 left-2 w-5 h-5 rounded flex items-center justify-center z-10",
-                          "text-[10px] font-black border transition-all",
-                          isSelected
-                            ? "bg-[#FFFF00] border-[#FFFF00] text-black opacity-100"
-                            : "bg-black/50 border-white/25 text-transparent opacity-0 group-hover:opacity-100",
-                        )}
-                        style={{ backdropFilter: isSelected ? "none" : "blur(6px)" }}
-                      >
-                        {isSelected ? "✓" : ""}
-                      </button>
-                    )}
+                    {/* Bottom gradient */}
+                    <div
+                      className="absolute inset-x-0 bottom-0 h-16 pointer-events-none z-10 transition-opacity duration-200"
+                      style={{
+                        background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.28) 60%, transparent 100%)",
+                        opacity: showOverlay ? 1 : 0,
+                      }}
+                    />
 
-                    <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10">
-                      <button
-                        onClick={e => { e.stopPropagation(); if (!isBusy) onVary(img) }}
-                        title={isBusy ? "Generating…" : "Vary"}
-                        className={cn(
-                          "w-7 h-7 rounded-md flex items-center justify-center transition-colors",
-                          isBusy ? "text-white/20 cursor-not-allowed" : "text-white/70 hover:text-white",
+                    {/* Action row */}
+                    <div
+                      className="absolute bottom-0 inset-x-0 px-2 pb-2.5 flex items-end justify-between z-20 pointer-events-none transition-opacity duration-200"
+                      style={{ opacity: showOverlay ? 1 : 0 }}
+                    >
+                      {/* Left: + add-as-reference */}
+                      {showSelectButton ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); onToggleSelect(img) }}
+                          title={isSelected ? "Remove from references" : "Add as reference"}
+                          className={cn(
+                            "pointer-events-auto w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg",
+                            isSelected ? "bg-[#FFFF00] text-black" : "bg-white text-black hover:scale-110",
+                          )}
+                        >
+                          {isSelected ? <IconCheck size={12} /> : <IconPlus size={12} />}
+                        </button>
+                      ) : <span />}
+
+                      {/* Right: vary (prompt-only) + download */}
+                      <div className="pointer-events-auto flex gap-1">
+                        {img.hasRefs === false && (
+                          <button
+                            onClick={e => { e.stopPropagation(); if (!isBusy) onVary(img) }}
+                            title={isBusy ? "Generating…" : "Vary"}
+                            className={cn(
+                              "w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg",
+                              isBusy ? "bg-white/50 text-black/40 cursor-not-allowed" : "bg-white text-black hover:scale-110",
+                            )}
+                          >
+                            <IconRefresh size={11} />
+                          </button>
                         )}
-                        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.12)" }}>
-                        <IconRefresh size={11} />
-                      </button>
-                      <a href={img.url} download target="_blank" rel="noreferrer"
-                        onClick={e => e.stopPropagation()} title="Download"
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-white/70 hover:text-white transition-colors"
-                        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.12)" }}>
-                        <IconDownload size={11} />
-                      </a>
+                        <a href={img.url} download target="_blank" rel="noreferrer"
+                          onClick={e => e.stopPropagation()} title="Download"
+                          className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-all shadow-lg">
+                          <IconDownload size={11} />
+                        </a>
+                      </div>
                     </div>
                   </>
                 )}
@@ -328,8 +475,8 @@ export default function ImagePage() {
   const [modelId,      setModelId]      = useState(DEFAULT_MODEL.id)
   const [prompt,       setPrompt]       = useState("")
   const [images,       setImages]       = useState<GridImage[]>([])
-  const [modalImg,     setModalImg]     = useState<GridImage | null>(null)
-  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set())
+  const [modalIndex,   setModalIndex]   = useState<number | null>(null)
+  const [selectedIds,  setSelectedIds]  = useState<string[]>([])
   const [uploadedRefs, setUploadedRefs] = useState<{ id: string; url: string; cdnUrl?: string }[]>([])
   const [openPicker,   setOpenPicker]   = useState<PickerType>(null)
   // Track which image IDs were user-generated (vs preloaded) for animation
@@ -346,6 +493,18 @@ export default function ImagePage() {
   const endRef    = useRef<HTMLDivElement>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const dockRef   = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // Keep scroll area bottom-padding equal to dock height + 24px breathing room
+  useEffect(() => {
+    const dock = dockRef.current; const scroll = scrollRef.current
+    if (!dock || !scroll) return
+    const ro = new ResizeObserver(() => {
+      scroll.style.paddingBottom = `${dock.offsetHeight + 24}px`
+    })
+    ro.observe(dock)
+    scroll.style.paddingBottom = `${dock.offsetHeight + 24}px`
+    return () => ro.disconnect()
+  }, [])
 
   const activeModel = IMAGE_MODELS.find(m => m.id === modelId) ?? DEFAULT_MODEL
   const modelSupportsRef  = !!activeModel.controls.referenceImage
@@ -370,6 +529,8 @@ export default function ImagePage() {
 
   // True while any generation is in-flight
   const anyGenerating = inFlightCount > 0
+  // Browsable images for modal navigation (exclude loading placeholders)
+  const browsableImages = useMemo(() => images.filter(img => !img.loading), [images])
 
   // When switching models: reset aspect/resolution if unsupported; clear refs if new model doesn't support them
   useEffect(() => {
@@ -378,7 +539,7 @@ export default function ImagePage() {
       setAspect((supported[0] as Aspect) ?? "1:1")
     }
     if (!activeModel.controls.referenceImage) {
-      setSelectedIds(new Set())
+      setSelectedIds([])
       setUploadedRefs([])
     }
     // Reset imageSize resolution when switching to a model that doesn't support it
@@ -449,15 +610,13 @@ export default function ImagePage() {
 
   function toggleSelect(img: GridImage) {
     if (!modelSupportsRef) return
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      next.has(img.id) ? next.delete(img.id) : next.add(img.id)
-      return next
-    })
+    setSelectedIds(prev =>
+      prev.includes(img.id) ? prev.filter(id => id !== img.id) : [...prev, img.id]
+    )
   }
 
   function removeRef(id: string) {
-    setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    setSelectedIds(prev => prev.filter(sid => sid !== id))
     setUploadedRefs(prev => prev.filter(r => r.id !== id))
   }
 
@@ -499,7 +658,9 @@ export default function ImagePage() {
     const label = count > 1 ? `${count} images ready` : "Image ready"
     const referenceUrls: string[] = [
       ...uploadedRefs.filter(r => r.cdnUrl).map(r => r.cdnUrl!),
-      ...images.filter(img => selectedIds.has(img.id) && !img.loading).map(img => img.url),
+      ...selectedIds
+        .map(id => images.find(img => img.id === id && !img.loading)?.url)
+        .filter((u): u is string => !!u),
     ]
     const fullPrompt = prompt.trim() + (STYLE_SUFFIX[style] ?? "")
     const supportsImageSize = !!activeModel.supportedImageSizes?.length
@@ -541,7 +702,7 @@ export default function ImagePage() {
               if (url) {
                 const newId = `gen-${resolveTs}-${pi}`
                 newIds.add(newId)
-                updated[i] = { id: newId, url, aspect, loading: false, prompt: fullPrompt, model: activeModel.label, taskId: data.taskId }
+                updated[i] = { id: newId, url, aspect, loading: false, prompt: fullPrompt, model: activeModel.label, taskId: data.taskId, hasRefs: referenceUrls.length > 0 }
                 urlIdx++
               } else {
                 updated.splice(i, 1); i--
@@ -588,7 +749,7 @@ export default function ImagePage() {
         setGeneratedIds(prev => new Set([...prev, newId]))
         setImages(prev => prev.map(i =>
           i.id === placeholder.id
-            ? { id: newId, url, aspect: img.aspect, loading: false, prompt: fullPrompt, model: activeModel.label, taskId: data.taskId }
+            ? { id: newId, url, aspect: img.aspect, loading: false, prompt: fullPrompt, model: activeModel.label, taskId: data.taskId, hasRefs: false }
             : i
         ))
         mutate(APP_DATA_KEY)
@@ -604,7 +765,10 @@ export default function ImagePage() {
       .finally(() => setInFlightCount(c => c - 1))
   }
 
-  const selectedImgObjs = images.filter(img => selectedIds.has(img.id) && !img.loading)
+  // Preserve selection order — map from selectedIds (insertion-ordered array) instead of filtering images
+  const selectedImgObjs = selectedIds
+    .map(id => images.find(img => img.id === id && !img.loading))
+    .filter((img): img is GridImage => img !== undefined)
   const allRefs = [
     ...uploadedRefs.map(r => ({ id: r.id, url: r.url, isUpload: true })),
     ...selectedImgObjs.map(img => ({ id: img.id, url: img.url, isUpload: false })),
@@ -638,7 +802,7 @@ export default function ImagePage() {
       `}</style>
 
       {/* ── Scroll area ── */}
-      <div className="flex-1 overflow-y-auto pb-[200px]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-[88px]">
 
 
@@ -652,7 +816,10 @@ export default function ImagePage() {
           <JustifiedGrid
             images={images}
             generatedIds={generatedIds}
-            onOpen={setModalImg}
+            onOpen={img => {
+              const idx = browsableImages.findIndex(i => i.id === img.id)
+              if (idx !== -1) setModalIndex(idx)
+            }}
             onVary={handleVary}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
@@ -663,7 +830,12 @@ export default function ImagePage() {
         </div>
       </div>
 
-      <ImageModal img={modalImg} onClose={() => setModalImg(null)} />
+      <ImageModal
+        images={browsableImages}
+        index={modalIndex}
+        onClose={() => setModalIndex(null)}
+        onNavigate={setModalIndex}
+      />
 
       {/* Generation task indicator — plays success sound, auto-dismisses */}
       <MyLoadingProcessIndicator
@@ -732,11 +904,25 @@ export default function ImagePage() {
       {/* ══ Prompt dock ═══════════════════════════════════════════════════════ */}
       <div className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 pb-5 pt-3">
         <div ref={dockRef} className="max-w-[900px] mx-auto">
-          <div className={cn(
-            "rounded-lg border transition-colors duration-200 bg-[#0c0c0e]",
-            anyGenerating ? "border-[#FFFF00]/25" : "border-white/10",
-          )}
+          <div
+            className="rounded-lg border border-white/10 bg-[#0c0c0e]"
             style={{ boxShadow: "0 -4px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03)" }}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy" }}
+            onDrop={e => {
+              e.preventDefault()
+              // Case 1: image dragged from the grid
+              const draggedId = e.dataTransfer.getData("text/x-image-id")
+              if (draggedId && modelSupportsRef) {
+                const draggedImg = images.find(i => i.id === draggedId && !i.loading)
+                if (draggedImg) { toggleSelect(draggedImg); return }
+              }
+              // Case 2: file dragged from OS file system
+              const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"))
+              if (files.length > 0 && modelSupportsRef) {
+                const syntheticEvent = { target: { files, value: "" }, currentTarget: { value: "" } } as unknown as React.ChangeEvent<HTMLInputElement>
+                handleUpload(syntheticEvent)
+              }
+            }}
           >
 
             {/* Row 1: Reference images */}
@@ -747,9 +933,7 @@ export default function ImagePage() {
                     className="relative shrink-0 group/ref rounded overflow-hidden"
                     style={{
                       width: 52, height: 52,
-                      border: ref.isUpload
-                        ? "1px solid rgba(255,255,255,0.10)"
-                        : "1px solid rgba(255,255,0,0.35)",
+                      border: "1px solid rgba(255,255,255,0.10)",
                     }}
                   >
                     <img src={ref.url} className="w-full h-full object-cover" alt="" />
@@ -787,7 +971,7 @@ export default function ImagePage() {
                   <button
                     onClick={() => uploadRef.current?.click()}
                     title="Add reference image"
-                    className="w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white border border-white/10 hover:border-[#FFFF00]/50 hover:bg-white/[0.02] transition-all shrink-0"
+                    className="w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/[0.02] transition-all shrink-0"
                   >
                     <IconPlus size={14} strokeWidth={2.5} />
                   </button>
@@ -1010,13 +1194,7 @@ export default function ImagePage() {
 
                 <button
                   onClick={handleGenerate}
-                  disabled={!prompt.trim()}
-                  className={cn(
-                    "flex items-center gap-2 h-9 px-5 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all select-none shrink-0",
-                    !prompt.trim()
-                      ? "bg-[#FFFF00]/50 text-black/40 cursor-not-allowed"
-                      : "bg-[#FFFF00] text-black cursor-pointer hover:bg-[#e6e600] shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] active:scale-[0.97]",
-                  )}
+                  className="flex items-center gap-2 h-9 px-5 rounded-lg font-black text-[11px] uppercase tracking-wider transition-all select-none shrink-0 bg-[#FFFF00] text-black cursor-pointer hover:bg-[#e6e600] shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] active:scale-[0.97]"
                 >
                   <IconArrowUp size={12} strokeWidth={2.8} /> Generate
                 </button>
