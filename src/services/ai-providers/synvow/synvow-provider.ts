@@ -381,11 +381,15 @@ export class SynvowProvider {
 /** Convert aspect ratio string to OpenAI image size format */
 function aspectRatioToSize(ratio: string): string {
   const map: Record<string, string> = {
-    '1:1': '1024x1024',
+    '1:1':  '1024x1024',
     '16:9': '1792x1024',
     '9:16': '1024x1792',
-    '4:3': '1365x1024',
-    '3:4': '1024x1365',
+    '4:3':  '1365x1024',
+    '3:4':  '1024x1365',
+    // Extended ratios used by Seedream and other ByteDance models
+    '3:2':  '1536x1024',
+    '2:3':  '1024x1536',
+    '21:9': '2048x768',
   }
   return map[ratio] ?? '1024x1024'
 }

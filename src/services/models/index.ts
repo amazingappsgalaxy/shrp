@@ -144,6 +144,81 @@ const IMAGE_MODELS: ModelConfig[] = [
     },
     providers: ['synvow'],
   },
+  // ─── New models ────────────────────────────────────────────────────────────
+  {
+    id: 'gemini-3.1-flash-image-preview',
+    label: 'Gemini Flash',
+    type: 'image',
+    description: 'Google Gemini Flash — fast, high-quality text-to-image',
+    credits: 20,
+    costUsd: 0.02,
+    tag: 'Google',
+    controls: {
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+    },
+    providers: ['synvow'],
+  },
+  {
+    id: 'nano-banana',
+    label: 'Nano Banana',
+    type: 'image',
+    description: 'Fast generation with optional reference image',
+    credits: 20,
+    costUsd: 0.02,
+    tag: 'Fast',
+    controls: {
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+      referenceImage: true,
+      maxReferenceImages: 5,
+    },
+    qualityGroupId: 'nano-banana-v1',
+    qualityTier: '1K',
+    providers: ['synvow'],
+  },
+  {
+    id: 'nano-banana-hd',
+    label: 'Nano Banana',
+    type: 'image',
+    description: 'HD — higher-fidelity variant with improved detail',
+    credits: 40,
+    costUsd: 0.04,
+    tag: 'Fast',
+    controls: {
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+      referenceImage: true,
+      maxReferenceImages: 5,
+    },
+    qualityGroupId: 'nano-banana-v1',
+    qualityTier: '2K',
+    providers: ['synvow'],
+  },
+  {
+    id: 'doubao-seedream-5-0-260128',
+    label: 'Seedream 5.0 Lite',
+    type: 'image',
+    description: 'ByteDance Seedream 5.0 Lite — photorealistic text-to-image',
+    credits: 25,
+    costUsd: 0.025,
+    tag: 'ByteDance',
+    controls: {
+      // Seedream supports a wider set of aspect ratios
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
+    },
+    providers: ['synvow'],
+  },
+  {
+    id: 'doubao-seedream-4-5-251128',
+    label: 'Seedream 4.5',
+    type: 'image',
+    description: 'ByteDance Seedream 4.5 — fast, high-quality generation with strong realism',
+    credits: 20,
+    costUsd: 0.02,
+    tag: 'ByteDance',
+    controls: {
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
+    },
+    providers: ['synvow'],
+  },
 ]
 
 // ─── Video models ──────────────────────────────────────────────────────────────
