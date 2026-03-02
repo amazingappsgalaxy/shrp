@@ -15,6 +15,8 @@ export interface ModelControls {
   aspectRatios?: string[]
   /** Whether the model accepts a reference image input */
   referenceImage?: boolean
+  /** Maximum number of reference images the model accepts (only relevant when referenceImage=true) */
+  maxReferenceImages?: number
   /** Whether the model tries to match the reference strictly */
   strictReference?: boolean
   /** Whether the model accepts a first-frame image for video seeding */
@@ -72,6 +74,7 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
+      maxReferenceImages: 5, // chat completions content array; 5 is a safe practical limit
     },
     qualityGroupId: 'nano-banana',
     qualityTier: '1K',
@@ -88,6 +91,7 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
+      maxReferenceImages: 5,
     },
     qualityGroupId: 'nano-banana',
     qualityTier: '2K',
@@ -104,6 +108,7 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
+      maxReferenceImages: 5,
     },
     qualityGroupId: 'nano-banana',
     qualityTier: '4K',
@@ -120,8 +125,7 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
-      // strictReference removed — was only used for UI aspect lock, which we don't want for NB Pro.
-      // The model's reference-matching behavior is handled by the Gemini API, not the UI.
+      maxReferenceImages: 16, // Gemini 2.0 Flash supports up to 16 image inputs
     },
     // Resolution is hard-capped at 1K by the api.gptbest.vip proxy — 2K/4K are non-functional.
     // Use nano-banana-2-4k for 4K output instead.

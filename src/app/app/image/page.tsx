@@ -291,10 +291,6 @@ function ImageModal({
             </div>
           )}
 
-          {/* Counter */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-black/50 text-white/40 text-[10px] font-mono pointer-events-none">
-            {index! + 1} / {images.length}
-          </div>
         </div>
 
         {/* ── Info pane ── */}
@@ -342,7 +338,7 @@ function ImageModal({
 
 // ─── Justified grid ───────────────────────────────────────────────────────────
 function JustifiedGrid({
-  images, generatedIds, onOpen, onVary, selectedIds, onToggleSelect, showSelectButton, isBusy,
+  images, generatedIds, onOpen, onVary, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy,
 }: {
   images: GridImage[]
   generatedIds: Set<string>
@@ -351,6 +347,7 @@ function JustifiedGrid({
   selectedIds: string[]
   onToggleSelect: (img: GridImage) => void
   showSelectButton: boolean
+  refsAtMax: boolean
   isBusy: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -422,10 +419,10 @@ function JustifiedGrid({
                       {showSelectButton ? (
                         <button
                           onClick={e => { e.stopPropagation(); onToggleSelect(img) }}
-                          title={isSelected ? "Remove from references" : "Add as reference"}
+                          title={isSelected ? "Remove from references" : refsAtMax ? "Max references reached" : "Add as reference"}
                           className={cn(
                             "pointer-events-auto w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-lg",
-                            isSelected ? "bg-[#FFFF00] text-black" : "bg-white text-black hover:scale-110",
+                            isSelected ? "bg-[#FFFF00] text-black" : refsAtMax ? "bg-white/40 text-black/40 cursor-not-allowed" : "bg-white text-black hover:scale-110",
                           )}
                         >
                           {isSelected ? <IconCheck size={11} /> : <IconPlus size={11} />}
@@ -478,6 +475,8 @@ export default function ImagePage() {
   const [modalIndex,   setModalIndex]   = useState<number | null>(null)
   const [selectedIds,  setSelectedIds]  = useState<string[]>([])
   const [uploadedRefs, setUploadedRefs] = useState<{ id: string; url: string; cdnUrl?: string }[]>([])
+  // Unified insertion-ordered list of ref IDs (uploaded + grid) — determines display/API order
+  const [refOrder,     setRefOrder]     = useState<string[]>([])
   const [openPicker,   setOpenPicker]   = useState<PickerType>(null)
   // Track which image IDs were user-generated (vs preloaded) for animation
   const [generatedIds, setGeneratedIds] = useState<Set<string>>(new Set())
@@ -488,6 +487,7 @@ export default function ImagePage() {
   // Debug: stores raw request/response from each generation task
   const [debugEntries,  setDebugEntries]  = useState<DebugEntry[]>([])
   const [debugOpenId,   setDebugOpenId]   = useState<string | null>(null)
+  const [isDragOver,    setIsDragOver]    = useState(false)
 
   const [pillHover, setPillHover] = useState<{ text: string; url: string; rect: DOMRect } | null>(null)
 
@@ -496,15 +496,17 @@ export default function ImagePage() {
   const uploadRef = useRef<HTMLInputElement>(null)
   const dockRef   = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Keep scroll area bottom-padding equal to dock height + 24px breathing room
+  // Keep scroll area bottom-padding equal to full dock height (card + pt-3 + pb-5 outer wrapper = +32px) + breathing room
   useEffect(() => {
     const dock = dockRef.current; const scroll = scrollRef.current
     if (!dock || !scroll) return
-    const ro = new ResizeObserver(() => {
-      scroll.style.paddingBottom = `${dock.offsetHeight + 24}px`
-    })
+    const update = () => {
+      // outer wrapper: pt-3 (12px) + pb-5 (20px) = 32px extra on top of the card height
+      scroll.style.paddingBottom = `${dock.offsetHeight + 32 + 24}px`
+    }
+    const ro = new ResizeObserver(update)
     ro.observe(dock)
-    scroll.style.paddingBottom = `${dock.offsetHeight + 24}px`
+    update()
     return () => ro.disconnect()
   }, [])
 
@@ -543,6 +545,7 @@ export default function ImagePage() {
     if (!activeModel.controls.referenceImage) {
       setSelectedIds([])
       setUploadedRefs([])
+      setRefOrder([])
     }
     // Reset imageSize resolution when switching to a model that doesn't support it
     if (!activeModel.supportedImageSizes?.length) {
@@ -641,10 +644,11 @@ export default function ImagePage() {
 
     const span = document.createElement('span')
     span.contentEditable = 'false'
-    span.dataset.imgRef = text
+    span.dataset.imgRef = text  // real text "Image [N]" — used for serialization and copy
     if (refUrl) span.dataset.refUrl = refUrl
     span.className = 'img-pill'
-    span.textContent = text
+    // Display "Image @N" visually; the underlying data-imgRef stays "Image [N]"
+    span.textContent = text.replace(/Image \[(\d+)\]/g, 'Image @$1')
     range.insertNode(span)
 
     // Place cursor just after the inserted pill
@@ -658,23 +662,42 @@ export default function ImagePage() {
 
   function toggleSelect(img: GridImage) {
     if (!modelSupportsRef) return
-    setSelectedIds(prev =>
-      prev.includes(img.id) ? prev.filter(id => id !== img.id) : [...prev, img.id]
-    )
+    if (selectedIds.includes(img.id)) {
+      // Deselect — remove from both lists
+      setSelectedIds(prev => prev.filter(id => id !== img.id))
+      setRefOrder(prev => prev.filter(id => id !== img.id))
+    } else {
+      if (selectedIds.length + uploadedRefs.length >= maxRefs) {
+        toast.error(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? '' : 's'}`)
+        return
+      }
+      // Append to end of both lists
+      setSelectedIds(prev => [...prev, img.id])
+      setRefOrder(prev => [...prev, img.id])
+    }
   }
 
   function removeRef(id: string) {
     setSelectedIds(prev => prev.filter(sid => sid !== id))
     setUploadedRefs(prev => prev.filter(r => r.id !== id))
+    setRefOrder(prev => prev.filter(rid => rid !== id))
   }
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    files.forEach(async (file) => {
+    const slotsLeft = maxRefs - allRefs.length
+    if (slotsLeft <= 0) {
+      toast.error(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? '' : 's'}`)
+      return
+    }
+    const allowed = files.slice(0, slotsLeft)
+    if (files.length > slotsLeft) toast(`Only ${slotsLeft} more reference${slotsLeft === 1 ? '' : 's'} allowed — first ${slotsLeft} added`)
+    allowed.forEach(async (file) => {
       const localUrl = URL.createObjectURL(file)
       const refId = `up-${Date.now()}-${file.name}`
-      // Show local preview immediately, upload to CDN in background
+      // Show local preview immediately, upload to CDN in background — append to end of order
       setUploadedRefs(prev => [...prev, { id: refId, url: localUrl }])
+      setRefOrder(prev => [...prev, refId])
       try {
         // Same pattern as editor/upscaler: dataUri → /api/upload (authed, real userId)
         const cdnUrl = await uploadImageToCdn(file)
@@ -704,12 +727,13 @@ export default function ImagePage() {
     scroll()
 
     const label = count > 1 ? `${count} images ready` : "Image ready"
-    const referenceUrls: string[] = [
-      ...uploadedRefs.filter(r => r.cdnUrl).map(r => r.cdnUrl!),
-      ...selectedIds
-        .map(id => images.find(img => img.id === id && !img.loading)?.url)
-        .filter((u): u is string => !!u),
-    ]
+    // Build reference URLs in insertion order (same as allRefs display order)
+    const referenceUrls: string[] = allRefs
+      .map(ref => {
+        if (ref.isUpload) return uploadedRefs.find(r => r.id === ref.id)?.cdnUrl ?? null
+        return ref.url
+      })
+      .filter((u): u is string => u !== null)
     const fullPrompt = prompt.trim() + (STYLE_SUFFIX[style] ?? "")
     const supportsImageSize = !!activeModel.supportedImageSizes?.length
 
@@ -817,11 +841,19 @@ export default function ImagePage() {
   const selectedImgObjs = selectedIds
     .map(id => images.find(img => img.id === id && !img.loading))
     .filter((img): img is GridImage => img !== undefined)
-  const allRefs = [
-    ...uploadedRefs.map(r => ({ id: r.id, url: r.url, isUpload: true })),
-    ...selectedImgObjs.map(img => ({ id: img.id, url: img.url, isUpload: false })),
-  ]
-  const hasRefs = allRefs.length > 0
+  // Build allRefs in insertion order using refOrder — so the first attached image is always Image [1]
+  const allRefs = refOrder
+    .map(id => {
+      const uploaded = uploadedRefs.find(r => r.id === id)
+      if (uploaded) return { id, url: uploaded.url, isUpload: true as const }
+      const gridImg = images.find(img => img.id === id && !img.loading)
+      if (gridImg) return { id, url: gridImg.url, isUpload: false as const }
+      return null
+    })
+    .filter((r): r is { id: string; url: string; isUpload: boolean } => r !== null)
+  const hasRefs   = allRefs.length > 0
+  const maxRefs   = activeModel.controls.maxReferenceImages ?? 1
+  const refsAtMax = modelSupportsRef && allRefs.length >= maxRefs
 
   // Lock aspect ratio only for strict-reference models that use quality-group variants (nano-banana-2 family).
   // Models with supportedImageSizes (NB Pro via Gemini API) always let the user control aspect ratio —
@@ -847,9 +879,10 @@ export default function ImagePage() {
       <style>{`
         @keyframes fadeIn   { from { opacity: 0 } to { opacity: 1 } }
         @keyframes pickerIn { from { opacity: 0; transform: translateY(6px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+        @keyframes pillPop  { from { opacity: 0; transform: scale(0.72) } to { opacity: 1; transform: scale(1) } }
         .prompt-editor { min-height: 40px; max-height: 140px; overflow-y: auto; outline: none; line-height: 1.7; font-size: 14px; color: white; white-space: pre-wrap; word-break: break-word; }
         .prompt-editor:empty::before { content: attr(data-placeholder); color: rgba(255,255,255,0.2); pointer-events: none; }
-        .prompt-editor .img-pill { display: inline-flex; align-items: center; background: #FFFF00; border: none; color: #111111; font-size: 11px; font-weight: 800; padding: 1px 9px 2px; border-radius: 100px; cursor: default; user-select: none; white-space: nowrap; vertical-align: middle; margin: 0 2px; line-height: 1.6; letter-spacing: 0.01em; transition: background 0.12s; }
+        .prompt-editor .img-pill { display: inline-flex; align-items: center; background: #FFFF00; border: none; color: #111111; font-size: 11px; font-weight: 700; padding: 1px 6px 1px; border-radius: 100px; cursor: default; user-select: none; white-space: nowrap; vertical-align: middle; margin: 0 2px; line-height: 1.6; letter-spacing: 0.01em; transition: background 0.12s; }
         .prompt-editor .img-pill:hover { background: #e6e600; }
       `}</style>
 
@@ -876,6 +909,7 @@ export default function ImagePage() {
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             showSelectButton={modelSupportsRef}
+            refsAtMax={refsAtMax}
             isBusy={anyGenerating}
           />
           <div ref={endRef} />
@@ -972,14 +1006,23 @@ export default function ImagePage() {
       )}
 
       {/* ══ Prompt dock ═══════════════════════════════════════════════════════ */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 pb-5 pt-3">
-        <div ref={dockRef} className="max-w-[900px] mx-auto">
+      {/* pointer-events-none on the outer shell so the transparent side areas don't block grid hover */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 pb-5 pt-3 pointer-events-none">
+        <div ref={dockRef} className="max-w-[900px] mx-auto pointer-events-auto">
           <div
-            className="rounded-lg border border-white/10 bg-[#0c0c0e]"
-            style={{ boxShadow: "0 -4px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03)" }}
-            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy" }}
+            className="relative rounded-lg border bg-[#0c0c0e] transition-colors duration-150"
+            style={{
+              borderColor: isDragOver && modelSupportsRef ? 'rgba(255,255,0,0.55)' : 'rgba(255,255,255,0.10)',
+              boxShadow: isDragOver && modelSupportsRef
+                ? "0 -4px 32px rgba(255,255,0,0.08), 0 0 0 0.5px rgba(255,255,0,0.08)"
+                : "0 -4px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03)",
+            }}
+            onDragEnter={e => { e.preventDefault(); if (modelSupportsRef) setIsDragOver(true) }}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = modelSupportsRef ? "copy" : "none"; if (modelSupportsRef) setIsDragOver(true) }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false) }}
             onDrop={e => {
               e.preventDefault()
+              setIsDragOver(false)
               // Case 1: image dragged from the grid
               const draggedId = e.dataTransfer.getData("text/x-image-id")
               if (draggedId && modelSupportsRef) {
@@ -994,10 +1037,25 @@ export default function ImagePage() {
               }
             }}
           >
+            {/* Drag-over overlay */}
+            {isDragOver && modelSupportsRef && (
+              <div className="absolute inset-0 rounded-lg z-30 pointer-events-none flex items-center justify-center"
+                style={{ background: "rgba(255,255,0,0.03)" }}>
+                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FFFF00] text-black text-xs font-bold shadow-lg">
+                  <IconPlus size={12} strokeWidth={2.5} /> Drop to add reference
+                </div>
+              </div>
+            )}
 
             {/* Row 1: Reference images */}
             {hasRefs && (
               <div className="px-4 pt-3 pb-2.5 flex items-center flex-wrap gap-2 border-b border-white/5">
+                {/* Ref count badge */}
+                <div className="absolute top-3 right-4 flex items-center gap-1.5 pointer-events-none">
+                  <span className={cn("text-[9px] font-black uppercase tracking-widest", refsAtMax ? "text-[#FFFF00]/70" : "text-white/25")}>
+                    {allRefs.length}/{maxRefs}
+                  </span>
+                </div>
                 {allRefs.map((ref, idx) => (
                   <div
                     key={ref.id}
@@ -1008,12 +1066,19 @@ export default function ImagePage() {
                   >
                     <img src={ref.url} className="w-full h-full object-cover" alt="" />
 
-                    {/* Hover tint */}
-                    <div className="absolute inset-0 bg-white/0 group-hover/ref:bg-white/10 transition-colors pointer-events-none" />
-
-                    {/* Figure number badge — bottom */}
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-5 pb-1 flex items-end justify-center pointer-events-none">
-                      <span className="text-[8px] font-black text-white/80 uppercase tracking-widest">Img {idx + 1}</span>
+                    {/* Bottom badge — "Img N" at rest, "Add +" pill on hover */}
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 to-transparent pt-5 pb-1.5 flex items-end justify-center pointer-events-none">
+                      {/* default label — fades out on hover */}
+                      <span className="absolute text-[8px] font-black text-white/75 uppercase tracking-widest transition-all duration-150 group-hover/ref:opacity-0 group-hover/ref:scale-75">
+                        Img {idx + 1}
+                      </span>
+                      {/* hover pill — pops in */}
+                      <span
+                        className="opacity-0 scale-75 group-hover/ref:opacity-100 group-hover/ref:scale-100 bg-[#FFFF00] text-black text-[9px] font-bold px-2 py-[2px] rounded-full leading-tight"
+                        style={{ transition: "opacity 0.13s, transform 0.13s" }}
+                      >
+                        Add +
+                      </span>
                     </div>
 
                     {/* X button — top-right, always visible */}
@@ -1028,8 +1093,8 @@ export default function ImagePage() {
                 ))}
 
                 {/* Hint label */}
-                <p className="text-[9px] text-white/20 self-end pb-1 ml-1 leading-tight max-w-[80px]">
-                  Tap to insert<br />Image ref
+                <p className="text-[9px] text-white/40 self-end pb-1 ml-1 leading-tight">
+                  Tap to insert image as reference
                 </p>
               </div>
             )}
@@ -1079,6 +1144,25 @@ export default function ImagePage() {
                     }
                   }
                 }}
+                onCopy={e => {
+                  // Pills display "Image @N" but we copy "Image [N]" from data-imgRef
+                  const sel = window.getSelection()
+                  if (!sel || sel.rangeCount === 0) return
+                  const frag = sel.getRangeAt(0).cloneContents()
+                  const tmp = document.createElement('div')
+                  tmp.appendChild(frag)
+                  const plain = serializeEditor(tmp)
+                  if (plain) { e.preventDefault(); e.clipboardData.setData('text/plain', plain) }
+                }}
+                onCut={e => {
+                  const sel = window.getSelection()
+                  if (!sel || sel.rangeCount === 0) return
+                  const frag = sel.getRangeAt(0).cloneContents()
+                  const tmp = document.createElement('div')
+                  tmp.appendChild(frag)
+                  const plain = serializeEditor(tmp)
+                  if (plain) { e.preventDefault(); e.clipboardData.setData('text/plain', plain); sel.getRangeAt(0).deleteContents(); setPrompt(serializeEditor(taRef.current!)) }
+                }}
                 onPaste={e => {
                   e.preventDefault()
                   const text = e.clipboardData.getData('text/plain')
@@ -1106,9 +1190,17 @@ export default function ImagePage() {
                 {/* Reference image upload */}
                 {modelSupportsRef && (
                   <button
-                    onClick={() => uploadRef.current?.click()}
-                    title="Add reference image"
-                    className="w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/[0.02] transition-all shrink-0"
+                    onClick={() => refsAtMax
+                      ? toast.error(`Max ${maxRefs} reference image${maxRefs === 1 ? '' : 's'} for this model`)
+                      : uploadRef.current?.click()
+                    }
+                    title={refsAtMax ? `Max ${maxRefs} references reached` : "Add reference image"}
+                    className={cn(
+                      "w-8 h-8 flex items-center justify-center rounded-md border transition-all shrink-0",
+                      refsAtMax
+                        ? "border-white/[0.05] text-white/20 cursor-not-allowed"
+                        : "text-white/50 hover:text-white border-white/10 hover:border-white/20 hover:bg-white/[0.02]",
+                    )}
                   >
                     <IconPlus size={14} strokeWidth={2.5} />
                   </button>

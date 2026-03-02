@@ -69,18 +69,23 @@ export default function RootLayout({
         </SWRProvider>
         <Toaster
           position="bottom-right"
+          offset={16}
+          style={{ zIndex: 999999 }}
           toastOptions={{
             style: {
               background: '#111111',
               border: '1px solid rgba(255,255,255,0.1)',
               color: '#ffffff',
-              borderRadius: '12px',
-              fontSize: '14px',
+              borderRadius: '8px',
+              fontSize: '11px',
               fontWeight: '500',
+              padding: '8px 12px',
+              maxWidth: '280px',
+              zIndex: 999999,
             },
             classNames: {
               success: 'border-[#FFFF00]/30',
-              error: 'border-red-500/30',
+              error: 'border-white/20',
               warning: 'border-amber-500/30',
               info: 'border-blue-500/30',
             },
