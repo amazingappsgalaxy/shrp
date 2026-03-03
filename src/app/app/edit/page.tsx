@@ -244,28 +244,46 @@ function WireframeSphere({
   const cy  = size / 2
   const CAM = 22 * Math.PI / 180  // camera tilt above equator
 
-  // Orthographic projection (camera tilted CAM above equator)
+  // Standard orthographic projection — used for light dot position only
   const project = (x: number, y: number, z: number) => ({
     px:    cx + x * R,
     py:    cy - (y * Math.cos(CAM) - z * Math.sin(CAM)) * R,
     depth: y * Math.sin(CAM) + z * Math.cos(CAM),
   })
 
-  // Latitude circle
+  // Grid projection with Y-axis (azimuth) and X-axis (elevation) rotation
+  // Makes the wireframe visually spin as the user drags — gives real 3D perspective
+  const gridYaw   = azimuth   * 0.7  * Math.PI / 180
+  const gridPitch = elevation * 0.25 * Math.PI / 180
+  const gridProject = (x: number, y: number, z: number) => {
+    const cosY = Math.cos(gridYaw),  sinY = Math.sin(gridYaw)
+    const rx  =  x * cosY + z * sinY
+    const rz  = -x * sinY + z * cosY
+    const cosX = Math.cos(gridPitch), sinX = Math.sin(gridPitch)
+    const ry2 = y * cosX - rz * sinX
+    const rz2 = y * sinX + rz * cosX
+    return {
+      px:    cx + rx * R,
+      py:    cy - (ry2 * Math.cos(CAM) - rz2 * Math.sin(CAM)) * R,
+      depth: ry2 * Math.sin(CAM) + rz2 * Math.cos(CAM),
+    }
+  }
+
+  // Latitude circle — uses gridProject so the grid rotates with the light
   const latPts = (elDeg: number, steps = 80) => {
     const el = elDeg * Math.PI / 180
     return Array.from({ length: steps + 1 }, (_, i) => {
       const az = (i / steps) * 2 * Math.PI
-      return project(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
+      return gridProject(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
     })
   }
 
-  // Longitude meridian
+  // Longitude meridian — uses gridProject
   const longPts = (azDeg: number, steps = 80) => {
     const az = azDeg * Math.PI / 180
     return Array.from({ length: steps + 1 }, (_, i) => {
       const el = -Math.PI / 2 + (i / steps) * Math.PI
-      return project(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
+      return gridProject(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
     })
   }
 
@@ -298,6 +316,7 @@ function WireframeSphere({
   const { px: lsx, py: lsy, depth: lDep } = lProj
   const onFront = lDep >= 0
   const intN    = intensity / 100   // 0 → 1
+  const opM     = onFront ? 1 : 0.18  // dim glow when light is behind sphere
 
   // Cone rays fan from dot toward center
   const toCenter  = Math.atan2(cy - lsy, cx - lsx)
@@ -360,7 +379,7 @@ function WireframeSphere({
           cx={lsx.toFixed(1)} cy={lsy.toFixed(1)} r={`${(R * 1.3).toFixed(1)}`}
           fx={lsx.toFixed(1)} fy={lsy.toFixed(1)}>
           <stop offset="0%"   stopColor={lightColor}
-            stopOpacity={onFront ? (0.08 + intN * 0.22).toFixed(3) : '0'} />
+            stopOpacity={((0.08 + intN * 0.22) * opM).toFixed(3)} />
           <stop offset="45%"  stopColor={lightColor} stopOpacity="0" />
         </radialGradient>
 
@@ -368,10 +387,10 @@ function WireframeSphere({
         <radialGradient id={`${uid}-bloom`} gradientUnits="userSpaceOnUse"
           cx={lsx.toFixed(1)} cy={lsy.toFixed(1)} r={`${bloomR.toFixed(1)}`}
           fx={lsx.toFixed(1)} fy={lsy.toFixed(1)}>
-          <stop offset="0%"   stopColor="#ffffff"   stopOpacity={onFront ? '1'  : '0'} />
-          <stop offset="8%"   stopColor={lightColor} stopOpacity={onFront ? (0.85 + intN * 0.15).toFixed(2) : '0'} />
-          <stop offset="28%"  stopColor={lightColor} stopOpacity={onFront ? (0.30 + intN * 0.25).toFixed(2) : '0'} />
-          <stop offset="60%"  stopColor={lightColor} stopOpacity={onFront ? (intN * 0.14).toFixed(3) : '0'} />
+          <stop offset="0%"   stopColor="#ffffff"    stopOpacity={opM.toFixed(3)} />
+          <stop offset="8%"   stopColor={lightColor} stopOpacity={((0.85 + intN * 0.15) * opM).toFixed(3)} />
+          <stop offset="28%"  stopColor={lightColor} stopOpacity={((0.30 + intN * 0.25) * opM).toFixed(3)} />
+          <stop offset="60%"  stopColor={lightColor} stopOpacity={(intN * 0.14 * opM).toFixed(3)} />
           <stop offset="100%" stopColor={lightColor} stopOpacity="0" />
         </radialGradient>
 
@@ -379,7 +398,7 @@ function WireframeSphere({
         <linearGradient id={`${uid}-ray`} gradientUnits="userSpaceOnUse"
           x1={lsx.toFixed(1)} y1={lsy.toFixed(1)}
           x2={cx.toFixed(1)}  y2={cy.toFixed(1)}>
-          <stop offset="0%"   stopColor={lightColor} stopOpacity={(0.25 + intN * 0.55).toFixed(2)} />
+          <stop offset="0%"   stopColor={lightColor} stopOpacity={((0.25 + intN * 0.55) * opM).toFixed(3)} />
           <stop offset="100%" stopColor={lightColor} stopOpacity="0" />
         </linearGradient>
 
@@ -395,8 +414,8 @@ function WireframeSphere({
       <circle cx={cx} cy={cy} r={R} fill={`url(#${uid}-lit)`}
         clipPath={`url(#${uid}-clip)`} />
 
-      {/* Cone rays (behind wireframe, clipped to sphere) */}
-      <g clipPath={`url(#${uid}-clip)`} opacity={onFront ? 1 : 0.08}>
+      {/* Cone rays (behind wireframe, clipped to sphere) — opacity via gradient opM */}
+      <g clipPath={`url(#${uid}-clip)`}>
         {rays.map((ray, i) => (
           <line key={i}
             x1={lsx} y1={lsy} x2={ray.x2} y2={ray.y2}
@@ -459,32 +478,23 @@ function WireframeSphere({
         fill={`url(#${uid}-bloom)`}
         style={{ pointerEvents: 'none' }} />
 
-      {/* Solid colored core */}
-      {onFront && (
-        <circle cx={lsx} cy={lsy} r={3 + intN * 2.5}
-          fill={lightColor} opacity={(0.75 + intN * 0.25).toFixed(2)}
-          style={{ pointerEvents: 'none' }} />
-      )}
+      {/* Solid colored core — always rendered, dimmed behind sphere */}
+      <circle cx={lsx} cy={lsy} r={onFront ? (3 + intN * 2.5) : 2.5}
+        fill={lightColor} opacity={((0.75 + intN * 0.25) * opM).toFixed(3)}
+        style={{ pointerEvents: 'none' }} />
 
       {/* White hot center point */}
       <circle cx={lsx} cy={lsy} r={1.6}
         fill="white"
-        opacity={onFront ? '0.95' : '0.25'}
+        opacity={onFront ? '0.95' : '0.22'}
         style={{ pointerEvents: 'none' }} />
 
-      {/* Behind-sphere indicator */}
+      {/* Behind-sphere: subtle dashed ring indicator (no text — the dim glow communicates it) */}
       {!onFront && (
-        <>
-          <circle cx={lsx} cy={lsy} r={5.5}
-            fill="none" stroke={lightColor} strokeWidth="1.2"
-            strokeDasharray="3,2" opacity="0.4"
-            style={{ pointerEvents: 'none' }} />
-          <text x={cx} y={cy + R + 12} textAnchor="middle" fontSize="7"
-            fill={lightColor} opacity="0.5" fontWeight="bold"
-            style={{ pointerEvents: 'none', letterSpacing: '0.08em' }}>
-            LIGHT BEHIND — KEEP DRAGGING
-          </text>
-        </>
+        <circle cx={lsx} cy={lsy} r={5.5}
+          fill="none" stroke={lightColor} strokeWidth="1.2"
+          strokeDasharray="3,2" opacity="0.45"
+          style={{ pointerEvents: 'none' }} />
       )}
     </svg>
   )
