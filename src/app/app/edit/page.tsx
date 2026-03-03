@@ -162,26 +162,31 @@ function hexToRgbDesc(hex: string): string {
 
 function generateRelightPrompt(s: LightSettings) {
   const colorDesc = hexToRgbDesc(s.color)
-  const bright = s.intensity > 85 ? 'extremely bright, high-intensity'
-    : s.intensity > 65 ? 'bright'
+  const bright = s.intensity > 85 ? 'extremely powerful'
+    : s.intensity > 65 ? 'strong'
     : s.intensity > 40 ? 'moderate'
-    : 'subtle, low-key'
+    : 'dim and subtle'
   const dirDesc = azToDesc(s.azimuth)
   const elDesc = elToDesc(s.elevation)
-  const falloff = s.softness === 'soft' ? 'soft diffuse falloff, gentle shadows with feathered penumbra'
-    : 'hard sharp shadows with well-defined terminator and crisp specular highlights'
+  const falloff = s.softness === 'soft'
+    ? 'large area source with soft diffuse falloff, smooth penumbra shadows, gentle gradients'
+    : 'point source with hard sharp shadow terminator, crisp specular highlights, strong contrast'
   const lock = s.sceneLock
-    ? 'PRESERVE exact subject pose, facial features, clothing, and scene geometry. Only change the lighting. '
-    : ''
+    ? 'Keep the exact subject pose, face, clothing, and all scene objects identical — only change the lighting. '
+    : 'You may slightly alter scene elements to make the lighting more convincing. '
+
   return (
-    `Physically-based 3D relighting: ${lock}` +
-    `Apply a ${bright} ${colorDesc} light source positioned at ${dirDesc}, ${elDesc}. ` +
-    `Cast accurate directional shadows that follow the geometry of the subject. ` +
-    `Render realistic specular highlights on skin, hair, and surfaces facing the light. ` +
-    `Subsurface scattering in skin, ambient occlusion in crevices, rim lighting on edges facing away. ` +
-    `${falloff}. ` +
-    `The unlit side should have natural shadow tone — not pure black, but dark with subtle fill light bounce. ` +
-    `Do NOT change colors, textures, or scene content — only relight.`
+    `Cinematic full-scene relighting. ${lock}` +
+    `Replace ALL existing lighting in this image with a ${bright} ${colorDesc} light coming from ${dirDesc}, ${elDesc}. ` +
+    `This is a COMPLETE lighting transformation — not a filter: ` +
+    `(1) The entire scene's ambient light, color temperature, and mood must shift to match ${colorDesc}. ` +
+    `(2) Directional shadows cast by the light source must fall realistically across ALL surfaces — face, body, clothing, background, ground. ` +
+    `(3) Specular highlights in ${colorDesc} must appear on skin, hair, eyes, fabric, and any shiny surfaces facing the source. ` +
+    `(4) Subsurface scattering on skin where the light hits. Ambient occlusion darkens crevices and corners. ` +
+    `(5) Rim lighting in ${colorDesc} on edges of the subject perpendicular to the light direction. ` +
+    `(6) The shadow side should be dark and moody — lit only by very dim complementary fill, NOT pure black. ` +
+    `(7) ${falloff}. ` +
+    `The result must look like this scene was physically photographed under ${colorDesc} lighting from ${dirDesc}, as if the entire environment changed — not like a color grade was applied on top.`
   )
 }
 
@@ -479,7 +484,7 @@ function FloatingMaskCard({
           {layer.referenceImageUrl ? (
             <div className="flex items-center gap-1.5">
               <img src={layer.referenceImageUrl} alt="" className="w-7 h-7 rounded-md object-cover border border-[#2e2e2e] flex-shrink-0" />
-              <span className="text-[9px] text-[#606060] flex-1 truncate">ref image</span>
+              <span className="text-[9px] text-[#606060] flex-1 truncate">Reference Image</span>
               <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="p-0.5 text-[#505050] hover:text-red-400 transition-colors rounded">
                 <IconX className="w-3 h-3" />
               </button>
@@ -712,6 +717,56 @@ function PremiumSlider({ value, min, max, step, onChange, color, growing = false
   )
 }
 
+// ─── PremiumSliderVertical ────────────────────────────────────────────────────
+// Vertical segmented bar slider — bottom = min, top = max.
+// Bars grow wider from bottom→top to visualise increasing brush size.
+
+function PremiumSliderVertical({ value, min, max, step, onChange, color, segments = 14 }: {
+  value: number; min: number; max: number; step: number
+  onChange: (v: number) => void; color: string; segments?: number
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const pct = (value - min) / (max - min)
+  const filledCount = Math.max(0, Math.round(pct * segments))
+
+  const update = (e: React.PointerEvent) => {
+    const r = trackRef.current!.getBoundingClientRect()
+    // Inverted: dragging UP (smaller clientY) → higher value
+    const p = 1 - Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))
+    onChange(Math.round((min + p * (max - min)) / step) * step)
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      className="flex flex-col-reverse items-center gap-[2px] cursor-ns-resize select-none"
+      style={{ touchAction: 'none', width: 28, height: 84 }}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); update(e) }}
+      onPointerMove={e => { if (e.buttons > 0) update(e) }}
+    >
+      {Array.from({ length: segments }, (_, i) => {
+        // i=0 → DOM first → visually BOTTOM (flex-col-reverse)
+        const t = i / (segments - 1)  // 0=bottom, 1=top
+        const isFilled = i < filledCount
+        const isEdge = isFilled && i === filledCount - 1
+        const w = 4 + t * 18   // 4px at bottom → 22px at top
+        return (
+          <div
+            key={i}
+            className="rounded-sm flex-shrink-0"
+            style={{
+              width: w,
+              height: 4,
+              background: isFilled ? (isEdge ? '#ffffff' : color) : '#282828',
+              opacity: isFilled && !isEdge ? 0.45 + t * 0.55 : 1,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EditPage() {
@@ -803,6 +858,9 @@ export default function EditPage() {
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [editingTextValue, setEditingTextValue] = useState('')
 
+  // ── Color picker ref (for relight)
+  const colorPickerRef = useRef<HTMLInputElement>(null)
+
   // ── Light
   const [lightSettings, setLightSettings] = useState<LightSettings>({
     azimuth: 45, elevation: 35, color: '#ffffff', intensity: 70, softness: 'soft', sceneLock: true,
@@ -812,12 +870,14 @@ export default function EditPage() {
   // ── Prompt mode
   const [promptText, setPromptText] = useState('')
   const [promptRefUrls, setPromptRefUrls] = useState<string[]>([])
+  const [promptFileInputKey, setPromptFileInputKey] = useState(0)
 
   // ── Model
   const [selectedModel, setSelectedModel] = useState('nano-banana-2')
 
   // ── Generation
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [generatingCount, setGeneratingCount] = useState(0)
+  const isGenerating = generatingCount > 0
   const [results, setResults] = useState<GenerationResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [modalResult, setModalResult] = useState<GenerationResult | null>(null)
@@ -1164,42 +1224,67 @@ export default function EditPage() {
 
   // ── Generation
   const canGenerate = useMemo(() => {
-    if (!imageUrl || isGenerating) return false
+    if (!imageUrl) return false
     if (mode === 'edit') return layers.some(l => l.prompt.trim())
     if (mode === 'relight') return true
     if (mode === 'prompt') return !!promptText.trim()
     return false
-  }, [imageUrl, isGenerating, mode, layers, promptText])
+  }, [imageUrl, mode, layers, promptText])
 
   const handleGenerate = useCallback(async () => {
     if (!canGenerate || !imageUrl) return
-    setIsGenerating(true); setError(null)
+    setGeneratingCount(c => c + 1); setError(null)
     const taskId = uid()
     try {
       let compositeDataUrl: string | undefined
+      let cleanOriginalDataUrl: string | undefined
       let combinedPrompt = ''
       const referenceImages: string[] = []
 
-      // Always get canvas contents as base64 (handles blob URLs + captures annotations)
-      compositeDataUrl = flattenForExport()
-
       if (mode === 'edit') {
+        // For edit: send the CLEAN original (no masks) as primary + the masked composite as secondary.
+        // This prevents the mask color overlays from being interpreted as image content.
+        if (bgImageRef.current) {
+          const cleanCanvas = document.createElement('canvas')
+          cleanCanvas.width = bgImageRef.current.naturalWidth
+          cleanCanvas.height = bgImageRef.current.naturalHeight
+          const cleanCtx = cleanCanvas.getContext('2d')!
+          cleanCtx.drawImage(bgImageRef.current, 0, 0)
+          cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
+        }
+        compositeDataUrl = flattenForExport()  // original + colored mask overlays
+
         const activeLayers = layers.filter(l => l.prompt.trim())
-        combinedPrompt = activeLayers.map(l => `In the ${l.colorName} highlighted region: ${l.prompt.trim()}`).join('. ')
-          + '. Keep all non-highlighted areas completely unchanged.'
+        combinedPrompt =
+          'I am providing two images: image 1 is the original clean photo, image 2 is the same photo with semi-transparent colored overlays marking edit regions. ' +
+          activeLayers.map(l => `In the ${l.colorName}-colored overlay region: ${l.prompt.trim()}`).join('. ') +
+          '. Apply the edits to image 1 ONLY — use image 2 purely as a guide for WHERE to make changes. Keep everything outside the colored regions completely identical to image 1.'
         activeLayers.forEach(l => { if (l.referenceImageUrl) referenceImages.push(l.referenceImageUrl) })
       } else if (mode === 'relight') {
+        // Relight: send the clean original image
+        if (bgImageRef.current) {
+          const cleanCanvas = document.createElement('canvas')
+          cleanCanvas.width = bgImageRef.current.naturalWidth
+          cleanCanvas.height = bgImageRef.current.naturalHeight
+          const cleanCtx = cleanCanvas.getContext('2d')!
+          cleanCtx.drawImage(bgImageRef.current, 0, 0)
+          cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
+        }
         combinedPrompt = generateRelightPrompt(lightSettings)
         setDebugRelightPrompt(combinedPrompt)
       } else {
+        // Prompt mode: composite (may have annotations)
+        compositeDataUrl = flattenForExport()
         combinedPrompt = promptText
         promptRefUrls.forEach(u => referenceImages.push(u))
       }
 
       const body: Record<string, unknown> = {
         mode, model: selectedModel, taskId,
-        originalImageUrl: imageUrl, combinedPrompt, referenceImages,
-        compositeDataUrl,
+        originalImageUrl: imageUrl,
+        cleanOriginalDataUrl,  // clean version (no masks) — primary for edit/relight
+        combinedPrompt, referenceImages,
+        compositeDataUrl,      // masked composite — secondary hint for edit mode
       }
 
       const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -1209,7 +1294,7 @@ export default function EditPage() {
       setResultsDockOpen(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Generation failed')
-    } finally { setIsGenerating(false) }
+    } finally { setGeneratingCount(c => c - 1) }
   }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, flattenForExport])
 
   const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
@@ -1288,17 +1373,16 @@ export default function EditPage() {
                   </button>
                 ))}
 
-                {/* Brush size — MechanicalSlider */}
+                {/* Brush size — vertical segmented slider */}
                 {(activeTool === 'brush' || activeTool === 'eraser') && (
                   <>
                     <div className="w-5 h-px bg-[#1e1e1e] my-0.5" />
-                    <div className="flex flex-col items-center gap-2 w-full px-0.5">
-                      <PremiumSlider
+                    <div className="flex flex-col items-center gap-1.5">
+                      <PremiumSliderVertical
                         min={4} max={80} step={2}
                         value={brushSize}
                         onChange={setBrushSize}
                         color={activeTool === 'eraser' ? '#606060' : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00')}
-                        growing={true}
                       />
                       <span className="text-[9px] text-[#606060] font-mono leading-none">{brushSize}px</span>
                     </div>
@@ -1413,27 +1497,41 @@ export default function EditPage() {
                     </div>
                   </div>
 
-                  {/* Light Color */}
+                  {/* Light Color — compact single row */}
                   <div>
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Light Color</p>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#2e2e2e] flex-shrink-0">
-                        <input type="color" value={lightSettings.color}
-                          onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                        <div className="absolute inset-0 rounded-lg" style={{ background: lightSettings.color }} />
-                      </div>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Light Color</p>
+                    {/* Row: swatch → hex input → presets */}
+                    <div className="flex items-center gap-2">
+                      {/* Color swatch — click to open picker */}
+                      <button
+                        type="button"
+                        onClick={() => colorPickerRef.current?.click()}
+                        className="w-7 h-7 rounded-md border border-[#3e3e3e] flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-[#555555] transition-all"
+                        style={{ background: lightSettings.color }}
+                        title="Click to open color picker"
+                      />
+                      {/* Hidden native color input */}
+                      <input
+                        ref={colorPickerRef}
+                        type="color"
+                        value={lightSettings.color}
+                        onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
+                        className="sr-only"
+                        tabIndex={-1}
+                      />
+                      {/* Hex text input */}
                       <input type="text" value={lightSettings.color}
                         onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
-                        className="flex-1 bg-[#141414] border border-[#2e2e2e] rounded-lg px-2 py-1.5 text-[11px] text-white font-mono uppercase outline-none focus:border-[#3c3c3c] transition-all" />
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {LIGHT_COLOR_PRESETS.map(c => (
-                        <button key={c}
-                          onClick={() => { setLightSettings(p => ({ ...p, color: c })); setActiveLightingStyle(null) }}
-                          className={cn('w-5 h-5 rounded-full border-2 transition-all', lightSettings.color === c ? 'border-white scale-110' : 'border-[#333333] hover:border-[#505050]')}
-                          style={{ background: c }} />
-                      ))}
+                        className="w-[72px] bg-[#141414] border border-[#2e2e2e] rounded-md px-2 py-1 text-[11px] text-white font-mono uppercase outline-none focus:border-[#3c3c3c] transition-all" />
+                      {/* Preset swatches */}
+                      <div className="flex gap-1 flex-1 flex-wrap justify-end">
+                        {LIGHT_COLOR_PRESETS.map(c => (
+                          <button key={c}
+                            onClick={() => { setLightSettings(p => ({ ...p, color: c })); setActiveLightingStyle(null) }}
+                            className={cn('w-4 h-4 rounded-full border-2 transition-all flex-shrink-0', lightSettings.color === c ? 'border-white scale-110' : 'border-[#333333] hover:border-[#505050]')}
+                            style={{ background: c }} />
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -1481,36 +1579,40 @@ export default function EditPage() {
                   rows={5}
                 />
                 {/* Reference images — thumbnails row + plus button below */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {promptRefUrls.map((url, i) => (
-                    <div key={i} className="relative w-11 h-11 rounded-lg overflow-hidden flex-shrink-0">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      <button
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={() => setPromptRefUrls(prev => prev.filter((_, j) => j !== i))}
-                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#0d0d0d] flex items-center justify-center text-[#c0c0c0] hover:text-white"
-                      >
-                        <IconX className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <label className="w-11 h-11 rounded-lg border border-[#2e2e2e] bg-[#141414] flex items-center justify-center cursor-pointer hover:border-[#444444] hover:bg-[#1a1a1a] transition-colors flex-shrink-0">
-                    <IconPlus className="w-4 h-4 text-[#a0a0a0]" />
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={async e => {
-                      const files = Array.from(e.target.files ?? [])
-                      const urls: string[] = []
-                      for (const file of files) {
-                        try {
-                          const fd = new FormData(); fd.append('file', file)
-                          const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
-                          const d = await r.json()
-                          urls.push(d.image?.url ?? URL.createObjectURL(file))
-                        } catch { urls.push(URL.createObjectURL(file)) }
-                      }
-                      setPromptRefUrls(prev => [...prev, ...urls])
-                      e.target.value = ''
-                    }} />
-                  </label>
+                <div>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Reference Images</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {promptRefUrls.map((url, i) => (
+                      <div key={i} className="relative w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 border border-[#2e2e2e]">
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onPointerDown={e => e.stopPropagation()}
+                          onClick={() => setPromptRefUrls(prev => prev.filter((_, j) => j !== i))}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#0d0d0d] flex items-center justify-center text-[#c0c0c0] hover:text-white"
+                        >
+                          <IconX className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <label key={promptFileInputKey} className="w-11 h-11 rounded-lg border border-dashed border-[#2e2e2e] bg-[#141414] flex items-center justify-center cursor-pointer hover:border-[#555555] hover:bg-[#1a1a1a] transition-colors flex-shrink-0" title="Add reference image(s)">
+                      <IconPlus className="w-4 h-4 text-[#a0a0a0]" />
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={async e => {
+                        const files = Array.from(e.target.files ?? [])
+                        if (!files.length) return
+                        const urls: string[] = []
+                        for (const file of files) {
+                          try {
+                            const fd = new FormData(); fd.append('file', file)
+                            const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
+                            const d = await r.json()
+                            urls.push(d.image?.url ?? URL.createObjectURL(file))
+                          } catch { urls.push(URL.createObjectURL(file)) }
+                        }
+                        setPromptRefUrls(prev => [...prev, ...urls])
+                        setPromptFileInputKey(k => k + 1)  // remount input so same files can be re-selected
+                      }} />
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
@@ -1676,15 +1778,10 @@ export default function EditPage() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className={cn(
-              'flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-200',
-              canGenerate
-                ? 'bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)]'
-                : 'bg-[#FFFF00] text-black cursor-not-allowed'
-            )}
+            className="flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (
-              <><IconLoader2 className="w-4 h-4 animate-spin" />Generating…</>
+              <><IconLoader2 className="w-4 h-4 animate-spin" />Generating ({generatingCount})…</>
             ) : (
               <><IconWand className="w-4 h-4" />Generate<span className="flex items-center gap-1 opacity-60 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span></>
             )}

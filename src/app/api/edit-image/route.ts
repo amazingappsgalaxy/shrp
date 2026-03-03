@@ -26,15 +26,17 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      compositeDataUrl,      // base64 data URL of composited canvas (edit mode only)
-      originalImageUrl,      // original uploaded image CDN URL (all modes)
-      masks = [],            // mask layers with prompts (edit mode)
+      compositeDataUrl,       // base64 data URL of composited canvas with mask overlays
+      cleanOriginalDataUrl,   // base64 data URL of the clean original (no masks) — primary for edit/relight
+      originalImageUrl,       // original uploaded image CDN URL (fallback)
+      masks = [],             // mask layers with prompts (legacy, unused now)
       model,
-      combinedPrompt,        // pre-built prompt (all modes)
-      referenceImages = [],  // extra reference images (per-layer refs or prompt refs)
+      combinedPrompt,         // pre-built prompt (all modes)
+      referenceImages = [],   // extra reference images
       mode = 'edit',
     } = body as {
       compositeDataUrl?: string
+      cleanOriginalDataUrl?: string
       originalImageUrl: string
       masks: Array<{ color: string; colorName: string; prompt: string; referenceImageUrl?: string }>
       model: string
@@ -43,8 +45,11 @@ export async function POST(request: NextRequest) {
       mode?: 'edit' | 'relight' | 'prompt'
     }
 
-    if (!originalImageUrl || !model || !combinedPrompt) {
+    if (!model || !combinedPrompt) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    if (!cleanOriginalDataUrl && !compositeDataUrl && !originalImageUrl) {
+      return NextResponse.json({ error: 'No image provided' }, { status: 400 })
     }
 
     // Look up model and credits
@@ -65,21 +70,43 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
 
     // ── Build reference images array ──────────────────────────────────────────
-    // ALL masks are combined into ONE generation — no per-mask API calls
     const images: SynvowImageInput[] = []
 
-    if (compositeDataUrl) {
-      // Upload the composite canvas to Bunny (works for all modes)
-      const base64Data = compositeDataUrl.replace(/^data:image\/\w+;base64,/, '')
-      const buffer = Buffer.from(base64Data, 'base64')
-      const compositePath = getInputPath(userId, 'png')
-      const compositeUrl = await uploadBuffer(compositePath, buffer, 'image/png')
-      images.push({ type: 'url', data: compositeUrl })
-    } else if (originalImageUrl && originalImageUrl.startsWith('http')) {
-      // Fallback: use a real CDN URL directly
-      images.push({ type: 'url', data: originalImageUrl })
+    if (mode === 'edit' || mode === 'relight') {
+      // Primary: clean original image (no mask overlays) — the AI edits THIS
+      if (cleanOriginalDataUrl) {
+        const base64Data = cleanOriginalDataUrl.replace(/^data:image\/\w+;base64,/, '')
+        const buffer = Buffer.from(base64Data, 'base64')
+        const cleanPath = getInputPath(userId, 'png')
+        const cleanUrl = await uploadBuffer(cleanPath, buffer, 'image/png')
+        images.push({ type: 'url', data: cleanUrl })
+      } else if (originalImageUrl && originalImageUrl.startsWith('http')) {
+        images.push({ type: 'url', data: originalImageUrl })
+      }
+
+      // Secondary (edit only): composite with mask overlays as a spatial guide
+      if (mode === 'edit' && compositeDataUrl && images.length < 4) {
+        const base64Data = compositeDataUrl.replace(/^data:image\/\w+;base64,/, '')
+        const buffer = Buffer.from(base64Data, 'base64')
+        const compositePath = getInputPath(userId, 'png')
+        const compositeUrl = await uploadBuffer(compositePath, buffer, 'image/png')
+        images.push({ type: 'url', data: compositeUrl })
+      }
     } else {
-      return NextResponse.json({ error: 'No valid image provided' }, { status: 400 })
+      // Prompt mode: just use the composite (may have text annotations drawn on)
+      if (compositeDataUrl) {
+        const base64Data = compositeDataUrl.replace(/^data:image\/\w+;base64,/, '')
+        const buffer = Buffer.from(base64Data, 'base64')
+        const compositePath = getInputPath(userId, 'png')
+        const compositeUrl = await uploadBuffer(compositePath, buffer, 'image/png')
+        images.push({ type: 'url', data: compositeUrl })
+      } else if (originalImageUrl && originalImageUrl.startsWith('http')) {
+        images.push({ type: 'url', data: originalImageUrl })
+      }
+    }
+
+    if (images.length === 0) {
+      return NextResponse.json({ error: 'No valid image could be prepared' }, { status: 400 })
     }
 
     // Add any extra per-layer reference images or prompt reference images
