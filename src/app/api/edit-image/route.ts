@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
-import { uploadBuffer, getInputPath, getCdnUrl, getOutputPath } from '@/lib/bunny'
+import { uploadBuffer, getInputPath } from '@/lib/bunny'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
 import { MODEL_REGISTRY } from '@/services/models'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { getSynvowProvider } from '@/services/ai-providers/synvow/synvow-provider'
 import { v4 as uuidv4 } from 'uuid'
+import type { SynvowImageInput } from '@/services/ai-providers/synvow/types'
 
 export async function POST(request: NextRequest) {
   const supabase = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
@@ -24,15 +25,25 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id
 
     const body = await request.json()
-    const { compositeDataUrl, originalImageUrl, masks, model, combinedPrompt } = body as {
-      compositeDataUrl: string
+    const {
+      compositeDataUrl,      // base64 data URL of composited canvas (edit mode only)
+      originalImageUrl,      // original uploaded image CDN URL (all modes)
+      masks = [],            // mask layers with prompts (edit mode)
+      model,
+      combinedPrompt,        // pre-built prompt (all modes)
+      referenceImages = [],  // extra reference images (per-layer refs or prompt refs)
+      mode = 'edit',
+    } = body as {
+      compositeDataUrl?: string
       originalImageUrl: string
-      masks: Array<{ color: string; colorName: string; prompt: string }>
+      masks: Array<{ color: string; colorName: string; prompt: string; referenceImageUrl?: string }>
       model: string
       combinedPrompt: string
+      referenceImages?: string[]
+      mode?: 'edit' | 'relight' | 'prompt'
     }
 
-    if (!compositeDataUrl || !originalImageUrl || !masks?.length || !model) {
+    if (!originalImageUrl || !model || !combinedPrompt) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -53,26 +64,35 @@ export async function POST(request: NextRequest) {
     const taskId = uuidv4()
     const startTime = Date.now()
 
-    // Upload composite image to Bunny CDN (the overlay canvas image as reference)
-    const base64Data = compositeDataUrl.replace(/^data:image\/\w+;base64,/, '')
-    const buffer = Buffer.from(base64Data, 'base64')
-    const compositePath = getInputPath(userId, 'png')
-    const compositeUrl = await uploadBuffer(compositePath, buffer, 'image/png')
+    // ── Build reference images array ──────────────────────────────────────────
+    // ALL masks are combined into ONE generation — no per-mask API calls
+    const images: SynvowImageInput[] = []
 
-    // Build combined prompt
-    const activeMasks = masks.filter(m => m.prompt.trim())
-    const prompt = combinedPrompt?.trim() ||
-      activeMasks
-        .map(m => `In the ${m.colorName} highlighted region: ${m.prompt.trim()}`)
-        .join('. ') +
-      '. Keep all non-highlighted areas completely unchanged.'
+    if (mode === 'edit' && compositeDataUrl) {
+      // Upload the composite canvas (original image + all colored mask overlays) to Bunny
+      const base64Data = compositeDataUrl.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      const compositePath = getInputPath(userId, 'png')
+      const compositeUrl = await uploadBuffer(compositePath, buffer, 'image/png')
+      images.push({ type: 'url', data: compositeUrl })
+    } else {
+      // Relight/prompt modes: use original image as primary reference
+      images.push({ type: 'url', data: originalImageUrl })
+    }
 
-    // Single Synvow call with the composite as reference
+    // Add any extra per-layer reference images or prompt reference images
+    for (const refUrl of referenceImages) {
+      if (refUrl && images.length < 5) {
+        images.push({ type: 'url', data: refUrl })
+      }
+    }
+
+    // ── Single Synvow call with ALL images and ONE combined prompt ─────────────
     const synvow = getSynvowProvider()
     const result = await synvow.submitTask({
       model,
-      prompt,
-      images: [{ type: 'url', data: compositeUrl }],
+      prompt: combinedPrompt,
+      images,
     })
 
     if (!result.immediateOutput) {
@@ -82,15 +102,17 @@ export async function POST(request: NextRequest) {
     const outputUrl = result.immediateOutput
     const generationMs = Date.now() - startTime
 
-    // Deduct credits ONCE for the entire edit (all masks combined)
-    await UnifiedCreditsService.deductCredits(
-      userId,
-      creditCost,
-      taskId,
-      `Image edit (${activeMasks.length} mask${activeMasks.length !== 1 ? 's' : ''}) - ${modelConfig.label}`
-    )
+    // ── Deduct credits ONCE — covers all masks in a single generation ──────────
+    const activeMaskCount = masks.filter(m => m.prompt.trim()).length
+    const description = mode === 'edit'
+      ? `Image edit (${activeMaskCount} mask${activeMaskCount !== 1 ? 's' : ''} combined) — ${modelConfig.label}`
+      : mode === 'relight'
+      ? `Image relight — ${modelConfig.label}`
+      : `Prompt edit — ${modelConfig.label}`
 
-    // Save to history
+    await UnifiedCreditsService.deductCredits(userId, creditCost, taskId, description)
+
+    // ── Save to history ────────────────────────────────────────────────────────
     await supabase.from('history_items').insert({
       id: uuidv4(),
       user_id: userId,
@@ -102,11 +124,11 @@ export async function POST(request: NextRequest) {
       generation_time_ms: generationMs,
       settings: {
         originalImageUrl,
-        compositeUrl,
-        masks: activeMasks,
-        prompt,
+        masks,
+        prompt: combinedPrompt,
         model,
         creditCost,
+        mode,
       },
     })
 
