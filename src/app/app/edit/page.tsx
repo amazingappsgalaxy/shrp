@@ -4,14 +4,12 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-client-simple'
 import { CreditIcon } from '@/components/ui/CreditIcon'
 import { MODEL_REGISTRY } from '@/services/models'
-import { MechanicalSlider } from '@/components/ui/mechanical-slider'
-import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import {
   IconUpload, IconTrash, IconPlus, IconWand, IconEraser,
-  IconBrush, IconLoader2, IconDownload, IconChevronDown,
-  IconX, IconSparkles, IconSun, IconPhoto,
-  IconTypography, IconSquare, IconMaximize, IconChevronUp,
+  IconBrush, IconLoader2, IconDownload, IconX, IconPhoto,
+  IconTypography, IconSquare, IconSparkles, IconRefresh,
+  IconChevronDown, IconChevronUp,
 } from '@tabler/icons-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -25,22 +23,29 @@ interface MaskLayer {
   colorName: string
   prompt: string
   referenceImageUrl: string | null
+  centroid: { x: number; y: number } | null  // canvas-pixel space
+  cardOffset: { x: number; y: number }        // user-dragged offset (CSS px)
 }
 
 interface TextAnnotation {
   id: string
   text: string
-  x: number
-  y: number
+  x: number; y: number   // canvas-pixel
   color: string
   fontSize: number
 }
 
+interface RectAnnotation {
+  id: string
+  x: number; y: number; w: number; h: number  // canvas-pixel
+  color: string
+}
+
 interface LightSettings {
-  azimuth: number     // 0–360: Front=0, Right=90, Back=180, Left=270
-  elevation: number   // -90–90: below=-90, horizon=0, above=90
-  color: string       // hex
-  intensity: number   // 0–100
+  azimuth: number       // 0–360
+  elevation: number     // -90–90
+  color: string
+  intensity: number     // 0–100
   softness: 'hard' | 'soft'
   sceneLock: boolean
 }
@@ -59,60 +64,59 @@ interface Point { x: number; y: number }
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const LAYER_COLORS = [
-  { hex: '#FF4444', name: 'red' },
-  { hex: '#4488FF', name: 'blue' },
-  { hex: '#44DD88', name: 'green' },
-  { hex: '#FFD700', name: 'yellow' },
-  { hex: '#FF44FF', name: 'pink' },
-  { hex: '#44EEFF', name: 'cyan' },
+  { hex: '#FF4B4B', rgb: '255,75,75',   name: 'red'    },
+  { hex: '#4B8BFF', rgb: '75,139,255',  name: 'blue'   },
+  { hex: '#4BFF8B', rgb: '75,255,139',  name: 'green'  },
+  { hex: '#FFD700', rgb: '255,215,0',   name: 'gold'   },
+  { hex: '#FF4BFF', rgb: '255,75,255',  name: 'pink'   },
+  { hex: '#4BEEFF', rgb: '75,238,255',  name: 'cyan'   },
 ]
 
-const EDIT_MODELS = [
-  'nano-banana-2',
-  'nano-banana-2-2k',
-  'nano-banana-pro',
-  'nano-banana-2-4k',
-]
+const EDIT_MODELS = ['nano-banana-2', 'nano-banana-2-2k', 'nano-banana-pro', 'nano-banana-2-4k']
 
 const RELIGHT_PRESETS = [
-  { name: 'Front',    azimuth: 0,   elevation: 25 },
-  { name: 'Front-R',  azimuth: 45,  elevation: 45 },
-  { name: 'Right',    azimuth: 90,  elevation: 20 },
-  { name: 'Back-R',   azimuth: 135, elevation: 35 },
-  { name: 'Back',     azimuth: 180, elevation: 25 },
-  { name: 'Left',     azimuth: 270, elevation: 20 },
-  { name: 'Top',      azimuth: 0,   elevation: 85 },
-  { name: 'Uplight',  azimuth: 0,   elevation: -35 },
+  { name: 'Front',   az: 0,   el: 25 },
+  { name: 'Front-R', az: 45,  el: 45 },
+  { name: 'Right',   az: 90,  el: 20 },
+  { name: 'Back-R',  az: 135, el: 35 },
+  { name: 'Back',    az: 180, el: 25 },
+  { name: 'Left',    az: 270, el: 20 },
+  { name: 'Top',     az: 0,   el: 85 },
+  { name: 'Uplight', az: 0,   el: -35 },
 ]
 
 const LIGHT_COLOR_PRESETS = [
-  '#ffffff', '#ffe8d0', '#d0e8ff', '#48dbb6', '#00ff2a', '#ff0000', '#ff44ff', '#ffcc00',
+  '#ffffff', '#ffe8d0', '#d0e8ff', '#48dbb6',
+  '#00ff88', '#ff4444', '#ff44ff', '#ffcc00',
 ]
-
-function getCanvasTools(): { id: Tool; label: string; icon: React.ComponentType<{ className?: string }> }[] {
-  return [
-    { id: 'brush', label: 'Brush', icon: IconBrush },
-    { id: 'eraser', label: 'Erase', icon: IconEraser },
-    { id: 'rect', label: 'Rect', icon: IconSquare },
-    { id: 'text', label: 'Text', icon: IconTypography },
-  ]
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function uid(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36)
-}
+function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 function computeDisplaySize(nw: number, nh: number): { w: number; h: number } {
-  const maxW = 900, maxH = 680
+  const maxW = Math.min(window.innerWidth - 140, 960)
+  const maxH = Math.min(window.innerHeight - 230, 680)  // leave room for top bar + bottom bar
   let w = nw, h = nh
   if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
   if (h > maxH) { w = Math.round(w * maxH / h); h = maxH }
   return { w, h }
 }
 
-function azimuthToDescription(az: number): string {
+function computeLayerCentroid(canvas: HTMLCanvasElement): { x: number; y: number } | null {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  let sx = 0, sy = 0, n = 0
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      if ((data[(y * canvas.width + x) * 4 + 3] ?? 0) > 64) { sx += x; sy += y; n++ }
+    }
+  }
+  return n ? { x: sx / n, y: sy / n } : null
+}
+
+function azToDesc(az: number) {
   const n = ((az % 360) + 360) % 360
   if (n < 22.5 || n >= 337.5) return 'the front'
   if (n < 67.5)  return 'the front-right'
@@ -124,669 +128,917 @@ function azimuthToDescription(az: number): string {
   return 'the front-left'
 }
 
-function elevationToDescription(el: number): string {
-  if (el > 60) return 'overhead light source, directly above'
-  if (el > 35) return 'high-angle light source from above'
-  if (el > 10) return 'moderate-angle light source'
-  if (el > -10) return 'eye-level light source'
-  if (el > -35) return 'low-angle light, light shining slightly upward'
-  return 'light source positioned below the character, light shining upwards, uplighting'
+function elToDesc(el: number) {
+  if (el > 60)  return 'overhead, directly above'
+  if (el > 35)  return 'high-angle from above'
+  if (el > 10)  return 'moderate angle'
+  if (el > -10) return 'eye-level'
+  if (el > -35) return 'low-angle'
+  return 'uplighting from below'
 }
 
-function generateRelightPrompt(s: LightSettings): string {
-  const dir = azimuthToDescription(s.azimuth)
-  const height = elevationToDescription(s.elevation)
-  const bright = s.intensity > 70 ? 'bright' : s.intensity > 40 ? 'medium' : 'soft'
+function generateRelightPrompt(s: LightSettings) {
   const lock = s.sceneLock
     ? 'SCENE LOCK, FIXED VIEWPOINT, maintaining character consistency and pose. RELIGHTING ONLY: '
-    : 'Relight the image: '
-  return `${lock}light source from ${dir}, ${height}, ${bright} ${s.softness} colored light (${s.color}), cinematic relighting`
+    : 'Relight: '
+  const bright = s.intensity > 70 ? 'bright' : s.intensity > 40 ? 'medium' : 'subtle'
+  return `${lock}${bright} ${s.softness} light source from ${azToDesc(s.azimuth)}, ${elToDesc(s.elevation)}, light color ${s.color}, cinematic relighting`
 }
 
-// ─── LightOrb ─────────────────────────────────────────────────────────────────
+// ─── RelightSphere ────────────────────────────────────────────────────────────
+// A CSS-based sphere with a dynamic highlight that you drag to position the light
 
-function LightOrb({
-  azimuth, elevation, lightColor,
+function RelightSphere({
+  azimuth, elevation, lightColor, intensity,
   onAzimuthChange, onElevationChange,
+  size = 200,
 }: {
-  azimuth: number
-  elevation: number
-  lightColor: string
-  onAzimuthChange: (az: number) => void
-  onElevationChange: (el: number) => void
+  azimuth: number; elevation: number; lightColor: string; intensity: number
+  onAzimuthChange: (v: number) => void
+  onElevationChange: (v: number) => void
+  size?: number
 }) {
-  const SIZE = 184
-  const C = SIZE / 2
-  const R = SIZE * 0.38
+  const dragging = useRef(false)
+  const startRef = useRef({ x: 0, y: 0, az: 0, el: 0 })
 
-  const svgRef = useRef<SVGSVGElement>(null)
-  const elevRef = useRef<HTMLDivElement>(null)
-  const isOrbDragging = useRef(false)
-  const isElevDragging = useRef(false)
+  // Highlight position on sphere surface (% within the circle)
+  const hx = 50 + Math.sin(azimuth * Math.PI / 180) * 32
+  const hy = 50 - Math.sin(elevation * Math.PI / 180) * 32
+  const bri = 0.35 + (intensity / 100) * 0.65
 
-  // Light dot position: always on the ring perimeter
-  const dotX = C + R * Math.sin(azimuth * Math.PI / 180)
-  const dotY = C + R * Math.cos(azimuth * Math.PI / 180)
-
-  // Elevation indicator position: fraction within the strip
-  const elevFrac = (elevation + 90) / 180  // 0=bottom(-90°), 1=top(+90°)
-  const ELEV_H = 120
-  const elevDotY = ELEV_H * (1 - elevFrac)  // top=high elevation
-
-  const handleOrbPointer = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    const svg = svgRef.current
-    if (!svg) return
-    const rect = svg.getBoundingClientRect()
-    const x = (e.clientX - rect.left) * (SIZE / rect.width) - C
-    const y = (e.clientY - rect.top) * (SIZE / rect.height) - C
-    const az = ((Math.atan2(x, y) * 180 / Math.PI) + 360) % 360
-    onAzimuthChange(Math.round(az))
-  }, [C, onAzimuthChange])
-
-  const handleElevPointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const el = elevRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const frac = 1 - Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
-    onElevationChange(Math.round(frac * 180 - 90))
-  }, [onElevationChange])
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragging.current = true
+    startRef.current = { x: e.clientX, y: e.clientY, az: azimuth, el: elevation }
+    e.currentTarget.setPointerCapture(e.pointerId)
+    e.preventDefault()
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return
+    const dx = e.clientX - startRef.current.x
+    const dy = e.clientY - startRef.current.y
+    onAzimuthChange(Math.round(((startRef.current.az + dx * 1.1) % 360 + 360) % 360))
+    onElevationChange(Math.round(Math.max(-85, Math.min(85, startRef.current.el - dy * 0.7))))
+  }
+  const onPointerUp = () => { dragging.current = false }
 
   return (
-    <div className="flex gap-3 items-center justify-center">
-      {/* Orb SVG */}
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
-        width={SIZE}
-        height={SIZE}
-        className="cursor-crosshair select-none flex-shrink-0"
-        onPointerDown={e => { isOrbDragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); handleOrbPointer(e) }}
-        onPointerMove={e => { if (isOrbDragging.current) handleOrbPointer(e) }}
-        onPointerUp={() => { isOrbDragging.current = false }}
-      >
-        <defs>
-          <radialGradient id="orbBg" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#121228" />
-            <stop offset="100%" stopColor="#060610" />
-          </radialGradient>
-          <radialGradient id="lightSpot" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={lightColor} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={lightColor} stopOpacity="0" />
-          </radialGradient>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="subtleGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
+    <div
+      style={{ width: size, height: size, position: 'relative', borderRadius: '50%', cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      {/* Base sphere – deep dark globe */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: 'radial-gradient(circle at 42% 38%, #1e1e2a 0%, #080810 70%)',
+        boxShadow: 'inset 0 0 40px rgba(0,0,0,0.95)',
+      }} />
 
-        {/* Background */}
-        <circle cx={C} cy={C} r={C - 2} fill="url(#orbBg)" />
+      {/* Dynamic light hit */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: `radial-gradient(circle at ${hx}% ${hy}%, ${lightColor} 0%, ${lightColor}99 18%, ${lightColor}33 38%, transparent 58%)`,
+        opacity: bri,
+        transition: 'background 0.05s',
+      }} />
 
-        {/* Perspective grid lines */}
-        {[-3, -1, 1, 3].map(i => (
-          <line key={`h${i}`} x1={C - R - 18} y1={C + i * R / 4} x2={C + R + 18} y2={C + i * R / 4}
-            stroke="#111124" strokeWidth="0.6" />
-        ))}
-        {[-3, -1, 1, 3].map(i => (
-          <line key={`v${i}`} x1={C + i * R / 4} y1={C - R - 18} x2={C + i * R / 4} y2={C + R + 18}
-            stroke="#111124" strokeWidth="0.6" />
-        ))}
+      {/* Ambient glow fill */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: `radial-gradient(circle at ${100 - hx}% ${100 - hy}%, rgba(255,255,255,0.04) 0%, transparent 50%)`,
+      }} />
 
-        {/* Concentric rings */}
-        {[0.4, 0.7, 1].map(f => (
-          <circle key={f} cx={C} cy={C} r={R * f}
-            fill="none" stroke="#1a1a30" strokeWidth="0.8"
-            strokeDasharray={f < 1 ? '3 5' : 'none'} />
-        ))}
+      {/* Specular rim on surface edge */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.1) 0%, transparent 35%)',
+      }} />
 
-        {/* Axis lines */}
-        <line x1={C} y1={C - R - 6} x2={C} y2={C + R + 6} stroke="#1a1a30" strokeWidth="0.6" />
-        <line x1={C - R - 6} y1={C} x2={C + R + 6} y2={C} stroke="#1a1a30" strokeWidth="0.6" />
+      {/* Outer glow */}
+      <div style={{
+        position: 'absolute', inset: -8, borderRadius: '50%',
+        boxShadow: `0 0 ${Math.round(50 * bri)}px ${lightColor}${Math.round(bri * 60).toString(16).padStart(2, '0')}`,
+        pointerEvents: 'none',
+      }} />
 
-        {/* Direction labels */}
-        <text x={C} y={C - R - 10} textAnchor="middle" fill="#2a2a50" fontSize="8" fontFamily="monospace" fontWeight="bold">F</text>
-        <text x={C} y={C + R + 18} textAnchor="middle" fill="#2a2a50" fontSize="8" fontFamily="monospace" fontWeight="bold">B</text>
-        <text x={C - R - 14} y={C + 3} textAnchor="middle" fill="#2a2a50" fontSize="8" fontFamily="monospace" fontWeight="bold">L</text>
-        <text x={C + R + 14} y={C + 3} textAnchor="middle" fill="#2a2a50" fontSize="8" fontFamily="monospace" fontWeight="bold">R</text>
+      {/* Light indicator dot */}
+      <div style={{
+        position: 'absolute',
+        width: 10, height: 10,
+        borderRadius: '50%',
+        background: lightColor,
+        left: `calc(${hx}% - 5px)`,
+        top: `calc(${hy}% - 5px)`,
+        boxShadow: `0 0 10px ${lightColor}, 0 0 4px white`,
+        pointerEvents: 'none',
+        transition: 'left 0.04s, top 0.04s',
+      }} />
 
-        {/* Orbit ring */}
-        <circle cx={C} cy={C} r={R} fill="none" stroke="#24245a" strokeWidth="1.5" />
+      {/* Direction labels */}
+      {[
+        { l: 'F', x: '50%', y: 6 },
+        { l: 'B', x: '50%', y: size - 18 },
+        { l: 'L', x: 6,     y: '50%' },
+        { l: 'R', x: size - 14, y: '50%' },
+      ].map(({ l, x, y }) => (
+        <span key={l} style={{
+          position: 'absolute',
+          left: typeof x === 'number' ? x : undefined,
+          top: typeof y === 'number' ? y : undefined,
+          right: undefined,
+          transform: typeof x === 'string' ? 'translateX(-50%)' : typeof y === 'string' ? 'translateY(-50%)' : undefined,
+          fontSize: 10, fontWeight: 900,
+          color: 'rgba(255,255,255,0.22)',
+          pointerEvents: 'none',
+          lineHeight: 1,
+        }}>{l}</span>
+      ))}
 
-        {/* Light beam */}
-        <line x1={C} y1={C} x2={dotX} y2={dotY}
-          stroke={lightColor} strokeWidth="1.5" strokeOpacity="0.25" strokeDasharray="4 5" />
-
-        {/* Glow pool at light position */}
-        <circle cx={dotX} cy={dotY} r={24} fill={lightColor} fillOpacity="0.12" filter="url(#subtleGlow)" />
-
-        {/* Center "scene" */}
-        <rect x={C - 13} y={C - 13} width={26} height={26} rx={5}
-          fill="#0c0c1a" stroke="#1e1e40" strokeWidth="1" />
-        <text x={C} y={C + 5} textAnchor="middle" fill="#25254a" fontSize="12">◼</text>
-
-        {/* Light indicator dot */}
-        <circle cx={dotX} cy={dotY} r={11} fill={lightColor} filter="url(#glow)" />
-        <circle cx={dotX} cy={dotY} r={11} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-        <circle cx={dotX} cy={dotY} r={4} fill="white" fillOpacity="0.8" />
-      </svg>
-
-      {/* Elevation strip */}
-      <div className="flex flex-col items-center gap-1">
-        <span className="text-[9px] text-white/20 font-mono">HI</span>
-        <div
-          ref={elevRef}
-          className="relative cursor-ns-resize select-none"
-          style={{ width: 16, height: ELEV_H }}
-          onPointerDown={e => { isElevDragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); handleElevPointer(e) }}
-          onPointerMove={e => { if (isElevDragging.current) handleElevPointer(e) }}
-          onPointerUp={() => { isElevDragging.current = false }}
-        >
-          {/* Track */}
-          <div className="absolute left-1/2 -translate-x-1/2 w-px bg-white/10 rounded-full" style={{ top: 0, height: ELEV_H }} />
-          {/* Horizon marker */}
-          <div className="absolute left-0 right-0 h-px bg-white/15" style={{ top: ELEV_H / 2 }} />
-          {/* Dot */}
-          <div
-            className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-white/40 transition-none"
-            style={{
-              top: elevDotY,
-              background: lightColor,
-              boxShadow: `0 0 8px ${lightColor}`,
-            }}
-          />
-        </div>
-        <span className="text-[9px] text-white/20 font-mono">LO</span>
-      </div>
-
-      {/* Current values */}
-      <div className="flex flex-col gap-2 text-[10px] font-mono text-white/30">
-        <div>
-          <div className="text-[8px] text-white/20 uppercase tracking-wider">AZ</div>
-          <div className="text-white/60">{Math.round(azimuth)}°</div>
-        </div>
-        <div>
-          <div className="text-[8px] text-white/20 uppercase tracking-wider">EL</div>
-          <div className="text-white/60">{Math.round(elevation)}°</div>
-        </div>
-      </div>
+      {/* Drag hint text */}
+      <div style={{
+        position: 'absolute', bottom: '14%', left: 0, right: 0,
+        textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)',
+        pointerEvents: 'none', fontWeight: 700, letterSpacing: 1,
+      }}>DRAG TO MOVE LIGHT</div>
     </div>
   )
 }
 
-// ─── MaskLayerCard ────────────────────────────────────────────────────────────
+// ─── ModelDropdown ─────────────────────────────────────────────────────────────
 
-function MaskLayerCard({
-  layer, isActive, onSelect, onUpdatePrompt, onAttachRef, onClearStrokes, onDelete,
+function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onSelect: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const m = MODEL_REGISTRY[selectedModel]
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-black/60 backdrop-blur-2xl border border-white/8 shadow-xl hover:border-white/15 transition-all"
+      >
+        <IconSparkles className="w-3.5 h-3.5 text-[#FFFF00]/60" />
+        <span className="text-xs font-black text-white/50 uppercase tracking-wide">
+          {m?.label ?? 'Model'}{m?.qualityTier ? ` · ${m.qualityTier}` : ''}
+        </span>
+        <IconChevronDown className={cn('w-3 h-3 text-white/25 transition-transform duration-200', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full mb-2 left-0 w-[220px] bg-[#0a0a0e]/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
+          {EDIT_MODELS.map(id => {
+            const mod = MODEL_REGISTRY[id]
+            if (!mod) return null
+            return (
+              <button
+                key={id}
+                onClick={() => { onSelect(id); setOpen(false) }}
+                className={cn(
+                  'w-full flex items-center justify-between px-4 py-3 text-xs font-bold transition-all',
+                  selectedModel === id
+                    ? 'bg-[#FFFF00]/10 text-[#FFFF00]'
+                    : 'text-white/40 hover:text-white hover:bg-white/[0.04]'
+                )}
+              >
+                <span>{mod.label}{mod.qualityTier ? ` · ${mod.qualityTier}` : ''}</span>
+                <div className={cn('flex items-center gap-1', selectedModel === id ? 'text-[#FFFF00]/60' : 'text-white/25')}>
+                  <CreditIcon className="w-3 h-3" />
+                  <span>{mod.credits}</span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── FloatingMaskCard ─────────────────────────────────────────────────────────
+// Contextual card that floats near the drawn mask centroid
+
+function FloatingMaskCard({
+  layer, scaleX, scaleY, canvasW, canvasH, isActive,
+  onSelect, onUpdatePrompt, onAttachRef, onClearStrokes, onDelete, onCardDrag,
 }: {
   layer: MaskLayer
+  scaleX: number; scaleY: number
+  canvasW: number; canvasH: number
   isActive: boolean
   onSelect: () => void
   onUpdatePrompt: (p: string) => void
-  onAttachRef: (url: string | null) => void
+  onAttachRef: (url: string) => void
   onClearStrokes: () => void
   onDelete: () => void
+  onCardDrag: (dx: number, dy: number) => void
 }) {
-  const refInputRef = useRef<HTMLInputElement>(null)
+  const dragRef = useRef({ startX: 0, startY: 0, active: false })
 
-  const handleRefFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const fd = new FormData()
-    fd.append('file', file)
-    try {
-      const res = await fetch('/api/images/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.image?.url) onAttachRef(data.image.url)
-      else onAttachRef(URL.createObjectURL(file))  // fallback to local
-    } catch {
-      onAttachRef(URL.createObjectURL(file))
-    }
-  }
+  // Use centroid or default to canvas center
+  const baseCentroidCss = layer.centroid
+    ? { x: layer.centroid.x * scaleX, y: layer.centroid.y * scaleY }
+    : { x: canvasW * 0.5, y: canvasH * 0.5 }
+
+  const cardX = baseCentroidCss.x + 18 + layer.cardOffset.x
+  const cardY = baseCentroidCss.y - 50 + layer.cardOffset.y
 
   return (
-    <div
-      onClick={onSelect}
-      className={cn(
-        'rounded-xl border p-3 cursor-pointer transition-all',
-        isActive ? 'border-white/25 bg-white/[0.05]' : 'border-white/8 bg-white/[0.02] hover:border-white/15'
-      )}
-    >
-      {/* Header row */}
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 ring-1 ring-white/20"
-          style={{ background: layer.color }} />
-        <span className="text-xs text-white/60 capitalize flex-1 font-medium">{layer.colorName} mask</span>
-        {isActive && <span className="text-[10px] text-[#FFFF00]/60 font-bold uppercase tracking-wider">active</span>}
-        <button onClick={e => { e.stopPropagation(); onClearStrokes() }}
-          className="text-[10px] text-white/20 hover:text-white/50 transition-colors px-1 py-0.5 rounded">
-          clear
-        </button>
-        <button onClick={e => { e.stopPropagation(); onDelete() }}
-          className="text-white/20 hover:text-red-400 transition-colors p-0.5 rounded">
-          <IconTrash className="w-3 h-3" />
-        </button>
-      </div>
+    <>
+      {/* SVG connector line */}
+      <svg
+        className="absolute inset-0 pointer-events-none"
+        width={canvasW} height={canvasH}
+        style={{ overflow: 'visible' }}
+      >
+        <line
+          x1={baseCentroidCss.x} y1={baseCentroidCss.y}
+          x2={cardX + 6} y2={cardY + 24}
+          stroke={layer.color}
+          strokeWidth={1.5}
+          strokeDasharray="5 4"
+          opacity={0.45}
+        />
+        <circle cx={baseCentroidCss.x} cy={baseCentroidCss.y} r={5} fill={layer.color} opacity={0.5} />
+      </svg>
 
-      {/* Prompt */}
-      <textarea
-        value={layer.prompt}
-        onChange={e => onUpdatePrompt(e.target.value)}
-        onClick={e => e.stopPropagation()}
-        placeholder={`What to change in the ${layer.colorName} area…`}
-        rows={2}
-        className="w-full bg-black/30 border border-white/8 rounded-lg px-3 py-2 text-xs text-white placeholder-white/20 resize-none focus:outline-none focus:border-white/20 transition-colors leading-relaxed"
-      />
-
-      {/* Reference image row */}
-      <div className="mt-2 flex items-center gap-2" onClick={e => e.stopPropagation()}>
-        {layer.referenceImageUrl ? (
-          <div className="flex items-center gap-2 flex-1">
-            <img src={layer.referenceImageUrl} alt="" className="w-8 h-8 object-cover rounded-md border border-white/10" />
-            <span className="text-[10px] text-white/40 flex-1">Ref image attached</span>
-            <button onClick={() => onAttachRef(null)}
-              className="text-white/20 hover:text-red-400 transition-colors p-0.5">
-              <IconX className="w-3 h-3" />
+      {/* The card */}
+      <div
+        className={cn(
+          'absolute w-[230px] rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.7)] border transition-shadow duration-200',
+          isActive ? 'border-[#FFFF00]/30 shadow-[0_8px_40px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,0,0.12)]' : 'border-white/8'
+        )}
+        style={{
+          left: cardX,
+          top: cardY,
+          background: 'rgba(10,10,14,0.94)',
+          backdropFilter: 'blur(24px)',
+          zIndex: isActive ? 20 : 10,
+        }}
+        onClick={onSelect}
+      >
+        {/* Drag handle / header */}
+        <div
+          className="flex items-center justify-between px-3 pt-3 pb-1.5 cursor-grab active:cursor-grabbing"
+          onPointerDown={e => {
+            dragRef.current = { startX: e.clientX, startY: e.clientY, active: true }
+            e.currentTarget.setPointerCapture(e.pointerId)
+            e.stopPropagation()
+          }}
+          onPointerMove={e => {
+            if (!dragRef.current.active) return
+            onCardDrag(e.clientX - dragRef.current.startX, e.clientY - dragRef.current.startY)
+            dragRef.current.startX = e.clientX
+            dragRef.current.startY = e.clientY
+          }}
+          onPointerUp={() => { dragRef.current.active = false }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ background: layer.color }} />
+            <span className="text-[11px] font-black uppercase tracking-wider text-white/50 capitalize">{layer.colorName}</span>
+            {isActive && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider"
+                style={{ background: 'rgba(255,255,0,0.12)', color: '#FFFF00' }}>
+                active
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={e => { e.stopPropagation(); onClearStrokes() }}
+              className="px-2 py-0.5 text-[10px] font-bold text-white/20 hover:text-white/60 transition-colors rounded-md hover:bg-white/5"
+            >clear</button>
+            <button
+              onClick={e => { e.stopPropagation(); onDelete() }}
+              className="p-1 text-white/15 hover:text-red-400 transition-colors rounded-md hover:bg-red-500/10"
+            >
+              <IconX className="w-3.5 h-3.5" />
             </button>
           </div>
-        ) : (
-          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-white/30 hover:text-white/60 transition-colors">
-            <IconPhoto className="w-3 h-3" />
-            Attach reference image
-            <input ref={refInputRef} type="file" accept="image/*" className="hidden" onChange={handleRefFile} />
-          </label>
-        )}
+        </div>
+
+        {/* Prompt textarea */}
+        <div className="px-3 pb-2">
+          <textarea
+            value={layer.prompt}
+            onChange={e => onUpdatePrompt(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            placeholder={`What to change in the ${layer.colorName} area…`}
+            className="w-full bg-transparent text-[12px] text-white/80 placeholder-white/20 resize-none outline-none leading-relaxed"
+            style={{ minHeight: 48 }}
+            rows={2}
+          />
+        </div>
+
+        {/* Reference image */}
+        <div className="px-3 pb-3 border-t border-white/5 pt-2">
+          {layer.referenceImageUrl ? (
+            <div className="flex items-center gap-2">
+              <img src={layer.referenceImageUrl} alt="" className="w-7 h-7 rounded-lg object-cover border border-white/10 flex-shrink-0" />
+              <span className="text-[10px] text-white/30 flex-1">Reference attached</span>
+              <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="text-white/15 hover:text-red-400 transition-colors">
+                <IconX className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-white/20 hover:text-white/50 transition-colors" onClick={e => e.stopPropagation()}>
+              <IconPhoto className="w-3.5 h-3.5" />
+              Attach reference image
+              <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                const file = e.target.files?.[0]; if (!file) return
+                const fd = new FormData(); fd.append('file', file)
+                try {
+                  const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
+                  const d = await r.json()
+                  onAttachRef(d.image?.url ?? URL.createObjectURL(file))
+                } catch { onAttachRef(URL.createObjectURL(file)) }
+              }} />
+            </label>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
-// ─── Results Dock + Modal ─────────────────────────────────────────────────────
+// ─── MovableTextAnnotation ────────────────────────────────────────────────────
 
-function ResultModal({
-  result, onClose, onUseAsInput,
-}: { result: GenerationResult; onClose: () => void; onUseAsInput: (r: GenerationResult) => void }) {
+function MovableTextAnnotation({
+  ann, scaleX, scaleY, isSelected, isEditing, editValue,
+  onSelect, onMove, onDelete, onStartEdit, onCommitEdit, onEditChange,
+}: {
+  ann: TextAnnotation
+  scaleX: number; scaleY: number
+  isSelected: boolean
+  isEditing: boolean
+  editValue: string
+  onSelect: (e: React.PointerEvent) => void
+  onMove: (dx: number, dy: number) => void
+  onDelete: () => void
+  onStartEdit: () => void
+  onCommitEdit: (text: string) => void
+  onEditChange: (v: string) => void
+}) {
+  const dragRef = useRef({ x: 0, y: 0, active: false })
+  const fs = ann.fontSize * scaleY
+
   return (
     <div
-      className="fixed inset-0 z-[10001] bg-black/95 backdrop-blur-xl flex flex-col"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'absolute',
+        left: ann.x * scaleX,
+        top: (ann.y - ann.fontSize) * scaleY,
+        pointerEvents: 'auto',
+        cursor: isSelected ? 'move' : 'default',
+        userSelect: 'none',
+        zIndex: isSelected ? 25 : 15,
+      }}
+      onPointerDown={e => {
+        if (isEditing) return
+        e.stopPropagation()
+        onSelect(e)
+        dragRef.current = { x: e.clientX, y: e.clientY, active: true }
+        e.currentTarget.setPointerCapture(e.pointerId)
+      }}
+      onPointerMove={e => {
+        if (!dragRef.current.active || isEditing) return
+        onMove((e.clientX - dragRef.current.x) / scaleX, (e.clientY - dragRef.current.y) / scaleY)
+        dragRef.current.x = e.clientX
+        dragRef.current.y = e.clientY
+      }}
+      onPointerUp={() => { dragRef.current.active = false }}
+      onDoubleClick={e => { e.stopPropagation(); onStartEdit() }}
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 flex-shrink-0">
-        <div>
-          <h3 className="text-sm font-bold text-white">Generation Result</h3>
-          <p className="text-[11px] text-white/30 mt-0.5 font-mono">{result.mode} · {new Date(result.timestamp).toLocaleTimeString()}</p>
-        </div>
-        <div className="flex items-center gap-2">
+      {isEditing ? (
+        <input
+          autoFocus
+          value={editValue}
+          onChange={e => onEditChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') onCommitEdit(editValue)
+            if (e.key === 'Escape') onCommitEdit(ann.text)
+          }}
+          onBlur={() => onCommitEdit(editValue)}
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: 'rgba(0,0,0,0.7)',
+            border: `1px solid ${ann.color}`,
+            borderRadius: 6,
+            outline: 'none',
+            color: ann.color,
+            fontSize: fs,
+            fontWeight: 700,
+            fontFamily: 'Inter, sans-serif',
+            padding: '2px 6px',
+            minWidth: 80,
+            lineHeight: 1.2,
+          }}
+        />
+      ) : (
+        <span style={{
+          display: 'block',
+          color: ann.color,
+          fontSize: fs,
+          fontWeight: 700,
+          fontFamily: 'Inter, sans-serif',
+          textShadow: '0 1px 6px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,0.7)',
+          lineHeight: 1.2,
+          padding: '3px 6px',
+          borderRadius: 6,
+          whiteSpace: 'nowrap',
+          outline: isSelected ? `1.5px solid ${ann.color}` : 'none',
+          outlineOffset: 3,
+          background: isSelected ? 'rgba(0,0,0,0.35)' : 'transparent',
+        }}>
+          {ann.text}
+        </span>
+      )}
+
+      {/* Controls when selected */}
+      {isSelected && !isEditing && (
+        <div style={{
+          position: 'absolute',
+          top: -26,
+          left: 0,
+          display: 'flex',
+          gap: 3,
+          alignItems: 'center',
+          pointerEvents: 'auto',
+        }}>
           <button
-            onClick={() => onUseAsInput(result)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFFF00]/10 border border-[#FFFF00]/25 text-[#FFFF00] text-sm font-semibold hover:bg-[#FFFF00]/20 transition-colors"
-          >
-            <IconBrush className="w-4 h-4" />
-            Use as Input
-          </button>
-          <a
-            href={result.url}
-            download="sharpii-edit.jpg"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:text-white transition-colors"
-          >
-            <IconDownload className="w-4 h-4" />
-            Download
-          </a>
+            onPointerDown={e => { e.stopPropagation(); onStartEdit() }}
+            style={{
+              background: 'rgba(20,20,30,0.9)', border: `1px solid ${ann.color}55`,
+              borderRadius: 5, padding: '2px 7px', color: ann.color,
+              fontSize: 9, fontWeight: 700, cursor: 'pointer', letterSpacing: 1,
+            }}
+          >EDIT</button>
           <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-white transition-colors"
-          >
-            <IconX className="w-5 h-5" />
-          </button>
+            onPointerDown={e => { e.stopPropagation(); onDelete() }}
+            style={{
+              background: 'rgba(180,30,30,0.85)', border: '1px solid rgba(255,100,100,0.3)',
+              borderRadius: 5, padding: '2px 7px', color: 'white',
+              fontSize: 9, fontWeight: 700, cursor: 'pointer',
+            }}
+          >✕</button>
         </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
-        <img src={result.url} alt="Generated result" className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
-      </div>
-      <div className="px-5 py-3 border-t border-white/5 flex-shrink-0">
-        <p className="text-[11px] text-white/25 font-mono leading-relaxed line-clamp-2">{result.prompt}</p>
-      </div>
+      )}
     </div>
   )
 }
 
-// ─── Main EditPage ────────────────────────────────────────────────────────────
+// ─── MovableRectAnnotation ────────────────────────────────────────────────────
+
+const ANNOT_HANDLES = [
+  { id: 'nw', cx: 0, cy: 0 }, { id: 'n', cx: 0.5, cy: 0 }, { id: 'ne', cx: 1, cy: 0 },
+  { id: 'w', cx: 0, cy: 0.5 },                               { id: 'e', cx: 1, cy: 0.5 },
+  { id: 'sw', cx: 0, cy: 1 }, { id: 's', cx: 0.5, cy: 1 },  { id: 'se', cx: 1, cy: 1 },
+]
+
+const HANDLE_CURSOR: Record<string, string> = {
+  nw: 'nw-resize', n: 'ns-resize', ne: 'ne-resize',
+  w: 'ew-resize', e: 'ew-resize',
+  sw: 'sw-resize', s: 'ns-resize', se: 'se-resize',
+}
+
+function MovableRectAnnotation({
+  ann, scaleX, scaleY, isSelected,
+  onSelect, onMove, onResize, onDelete,
+}: {
+  ann: RectAnnotation
+  scaleX: number; scaleY: number
+  isSelected: boolean
+  onSelect: (e: React.PointerEvent) => void
+  onMove: (dx: number, dy: number) => void
+  onResize: (dx: number, dy: number, handleId: string) => void
+  onDelete: () => void
+}) {
+  const bodyDragRef = useRef({ x: 0, y: 0, active: false })
+  const resizeDragRef = useRef({ x: 0, y: 0, active: false, handle: '' })
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: ann.x * scaleX,
+        top: ann.y * scaleY,
+        width: Math.abs(ann.w) * scaleX,
+        height: Math.abs(ann.h) * scaleY,
+        border: `2px dashed ${ann.color}`,
+        background: ann.color + '18',
+        borderRadius: 3,
+        boxSizing: 'border-box',
+        pointerEvents: 'auto',
+        cursor: isSelected ? 'move' : 'default',
+        outline: isSelected ? `2px solid ${ann.color}55` : 'none',
+        outlineOffset: 2,
+        zIndex: isSelected ? 25 : 15,
+      }}
+      onPointerDown={e => {
+        e.stopPropagation()
+        onSelect(e)
+        bodyDragRef.current = { x: e.clientX, y: e.clientY, active: true }
+        e.currentTarget.setPointerCapture(e.pointerId)
+      }}
+      onPointerMove={e => {
+        if (!bodyDragRef.current.active) return
+        onMove((e.clientX - bodyDragRef.current.x) / scaleX, (e.clientY - bodyDragRef.current.y) / scaleY)
+        bodyDragRef.current.x = e.clientX
+        bodyDragRef.current.y = e.clientY
+      }}
+      onPointerUp={() => { bodyDragRef.current.active = false }}
+    >
+      {/* Delete chip */}
+      {isSelected && (
+        <div style={{ position: 'absolute', top: -26, right: 0 }}>
+          <button
+            onPointerDown={e => { e.stopPropagation(); onDelete() }}
+            style={{
+              background: 'rgba(180,30,30,0.9)', border: '1px solid rgba(255,100,100,0.3)',
+              borderRadius: 5, padding: '2px 8px', color: 'white',
+              fontSize: 9, fontWeight: 700, cursor: 'pointer',
+            }}
+          >✕ Delete</button>
+        </div>
+      )}
+
+      {/* Resize handles */}
+      {isSelected && ANNOT_HANDLES.map(h => (
+        <div
+          key={h.id}
+          style={{
+            position: 'absolute',
+            width: 10, height: 10,
+            borderRadius: 2,
+            background: '#FFFF00',
+            border: '1.5px solid rgba(0,0,0,0.7)',
+            left: `calc(${h.cx * 100}% - 5px)`,
+            top: `calc(${h.cy * 100}% - 5px)`,
+            cursor: HANDLE_CURSOR[h.id] ?? 'default',
+            zIndex: 2,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
+          }}
+          onPointerDown={e => {
+            e.stopPropagation()
+            resizeDragRef.current = { x: e.clientX, y: e.clientY, active: true, handle: h.id }
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }}
+          onPointerMove={e => {
+            if (!resizeDragRef.current.active) return
+            onResize(
+              (e.clientX - resizeDragRef.current.x) / scaleX,
+              (e.clientY - resizeDragRef.current.y) / scaleY,
+              resizeDragRef.current.handle
+            )
+            resizeDragRef.current.x = e.clientX
+            resizeDragRef.current.y = e.clientY
+          }}
+          onPointerUp={() => { resizeDragRef.current.active = false }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function EditPage() {
-  // ── Image state ──────────────────────────────────────────────────────────────
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null)
+  useAuth()
 
-  // ── UI state ─────────────────────────────────────────────────────────────────
+  // ── Image state
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null)
+  const [displaySize, setDisplaySize] = useState<{ w: number; h: number } | null>(null)
+
+  // ── Mode + Tool
   const [mode, setMode] = useState<Mode>('edit')
   const [activeTool, setActiveTool] = useState<Tool>('brush')
   const [brushSize, setBrushSize] = useState(28)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedModel, setSelectedModel] = useState('nano-banana-2')
-  const [isDraggingFile, setIsDraggingFile] = useState(false)
 
-  // ── Edit mode ─────────────────────────────────────────────────────────────────
+  // ── Layers
   const [layers, setLayers] = useState<MaskLayer[]>([])
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
-  const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([])
-  const [textInput, setTextInput] = useState<{ visible: boolean; x: number; y: number; screenX: number; screenY: number }>({
-    visible: false, x: 0, y: 0, screenX: 0, screenY: 0,
-  })
-  const [textValue, setTextValue] = useState('')
-  const [rectDraw, setRectDraw] = useState<{ screenX: number; screenY: number; screenW: number; screenH: number; x: number; y: number; w: number; h: number } | null>(null)
+  const layerCanvasesRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
+  const nextColorIdx = useRef(0)
 
-  // ── Relight state ─────────────────────────────────────────────────────────────
+  // ── Annotations
+  const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([])
+  const [rectAnnotations, setRectAnnotations] = useState<RectAnnotation[]>([])
+  const [selectedAnnotId, setSelectedAnnotId] = useState<string | null>(null)
+  const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [editingTextValue, setEditingTextValue] = useState('')
+
+  // ── Light
   const [lightSettings, setLightSettings] = useState<LightSettings>({
     azimuth: 45, elevation: 35, color: '#ffffff', intensity: 70, softness: 'soft', sceneLock: true,
   })
 
-  // ── Prompt mode ───────────────────────────────────────────────────────────────
+  // ── Prompt mode
   const [promptText, setPromptText] = useState('')
   const [promptRefUrl, setPromptRefUrl] = useState<string | null>(null)
 
-  // ── Results ───────────────────────────────────────────────────────────────────
+  // ── Model
+  const [selectedModel, setSelectedModel] = useState('nano-banana-2')
+
+  // ── Generation
+  const [isGenerating, setIsGenerating] = useState(false)
   const [results, setResults] = useState<GenerationResult[]>([])
-  const [selectedResult, setSelectedResult] = useState<GenerationResult | null>(null)
-  const [showResultModal, setShowResultModal] = useState(false)
-  const [dockOpen, setDockOpen] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [modalResult, setModalResult] = useState<GenerationResult | null>(null)
+  const [resultsDockOpen, setResultsDockOpen] = useState(true)
 
-  // ── Credits ───────────────────────────────────────────────────────────────────
-  const [creditBalance, setCreditBalance] = useState<number | null>(null)
-  const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
-
-  // ── Canvas refs ───────────────────────────────────────────────────────────────
+  // ── Canvas refs
   const displayCanvasRef = useRef<HTMLCanvasElement>(null)
   const bgImageRef = useRef<HTMLImageElement | null>(null)
-  const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 800, h: 600 })
-  const layerCanvasesRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
-  const containerRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const promptRefInputRef = useRef<HTMLInputElement>(null)
-
-  // Drawing refs (no re-render on each stroke)
+  const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const isDrawingRef = useRef(false)
-  const lastPosRef = useRef<Point | null>(null)
+  const lastPointRef = useRef<Point | null>(null)
   const rectStartRef = useRef<Point | null>(null)
-  const rectStartScreenRef = useRef<Point | null>(null)
+  const [rectPreview, setRectPreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+
+  // ── Text input
+  const [textInput, setTextInput] = useState({ visible: false, screenX: 0, screenY: 0, canvasX: 0, canvasY: 0 })
+  const [textValue, setTextValue] = useState('')
   const textInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Credits fetch ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    fetch('/api/user/credits')
-      .then(r => r.json())
-      .then(c => setCreditBalance((c.subscription_credits ?? 0) + (c.permanent_credits ?? 0)))
-      .catch(() => {})
-  }, [])
+  // Scale factors
+  const scaleX = displaySize && imageNaturalSize ? displaySize.w / imageNaturalSize.w : 1
+  const scaleY = displaySize && imageNaturalSize ? displaySize.h / imageNaturalSize.h : 1
 
-  // ── Canvas rendering ──────────────────────────────────────────────────────────
+  // ── Canvas rendering
   const renderCanvas = useCallback(() => {
     const canvas = displayCanvasRef.current
-    if (!canvas) return
+    if (!canvas || !bgImageRef.current) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    // Background image
-    if (bgImageRef.current) {
-      ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height)
-    } else {
-      // Checkerboard placeholder
-      const sq = 20
-      for (let y = 0; y < canvas.height; y += sq) {
-        for (let x = 0; x < canvas.width; x += sq) {
-          ctx.fillStyle = ((x / sq + y / sq) % 2 === 0) ? '#1a1a1a' : '#141414'
-          ctx.fillRect(x, y, sq, sq)
-        }
-      }
-    }
-
-    // Draw each layer's mask canvas at 55% opacity
+    ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height)
     for (const layer of layers) {
       const lc = layerCanvasesRef.current.get(layer.id)
-      if (!lc) continue
-      ctx.save()
-      ctx.globalAlpha = 0.55
-      ctx.drawImage(lc, 0, 0)
-      ctx.restore()
+      if (lc) ctx.drawImage(lc, 0, 0)
     }
-
-    // Draw text annotations
-    for (const ann of textAnnotations) {
-      ctx.font = `${ann.fontSize}px sans-serif`
-      ctx.fillStyle = ann.color
-      ctx.shadowColor = 'rgba(0,0,0,0.9)'
-      ctx.shadowBlur = 5
-      ctx.shadowOffsetX = 1
-      ctx.shadowOffsetY = 1
-      ctx.fillText(ann.text, ann.x, ann.y)
-    }
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
-  }, [layers, textAnnotations])
+    // Text and rect annotations rendered as HTML overlays (moveable)
+  }, [layers])
 
   useEffect(() => { renderCanvas() }, [renderCanvas])
 
-  // ── Load image onto canvas ────────────────────────────────────────────────────
-  const loadImage = useCallback((src: string) => {
+  // ── Flatten annotations onto canvas for export
+  const flattenForExport = useCallback((): string => {
+    const src = displayCanvasRef.current
+    if (!src) return ''
+    const tmp = document.createElement('canvas')
+    tmp.width = src.width; tmp.height = src.height
+    const ctx = tmp.getContext('2d')
+    if (!ctx) return ''
+    ctx.drawImage(src, 0, 0)
+    for (const ann of textAnnotations) {
+      ctx.save()
+      ctx.font = `bold ${ann.fontSize}px Inter, sans-serif`
+      ctx.fillStyle = ann.color
+      ctx.shadowColor = 'rgba(0,0,0,0.9)'
+      ctx.shadowBlur = 5
+      ctx.fillText(ann.text, ann.x, ann.y)
+      ctx.restore()
+    }
+    for (const ann of rectAnnotations) {
+      ctx.save()
+      ctx.strokeStyle = ann.color
+      ctx.lineWidth = 2
+      ctx.setLineDash([6, 4])
+      ctx.strokeRect(ann.x, ann.y, ann.w, ann.h)
+      ctx.fillStyle = ann.color + '22'
+      ctx.fillRect(ann.x, ann.y, ann.w, ann.h)
+      ctx.restore()
+    }
+    return tmp.toDataURL('image/png')
+  }, [textAnnotations, rectAnnotations])
+
+  // ── Annotation handlers
+  const handleTextAnnotMove = useCallback((id: string, dx: number, dy: number) => {
+    setTextAnnotations(prev => prev.map(a => a.id === id ? { ...a, x: a.x + dx, y: a.y + dy } : a))
+  }, [])
+
+  const handleTextAnnotDelete = useCallback((id: string) => {
+    setTextAnnotations(prev => prev.filter(a => a.id !== id))
+    setSelectedAnnotId(null)
+  }, [])
+
+  const handleTextAnnotCommitEdit = useCallback((id: string, newText: string) => {
+    if (newText.trim()) {
+      setTextAnnotations(prev => prev.map(a => a.id === id ? { ...a, text: newText } : a))
+    } else {
+      setTextAnnotations(prev => prev.filter(a => a.id !== id))
+    }
+    setEditingTextId(null)
+  }, [])
+
+  const handleRectAnnotMove = useCallback((id: string, dx: number, dy: number) => {
+    setRectAnnotations(prev => prev.map(a => a.id === id ? { ...a, x: a.x + dx, y: a.y + dy } : a))
+  }, [])
+
+  const handleRectAnnotResize = useCallback((id: string, dx: number, dy: number, handleId: string) => {
+    setRectAnnotations(prev => prev.map(a => {
+      if (a.id !== id) return a
+      let { x, y, w, h } = a
+      if (handleId.includes('w')) { x += dx; w -= dx }
+      if (handleId.includes('e')) { w += dx }
+      if (handleId.includes('n')) { y += dy; h -= dy }
+      if (handleId.includes('s')) { h += dy }
+      if (w < 10) w = 10
+      if (h < 10) h = 10
+      return { ...a, x, y, w, h }
+    }))
+  }, [])
+
+  const handleRectAnnotDelete = useCallback((id: string) => {
+    setRectAnnotations(prev => prev.filter(a => a.id !== id))
+    setSelectedAnnotId(null)
+  }, [])
+
+  // ── File handling
+  const handleFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return
+    const url = URL.createObjectURL(file)
     const img = new Image()
-    img.crossOrigin = 'anonymous'
     img.onload = () => {
       bgImageRef.current = img
-      const { w, h } = computeDisplaySize(img.naturalWidth, img.naturalHeight)
-      canvasSizeRef.current = { w, h }
-      setImageDims({ w: img.naturalWidth, h: img.naturalHeight })
-
+      setImageUrl(url)
+      const nat = { w: img.naturalWidth, h: img.naturalHeight }
+      setImageNaturalSize(nat)
+      const ds = computeDisplaySize(nat.w, nat.h)
+      setDisplaySize(ds)
       const canvas = displayCanvasRef.current
-      if (!canvas) return
-      canvas.width = w
-      canvas.height = h
-
-      // Resize existing layer canvases
-      for (const [, lc] of layerCanvasesRef.current) {
-        lc.width = w; lc.height = h
+      if (canvas) {
+        canvas.width = nat.w
+        canvas.height = nat.h
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0)
       }
-      renderCanvas()
+      setLayers([])
+      setTextAnnotations([])
+      setRectAnnotations([])
+      layerCanvasesRef.current.clear()
+      nextColorIdx.current = 0
     }
-    img.onerror = () => { img.crossOrigin = ''; img.src = src }
-    img.src = src
-  }, [renderCanvas])
+    img.src = url
+  }, [])
 
-  // ── File handling ─────────────────────────────────────────────────────────────
-  const handleFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) return
-    const localUrl = URL.createObjectURL(file)
-    setImageUrl(localUrl)
-    loadImage(localUrl)
-    setError(null)
-    setResults([])
-
-    // Upload to Bunny in background
-    const fd = new FormData()
-    fd.append('file', file)
-    try {
-      const res = await fetch('/api/images/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.image?.url) setImageUrl(data.image.url)
-    } catch { /* keep local URL */ }
-  }, [loadImage])
-
-  // ── Layer management ──────────────────────────────────────────────────────────
+  // ── Layer management
   const addLayer = useCallback(() => {
-    const usedColors = new Set(layers.map(l => l.color))
-    const nextColor = LAYER_COLORS.find(c => !usedColors.has(c.hex)) ?? LAYER_COLORS[layers.length % LAYER_COLORS.length]!
-    const id = uid()
-    const { w, h } = canvasSizeRef.current
+    if (!imageNaturalSize) return
+    const colorData = LAYER_COLORS[nextColorIdx.current % LAYER_COLORS.length]!
+    nextColorIdx.current++
+    const layer: MaskLayer = {
+      id: uid(), color: colorData.hex, colorName: colorData.name,
+      prompt: '', referenceImageUrl: null, centroid: null, cardOffset: { x: 0, y: 0 },
+    }
     const lc = document.createElement('canvas')
-    lc.width = w; lc.height = h
-    layerCanvasesRef.current.set(id, lc)
-    const newLayer: MaskLayer = { id, color: nextColor.hex, colorName: nextColor.name, prompt: '', referenceImageUrl: null }
-    setLayers(prev => [...prev, newLayer])
-    setActiveLayerId(id)
-  }, [layers])
+    lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
+    layerCanvasesRef.current.set(layer.id, lc)
+    setLayers(prev => [...prev, layer])
+    setActiveLayerId(layer.id)
+  }, [imageNaturalSize])
 
   const removeLayer = useCallback((id: string) => {
     layerCanvasesRef.current.delete(id)
     setLayers(prev => prev.filter(l => l.id !== id))
-    setActiveLayerId(prev => prev === id ? null : prev)
+    setActiveLayerId(prev => (prev === id ? null : prev))
     setTimeout(renderCanvas, 0)
   }, [renderCanvas])
 
   const clearLayerStrokes = useCallback((id: string) => {
     const lc = layerCanvasesRef.current.get(id)
-    if (lc) { lc.getContext('2d')?.clearRect(0, 0, lc.width, lc.height); renderCanvas() }
+    if (lc) { const ctx = lc.getContext('2d'); ctx?.clearRect(0, 0, lc.width, lc.height) }
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, centroid: null } : l))
+    setTimeout(renderCanvas, 0)
   }, [renderCanvas])
 
-  const updateLayerPrompt = useCallback((id: string, prompt: string) => {
-    setLayers(prev => prev.map(l => l.id === id ? { ...l, prompt } : l))
-  }, [])
-
-  const updateLayerRefImage = useCallback((id: string, url: string | null) => {
-    setLayers(prev => prev.map(l => l.id === id ? { ...l, referenceImageUrl: url } : l))
-  }, [])
-
-  // ── Canvas coordinate helper ──────────────────────────────────────────────────
-  const getCanvasPos = useCallback((e: React.MouseEvent): Point | null => {
-    const canvas = displayCanvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    return {
-      x: (e.clientX - rect.left) * canvas.width / rect.width,
-      y: (e.clientY - rect.top) * canvas.height / rect.height,
-    }
-  }, [])
-
-  const getScreenPos = useCallback((e: React.MouseEvent): Point => ({
-    x: e.clientX,
-    y: e.clientY,
-  }), [])
-
-  // ── Drawing ────────────────────────────────────────────────────────────────────
-  const paintAt = useCallback((x: number, y: number, prevX: number | null, prevY: number | null) => {
-    if (!activeLayerId || activeTool === 'rect' || activeTool === 'text') return
-    const lc = layerCanvasesRef.current.get(activeLayerId)
+  const updateLayerCentroid = useCallback((id: string) => {
+    const lc = layerCanvasesRef.current.get(id)
     if (!lc) return
-    const ctx = lc.getContext('2d')
-    if (!ctx) return
-    const layer = layers.find(l => l.id === activeLayerId)
-    if (!layer) return
+    setTimeout(() => {
+      const centroid = computeLayerCentroid(lc)
+      setLayers(prev => prev.map(l => l.id === id ? { ...l, centroid } : l))
+    }, 0)
+  }, [])
 
-    ctx.globalCompositeOperation = activeTool === 'eraser' ? 'destination-out' : 'source-over'
-    ctx.strokeStyle = layer.color
-    ctx.fillStyle = layer.color
-    ctx.lineWidth = brushSize
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.globalAlpha = 1
+  // ── Canvas interaction helpers
+  const getCanvasPoint = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Point => {
+    const canvas = displayCanvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    return { x: (e.clientX - rect.left) / scaleX, y: (e.clientY - rect.top) / scaleY }
+  }, [scaleX, scaleY])
 
+  const paintDot = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, colorRgb: string, erase: boolean) => {
+    ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
+    ctx.fillStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb},0.55)`
     ctx.beginPath()
-    ctx.moveTo(prevX ?? x, prevY ?? y)
-    ctx.lineTo(x, y)
-    ctx.stroke()
-    renderCanvas()
-  }, [activeLayerId, activeTool, brushSize, layers, renderCanvas])
+    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.fill()
+  }, [])
+
+  const paintLine = useCallback((ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, radius: number, colorRgb: string, erase: boolean) => {
+    ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
+    ctx.strokeStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb},0.55)`
+    ctx.lineWidth = radius * 2
+    ctx.lineCap = 'round'
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+  }, [])
 
   const onMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!bgImageRef.current || !activeLayerId) return
-    e.preventDefault()
-    const pos = getCanvasPos(e)
-    if (!pos) return
+    if (!bgImageRef.current) return
+    setSelectedAnnotId(null)
+    setEditingTextId(null)
+    const pt = getCanvasPoint(e)
 
-    if (activeTool === 'text') {
-      const canvas = displayCanvasRef.current
-      if (!canvas) return
+    if (activeTool === 'text' && mode === 'edit') {
+      const canvas = displayCanvasRef.current!
       const rect = canvas.getBoundingClientRect()
-      setTextInput({ visible: true, x: pos.x, y: pos.y, screenX: e.clientX - rect.left, screenY: e.clientY - rect.top })
-      setTextValue('')
+      setTextInput({ visible: true, screenX: e.clientX - rect.left, screenY: e.clientY - rect.top, canvasX: pt.x, canvasY: pt.y })
       setTimeout(() => textInputRef.current?.focus(), 50)
       return
     }
 
-    if (activeTool === 'rect') {
-      isDrawingRef.current = true
-      rectStartRef.current = pos
-      rectStartScreenRef.current = { x: e.clientX, y: e.clientY }
-      return
+    if (activeTool === 'rect' && mode === 'edit') {
+      isDrawingRef.current = true; rectStartRef.current = pt; return
     }
 
-    isDrawingRef.current = true
-    lastPosRef.current = pos
-    paintAt(pos.x, pos.y, null, null)
-  }, [activeLayerId, activeTool, getCanvasPos, paintAt])
+    if ((activeTool === 'brush' || activeTool === 'eraser') && mode === 'edit' && activeLayerId) {
+      const layer = layers.find(l => l.id === activeLayerId)
+      const lc = layerCanvasesRef.current.get(activeLayerId)
+      if (!layer || !lc) return
+      const ctx = lc.getContext('2d')!
+      const colorData = LAYER_COLORS.find(c => c.hex === layer.color)
+      const r = brushSize / (2 * scaleX)
+      paintDot(ctx, pt.x, pt.y, r, colorData?.rgb ?? '255,255,255', activeTool === 'eraser')
+      isDrawingRef.current = true
+      lastPointRef.current = pt
+      renderCanvas()
+    }
+  }, [activeTool, mode, activeLayerId, layers, getCanvasPoint, brushSize, scaleX, paintDot, renderCanvas])
 
   const onMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawingRef.current) return
-    const pos = getCanvasPos(e)
-    if (!pos) return
+    const pt = getCanvasPoint(e)
 
     if (activeTool === 'rect' && rectStartRef.current) {
-      const canvas = displayCanvasRef.current
-      if (!canvas) return
-      const rect = canvas.getBoundingClientRect()
-      const scale = canvas.width / rect.width
-      const startScreen = rectStartScreenRef.current!
-      setRectDraw({
-        screenX: Math.min(e.clientX, startScreen.x) - rect.left,
-        screenY: Math.min(e.clientY, startScreen.y) - rect.top,
-        screenW: Math.abs(e.clientX - startScreen.x),
-        screenH: Math.abs(e.clientY - startScreen.y),
-        x: Math.min(pos.x, rectStartRef.current.x),
-        y: Math.min(pos.y, rectStartRef.current.y),
-        w: Math.abs(pos.x - rectStartRef.current.x),
-        h: Math.abs(pos.y - rectStartRef.current.y),
-      })
+      const s = rectStartRef.current
+      setRectPreview({ x: s.x, y: s.y, w: pt.x - s.x, h: pt.y - s.y })
       return
     }
 
-    paintAt(pos.x, pos.y, lastPosRef.current?.x ?? null, lastPosRef.current?.y ?? null)
-    lastPosRef.current = pos
-  }, [activeTool, getCanvasPos, paintAt])
+    if ((activeTool === 'brush' || activeTool === 'eraser') && activeLayerId) {
+      const layer = layers.find(l => l.id === activeLayerId)
+      const lc = layerCanvasesRef.current.get(activeLayerId)
+      if (!layer || !lc) return
+      const ctx = lc.getContext('2d')!
+      const colorData = LAYER_COLORS.find(c => c.hex === layer.color)
+      const r = brushSize / (2 * scaleX)
+      const prev = lastPointRef.current ?? pt
+      paintDot(ctx, pt.x, pt.y, r, colorData?.rgb ?? '255,255,255', activeTool === 'eraser')
+      paintLine(ctx, prev.x, prev.y, pt.x, pt.y, r, colorData?.rgb ?? '255,255,255', activeTool === 'eraser')
+      lastPointRef.current = pt
+      renderCanvas()
+    }
+  }, [activeTool, activeLayerId, layers, getCanvasPoint, brushSize, scaleX, paintDot, paintLine, renderCanvas])
 
   const onMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawingRef.current) return
     isDrawingRef.current = false
+    lastPointRef.current = null
 
-    if (activeTool === 'rect' && rectDraw && activeLayerId) {
-      const lc = layerCanvasesRef.current.get(activeLayerId)
-      if (lc) {
-        const ctx = lc.getContext('2d')
-        if (ctx) {
-          const layer = layers.find(l => l.id === activeLayerId)
-          if (layer) {
-            ctx.fillStyle = layer.color
-            ctx.globalCompositeOperation = 'source-over'
-            ctx.globalAlpha = 1
-            ctx.fillRect(rectDraw.x, rectDraw.y, rectDraw.w, rectDraw.h)
-            renderCanvas()
-          }
-        }
+    if (activeTool === 'rect' && rectStartRef.current) {
+      const pt = getCanvasPoint(e)
+      const s = rectStartRef.current
+      const ann: RectAnnotation = {
+        id: uid(), color: layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00',
+        x: Math.min(s.x, pt.x), y: Math.min(s.y, pt.y),
+        w: Math.abs(pt.x - s.x), h: Math.abs(pt.y - s.y),
       }
+      if (ann.w > 5 && ann.h > 5) setRectAnnotations(prev => [...prev, ann])
+      rectStartRef.current = null; setRectPreview(null)
+      renderCanvas()
+      return
     }
 
-    setRectDraw(null)
-    rectStartRef.current = null
-    rectStartScreenRef.current = null
-    lastPosRef.current = null
-  }, [activeTool, rectDraw, activeLayerId, layers, renderCanvas])
+    if (activeTool === 'brush' && activeLayerId) {
+      updateLayerCentroid(activeLayerId)
+    }
+  }, [activeTool, activeLayerId, layers, getCanvasPoint, renderCanvas, updateLayerCentroid])
 
-  // ── Text annotation commit ────────────────────────────────────────────────────
   const commitText = useCallback(() => {
-    if (!textValue.trim()) { setTextInput(prev => ({ ...prev, visible: false })); return }
-    const ann: TextAnnotation = {
-      id: uid(), text: textValue, x: textInput.x, y: textInput.y, color: '#FFFF00', fontSize: 20,
-    }
-    setTextAnnotations(prev => [...prev, ann])
-    setTextInput(prev => ({ ...prev, visible: false }))
+    if (!textValue.trim()) return
+    const layer = layers.find(l => l.id === activeLayerId)
+    setTextAnnotations(prev => [...prev, {
+      id: uid(), text: textValue,
+      x: textInput.canvasX, y: textInput.canvasY,
+      color: layer?.color ?? '#FFFF00', fontSize: 20,
+    }])
+    setTextInput(p => ({ ...p, visible: false }))
     setTextValue('')
-  }, [textValue, textInput])
+    setTimeout(renderCanvas, 0)
+  }, [textValue, textInput, activeLayerId, layers, renderCanvas])
 
-  // ── Generate ──────────────────────────────────────────────────────────────────
+  // ── Generation
   const canGenerate = useMemo(() => {
     if (!imageUrl || isGenerating) return false
     if (mode === 'edit') return layers.some(l => l.prompt.trim())
@@ -797,672 +1049,547 @@ export default function EditPage() {
 
   const handleGenerate = useCallback(async () => {
     if (!canGenerate || !imageUrl) return
-    setIsGenerating(true)
-    setError(null)
-
+    setIsGenerating(true); setError(null)
+    const taskId = uid()
     try {
       let compositeDataUrl: string | undefined
       let combinedPrompt = ''
       const referenceImages: string[] = []
 
       if (mode === 'edit') {
-        // Export the current display canvas (image + colored mask overlays) — ALL masks in ONE image
-        compositeDataUrl = displayCanvasRef.current?.toDataURL('image/png') ?? undefined
-
+        compositeDataUrl = flattenForExport()
         const activeLayers = layers.filter(l => l.prompt.trim())
-        combinedPrompt =
-          activeLayers.map(l => `In the ${l.colorName} highlighted region: ${l.prompt.trim()}`).join('. ') +
-          '. Keep all non-highlighted areas completely unchanged.'
-
-        // Collect per-layer reference images
-        for (const l of layers) {
-          if (l.referenceImageUrl) referenceImages.push(l.referenceImageUrl)
-        }
+        combinedPrompt = activeLayers.map(l => `In the ${l.colorName} highlighted region: ${l.prompt.trim()}`).join('. ')
+          + '. Keep all non-highlighted areas completely unchanged.'
+        activeLayers.forEach(l => { if (l.referenceImageUrl) referenceImages.push(l.referenceImageUrl) })
       } else if (mode === 'relight') {
         combinedPrompt = generateRelightPrompt(lightSettings)
       } else {
-        combinedPrompt = promptText.trim()
+        combinedPrompt = promptText
         if (promptRefUrl) referenceImages.push(promptRefUrl)
       }
 
-      const res = await fetch('/api/edit-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          compositeDataUrl,
-          originalImageUrl: imageUrl,
-          masks: layers.map(l => ({ color: l.color, colorName: l.colorName, prompt: l.prompt })),
-          model: selectedModel,
-          combinedPrompt,
-          referenceImages,
-          mode,
-        }),
-      })
+      const body: Record<string, unknown> = {
+        mode, model: selectedModel, taskId,
+        originalImageUrl: imageUrl, prompt: combinedPrompt, referenceImages,
+      }
+      if (compositeDataUrl) body.compositeDataUrl = compositeDataUrl
 
+      const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
       const data = await res.json()
+      setResults(prev => [{ id: taskId, url: data.imageUrl, mode, timestamp: Date.now(), inputUrl: imageUrl, prompt: combinedPrompt }, ...prev])
+      setResultsDockOpen(true)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Generation failed')
+    } finally { setIsGenerating(false) }
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrl, selectedModel, flattenForExport])
 
-      if (!res.ok) {
-        if (res.status === 402) setError('Not enough credits — please top up to continue.')
-        else setError(data.error ?? 'Generation failed. Please try again.')
-        return
-      }
+  const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
 
-      const result: GenerationResult = {
-        id: uid(), url: data.outputUrl, mode, timestamp: Date.now(),
-        inputUrl: imageUrl, prompt: combinedPrompt,
-      }
-      setResults(prev => [result, ...prev])
-      setDockOpen(true)
-
-      // Refresh credits
-      fetch('/api/user/credits').then(r => r.json())
-        .then(c => setCreditBalance((c.subscription_credits ?? 0) + (c.permanent_credits ?? 0)))
-        .catch(() => {})
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
-      setIsGenerating(false)
-    }
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrl, selectedModel])
-
-  // ── Use result as new input ────────────────────────────────────────────────────
-  const useAsInput = useCallback((result: GenerationResult) => {
-    setImageUrl(result.url)
-    loadImage(result.url)
-    setLayers([])
-    layerCanvasesRef.current.clear()
-    setActiveLayerId(null)
-    setTextAnnotations([])
-    setShowResultModal(false)
-    setError(null)
-  }, [loadImage])
-
-  // ── Cursor style ───────────────────────────────────────────────────────────────
   const canvasCursor = !bgImageRef.current ? 'default'
-    : !activeLayerId || mode !== 'edit' ? 'not-allowed'
-    : activeTool === 'eraser' ? 'cell'
+    : mode !== 'edit' ? 'default'
+    : !activeLayerId ? 'crosshair'
     : activeTool === 'text' ? 'text'
-    : activeTool === 'rect' ? 'crosshair'
     : 'crosshair'
 
-  // ── Active layer color ─────────────────────────────────────────────────────────
-  const activeLayer = layers.find(l => l.id === activeLayerId)
-
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render
   return (
-    <div className="flex flex-col min-h-screen bg-[#09090b] text-white selection:bg-[#FFFF00] selection:text-black">
-      <div className="flex-1 pt-16 w-full grid grid-cols-1 lg:grid-cols-[420px_1fr] items-start">
+    <div className="fixed inset-0 pt-16 bg-[#07070a] text-white overflow-hidden" style={{ userSelect: 'none' }}>
 
-        {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
-        <div className="flex flex-col border-r border-white/5 bg-[#0c0c0e] z-20 lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] order-2 lg:order-1">
-
-          {/* Input image + right cell */}
-          <div className="border-b border-white/5">
-            <div className="grid grid-cols-[40%_60%] gap-4 px-5 pt-5 pb-[0.3rem]">
-              <div className="flex items-center justify-between h-6">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Source Image</span>
-                {imageUrl && (
-                  <button
-                    onClick={() => { setImageUrl(null); bgImageRef.current = null; setLayers([]); layerCanvasesRef.current.clear(); setTextAnnotations([]); renderCanvas() }}
-                    className="p-2 -mr-2 text-gray-500 hover:text-red-400 transition-colors"
-                  >
-                    <IconTrash className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center h-6">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                  {mode === 'edit' ? 'Draw Tools' : mode === 'relight' ? 'Quick Presets' : 'Instruction'}
-                </span>
-              </div>
+      {/* ── CANVAS WORKSPACE ─────────────────────────────────────────── */}
+      <div
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center" style={{ top: '3rem' }}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+      >
+        {!imageUrl ? (
+          /* Drop zone */
+          <label className="group flex flex-col items-center gap-6 cursor-pointer">
+            <div className="w-28 h-28 rounded-[2rem] border border-dashed border-white/10 group-hover:border-[#FFFF00]/30 bg-white/[0.015] group-hover:bg-[#FFFF00]/[0.02] flex items-center justify-center transition-all duration-500 shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+              <IconUpload className="w-12 h-12 text-white/15 group-hover:text-[#FFFF00]/40 transition-colors duration-300" />
             </div>
+            <div className="text-center space-y-1">
+              <p className="text-base font-bold text-white/30 group-hover:text-white/50 transition-colors">Drop an image or click to upload</p>
+              <p className="text-xs text-white/15">PNG · JPG · WebP · max 10MB</p>
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+          </label>
+        ) : (
+          /* Canvas + floating cards */
+          <div ref={canvasWrapperRef} className="relative" style={{ width: displaySize?.w, height: displaySize?.h }}>
 
-            <div className="grid grid-cols-[40%_60%] gap-4 px-5 pt-1 pb-4">
-              {/* Image thumbnail */}
-              <label className="aspect-square rounded-xl bg-[#050505] border border-white/5 overflow-hidden cursor-pointer hover:border-[#FFFF00]/20 transition-colors relative">
-                {imageUrl ? (
-                  <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full gap-2">
-                    <IconUpload className="w-6 h-6 text-white/20" />
-                    <span className="text-[10px] text-white/20">Upload</span>
-                  </div>
-                )}
+            {/* Main canvas */}
+            <canvas
+              ref={displayCanvasRef}
+              width={imageNaturalSize?.w}
+              height={imageNaturalSize?.h}
+              style={{
+                display: 'block',
+                width: displaySize?.w,
+                height: displaySize?.h,
+                cursor: canvasCursor,
+                touchAction: 'none',
+                borderRadius: 14,
+                boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)',
+              }}
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={e => { if (isDrawingRef.current) onMouseUp(e) }}
+            />
+
+            {/* Rect preview overlay */}
+            {rectPreview && displaySize && (
+              <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: 14 }}>
+                <div className="absolute border-2 border-dashed" style={{
+                  left: rectPreview.x * scaleX, top: rectPreview.y * scaleY,
+                  width: rectPreview.w * scaleX, height: rectPreview.h * scaleY,
+                  borderColor: layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00',
+                  background: (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '20',
+                }} />
+              </div>
+            )}
+
+            {/* Floating text input */}
+            {textInput.visible && (
+              <div className="absolute z-30" style={{ left: textInput.screenX, top: textInput.screenY }}>
                 <input
-                  ref={fileInputRef}
-                  type="file" accept="image/*" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+                  ref={textInputRef}
+                  value={textValue}
+                  onChange={e => setTextValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') { setTextInput(p => ({ ...p, visible: false })); setTextValue('') } }}
+                  onBlur={commitText}
+                  className="bg-black/90 border border-[#FFFF00]/40 text-[#FFFF00] text-sm px-3 py-2 rounded-xl outline-none min-w-[170px] shadow-2xl backdrop-blur-xl"
+                  placeholder="Type & press Enter…"
                 />
-              </label>
+              </div>
+            )}
 
-              {/* Right cell — mode-dependent */}
-              {mode === 'edit' && (
-                <div className="flex flex-col gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    {getCanvasTools().map(t => (
-                      <button
-                        key={t.id}
-                        onClick={() => setActiveTool(t.id)}
-                        className={cn(
-                          'flex flex-col items-center justify-center gap-1 py-2.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all',
-                          activeTool === t.id
-                            ? 'bg-[#FFFF00] border-[#FFFF00] text-black'
-                            : 'bg-white/[0.03] border-white/5 text-gray-500 hover:border-white/20 hover:text-white'
-                        )}
-                      >
-                        <t.icon className="w-4 h-4" />
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2 px-1">
-                    <span className="text-[10px] text-white/30">Size</span>
-                    <input
-                      type="range" min={4} max={80} value={brushSize}
-                      onChange={e => setBrushSize(Number(e.target.value))}
-                      className="flex-1 accent-[#FFFF00]"
-                    />
-                    <span className="text-[10px] text-white/40 w-5 tabular-nums">{brushSize}</span>
-                  </div>
+            {/* Active tool & no-layer hint */}
+            {mode === 'edit' && !activeLayerId && layers.length === 0 && (
+              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
+                <div className="px-4 py-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/8 text-xs text-white/30 font-bold">
+                  Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[#FFFF00]/60 text-[10px]">+</kbd> in the toolbar to add a mask layer
                 </div>
-              )}
+              </div>
+            )}
 
-              {mode === 'relight' && (
-                <div className="grid grid-cols-2 gap-1.5">
-                  {RELIGHT_PRESETS.map(p => (
-                    <button
-                      key={p.name}
-                      onClick={() => setLightSettings(prev => ({ ...prev, azimuth: p.azimuth, elevation: p.elevation }))}
-                      className={cn(
-                        'px-2 py-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all',
-                        lightSettings.azimuth === p.azimuth && lightSettings.elevation === p.elevation
-                          ? 'bg-white/[0.09] border-white/20 text-[#FFFF00]'
-                          : 'bg-white/[0.02] border-white/5 text-gray-500 hover:text-white hover:border-white/15'
-                      )}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {mode === 'prompt' && (
-                <div className="flex items-start pt-1">
-                  <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Edit the entire image using a text instruction — no masking needed.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mode tabs (Tier 2 segmented control) */}
-          <div className="flex bg-[rgb(255_255_255_/_0.04)] mx-5 my-3 p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
-            {(['edit', 'relight', 'prompt'] as Mode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={cn(
-                  'flex-1 py-2 text-[11px] font-black rounded-md uppercase tracking-wider transition-all',
-                  mode === m ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
-                )}
-              >
-                {m === 'edit' ? 'Edit' : m === 'relight' ? 'Relight' : 'Prompt'}
-              </button>
+            {/* Floating mask cards (mode=edit) */}
+            {mode === 'edit' && displaySize && layers.map(layer => (
+              <FloatingMaskCard
+                key={layer.id}
+                layer={layer}
+                scaleX={scaleX} scaleY={scaleY}
+                canvasW={displaySize.w} canvasH={displaySize.h}
+                isActive={activeLayerId === layer.id}
+                onSelect={() => setActiveLayerId(layer.id)}
+                onUpdatePrompt={p => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, prompt: p } : l))}
+                onAttachRef={url => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, referenceImageUrl: url || null } : l))}
+                onClearStrokes={() => clearLayerStrokes(layer.id)}
+                onDelete={() => removeLayer(layer.id)}
+                onCardDrag={(dx, dy) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cardOffset: { x: l.cardOffset.x + dx, y: l.cardOffset.y + dy } } : l))}
+              />
             ))}
-          </div>
 
-          {/* Scrollable controls */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-28">
-
-            {/* ── Edit mode: mask layers ───────────────────────────────────── */}
-            {mode === 'edit' && (
-              <>
-                {layers.map(layer => (
-                  <MaskLayerCard
-                    key={layer.id}
-                    layer={layer}
-                    isActive={activeLayerId === layer.id}
-                    onSelect={() => setActiveLayerId(layer.id)}
-                    onUpdatePrompt={p => updateLayerPrompt(layer.id, p)}
-                    onAttachRef={url => updateLayerRefImage(layer.id, url)}
-                    onClearStrokes={() => clearLayerStrokes(layer.id)}
-                    onDelete={() => removeLayer(layer.id)}
+            {/* Moveable annotation overlay */}
+            {displaySize && (
+              <div className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible', borderRadius: 14 }}>
+                {textAnnotations.map(ann => (
+                  <MovableTextAnnotation
+                    key={ann.id}
+                    ann={ann}
+                    scaleX={scaleX} scaleY={scaleY}
+                    isSelected={selectedAnnotId === ann.id}
+                    isEditing={editingTextId === ann.id}
+                    editValue={editingTextId === ann.id ? editingTextValue : ann.text}
+                    onSelect={e => { e.stopPropagation(); setSelectedAnnotId(ann.id) }}
+                    onMove={(dx, dy) => handleTextAnnotMove(ann.id, dx, dy)}
+                    onDelete={() => handleTextAnnotDelete(ann.id)}
+                    onStartEdit={() => { setEditingTextId(ann.id); setEditingTextValue(ann.text) }}
+                    onCommitEdit={text => handleTextAnnotCommitEdit(ann.id, text)}
+                    onEditChange={v => setEditingTextValue(v)}
                   />
                 ))}
-                <button
-                  onClick={addLayer}
-                  disabled={!imageUrl}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-dashed border-white/10 text-white/30 hover:border-[#FFFF00]/35 hover:text-[#FFFF00]/60 transition-all disabled:opacity-20 disabled:cursor-not-allowed text-sm"
-                >
-                  <IconPlus className="w-4 h-4" />
-                  Add Mask Layer
-                </button>
-                {layers.length > 0 && (
-                  <p className="text-[10px] text-white/20 text-center px-2 leading-relaxed">
-                    All {layers.length} layer{layers.length !== 1 ? 's' : ''} sent in a single generation — one credit charge total.
-                  </p>
-                )}
-              </>
-            )}
-
-            {/* ── Relight mode ─────────────────────────────────────────────── */}
-            {mode === 'relight' && (
-              <div className="space-y-3">
-                {/* 3D Light Orb */}
-                <div className="rounded-xl bg-[#07071a] border border-white/5 p-4 flex flex-col items-center gap-3">
-                  <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider self-start">Light Position</span>
-                  <LightOrb
-                    azimuth={lightSettings.azimuth}
-                    elevation={lightSettings.elevation}
-                    lightColor={lightSettings.color}
-                    onAzimuthChange={az => setLightSettings(prev => ({ ...prev, azimuth: az }))}
-                    onElevationChange={el => setLightSettings(prev => ({ ...prev, elevation: el }))}
+                {rectAnnotations.map(ann => (
+                  <MovableRectAnnotation
+                    key={ann.id}
+                    ann={ann}
+                    scaleX={scaleX} scaleY={scaleY}
+                    isSelected={selectedAnnotId === ann.id}
+                    onSelect={e => { e.stopPropagation(); setSelectedAnnotId(ann.id) }}
+                    onMove={(dx, dy) => handleRectAnnotMove(ann.id, dx, dy)}
+                    onResize={(dx, dy, handle) => handleRectAnnotResize(ann.id, dx, dy, handle)}
+                    onDelete={() => handleRectAnnotDelete(ann.id)}
                   />
-                </div>
-
-                {/* Light color */}
-                <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 space-y-2">
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider block">Light Color</span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color" value={lightSettings.color}
-                      onChange={e => setLightSettings(prev => ({ ...prev, color: e.target.value }))}
-                      className="w-9 h-9 rounded-lg cursor-pointer border-0 p-0 bg-transparent flex-shrink-0"
-                      style={{ outline: 'none' }}
-                    />
-                    <input
-                      type="text" value={lightSettings.color}
-                      onChange={e => setLightSettings(prev => ({ ...prev, color: e.target.value }))}
-                      className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white font-mono uppercase focus:outline-none focus:border-white/25"
-                    />
-                  </div>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {LIGHT_COLOR_PRESETS.map(c => (
-                      <button
-                        key={c}
-                        onClick={() => setLightSettings(prev => ({ ...prev, color: c }))}
-                        className={cn(
-                          'w-6 h-6 rounded-full border-2 transition-all',
-                          lightSettings.color === c ? 'border-white/70 scale-110' : 'border-white/15 hover:border-white/40'
-                        )}
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Intensity */}
-                <div className="space-y-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-xs font-semibold text-white">Intensity</span>
-                    <span className="font-mono text-[12px] text-white bg-white/5 px-1.5 py-0.5 rounded">{lightSettings.intensity}%</span>
-                  </div>
-                  <MechanicalSlider
-                    value={[lightSettings.intensity]} min={10} max={100} step={5}
-                    leftLabel="Dim" rightLabel="Bright"
-                    onChange={([v]) => setLightSettings(prev => ({ ...prev, intensity: v }))}
-                  />
-                </div>
-
-                {/* Hard / Soft + Scene Lock */}
-                <div className="flex gap-2">
-                  {(['soft', 'hard'] as const).map(type => (
-                    <button
-                      key={type}
-                      onClick={() => setLightSettings(prev => ({ ...prev, softness: type }))}
-                      className={cn(
-                        'flex-1 py-2.5 rounded-xl border text-[11px] font-black uppercase tracking-wider transition-all',
-                        lightSettings.softness === type
-                          ? 'bg-white/[0.09] border-white/20 text-[#FFFF00]'
-                          : 'bg-transparent border-white/5 text-gray-500 hover:text-white'
-                      )}
-                    >
-                      {type} Light
-                    </button>
-                  ))}
-                </div>
-
-                <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-white">Scene Lock</span>
-                    <p className="text-[11px] text-white/30 mt-0.5">Preserve character pose & consistency</p>
-                  </div>
-                  <Switch
-                    checked={lightSettings.sceneLock}
-                    onCheckedChange={v => setLightSettings(prev => ({ ...prev, sceneLock: v }))}
-                    className="scale-90 origin-right"
-                  />
-                </div>
-
-                {/* Prompt preview */}
-                <div className="rounded-xl bg-black/40 border border-white/5 p-3">
-                  <span className="text-[10px] font-black text-gray-600 uppercase tracking-wider block mb-1.5">Generated Prompt</span>
-                  <p className="text-[11px] text-white/35 leading-relaxed font-mono">{generateRelightPrompt(lightSettings)}</p>
-                </div>
-              </div>
-            )}
-
-            {/* ── Prompt mode ──────────────────────────────────────────────── */}
-            {mode === 'prompt' && (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-wider px-1">Edit Instruction</label>
-                  <textarea
-                    value={promptText}
-                    onChange={e => setPromptText(e.target.value)}
-                    rows={5}
-                    placeholder="e.g. Change the background to a sunset beach, make the jacket red, add dramatic shadows..."
-                    className="w-full bg-white/[0.02] border border-white/8 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 resize-none focus:outline-none focus:border-white/20 transition-colors leading-relaxed"
-                  />
-                </div>
-
-                {/* Optional reference image */}
-                <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 space-y-2">
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider block">Reference Image (optional)</span>
-                  {promptRefUrl ? (
-                    <div className="flex items-center gap-3">
-                      <img src={promptRefUrl} alt="" className="w-12 h-12 object-cover rounded-lg border border-white/10" />
-                      <span className="text-xs text-white/40 flex-1">Reference attached</span>
-                      <button onClick={() => setPromptRefUrl(null)} className="text-white/20 hover:text-red-400 transition-colors">
-                        <IconX className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-white/30 hover:text-white/60 transition-colors py-1">
-                      <IconPhoto className="w-4 h-4" />
-                      Attach style / reference image
-                      <input
-                        ref={promptRefInputRef}
-                        type="file" accept="image/*" className="hidden"
-                        onChange={async e => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
-                          const fd = new FormData(); fd.append('file', file)
-                          try {
-                            const res = await fetch('/api/images/upload', { method: 'POST', body: fd })
-                            const d = await res.json()
-                            setPromptRefUrl(d.image?.url ?? URL.createObjectURL(file))
-                          } catch { setPromptRefUrl(URL.createObjectURL(file)) }
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Model selector (all modes) */}
-            <div className="rounded-xl overflow-hidden border border-white/5">
-              <div className="flex items-center gap-2 p-3 border-b border-white/5 bg-white/[0.02]">
-                <div className="p-1.5 rounded bg-black/20 text-[#FFFF00]">
-                  <IconSparkles className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-bold text-white">Model</span>
-              </div>
-              <div className="p-2 bg-black/20">
-                <div className="flex flex-col gap-1 bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
-                  {EDIT_MODELS.map(id => {
-                    const m = MODEL_REGISTRY[id]
-                    if (!m) return null
-                    return (
-                      <button
-                        key={id}
-                        onClick={() => setSelectedModel(id)}
-                        className={cn(
-                          'w-full py-2.5 px-3 text-xs font-[900] rounded-md uppercase tracking-wider flex items-center justify-between transition-all',
-                          selectedModel === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-gray-400 hover:text-white'
-                        )}
-                      >
-                        <span>{m.label}{m.qualityTier ? ` · ${m.qualityTier}` : ''}</span>
-                        <div className={cn('flex items-center gap-1', selectedModel === id ? 'text-black/50' : 'text-white/30')}>
-                          <CreditIcon className="w-3 h-3" />
-                          <span>{m.credits}</span>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3 text-sm text-red-300 flex items-start gap-2">
-                <IconX className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
+                ))}
               </div>
             )}
           </div>
+        )}
+      </div>
 
-          {/* ── Fixed footer CTA ─────────────────────────────────────────── */}
-          <div className="lg:fixed lg:bottom-0 lg:left-0 lg:w-[420px] relative w-full bg-[#0c0c0e] border-t border-white/5 z-40">
-            <div className="px-5 pt-4 pb-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500 font-medium">Estimated Cost</span>
-                <div className="flex items-center gap-2">
-                  <CreditIcon className="w-5 h-5 rounded-md" />
-                  <span className="font-mono font-medium text-white/90">{creditCost}</span>
-                  {creditBalance !== null && (
-                    <span className="text-white/25 text-xs">/ {creditBalance.toLocaleString()}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="px-5 pb-5">
-              <button
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className="w-full bg-[#FFFF00] hover:bg-[#e6e600] text-black font-bold h-14 rounded-xl flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.25)] disabled:opacity-25 disabled:cursor-not-allowed transition-all uppercase tracking-wider"
-              >
-                {isGenerating ? (
-                  <><IconLoader2 className="w-5 h-5 animate-spin" /> Generating…</>
-                ) : (
-                  <><IconWand className="w-5 h-5 fill-black" /> Apply Edit</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ── RIGHT CANVAS ──────────────────────────────────────────────────── */}
-        <div
-          className="relative flex flex-col px-4 pt-2 pb-4 lg:sticky lg:top-[4.5rem] lg:h-[calc(100vh-4.5rem)] overflow-y-auto order-1 lg:order-2"
-          onDragOver={e => { e.preventDefault(); setIsDraggingFile(true) }}
-          onDragLeave={() => setIsDraggingFile(false)}
-          onDrop={e => {
-            e.preventDefault(); setIsDraggingFile(false)
-            const f = e.dataTransfer.files[0]; if (f) handleFile(f)
-          }}
-        >
-          {/* Canvas toolbar */}
-          {imageUrl && mode === 'edit' && (
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {getCanvasTools().map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTool(t.id)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors',
-                    activeTool === t.id
-                      ? 'bg-[#FFFF00]/10 border-[#FFFF00]/40 text-[#FFFF00]'
-                      : 'bg-white/5 border-white/8 text-white/50 hover:text-white hover:border-white/25'
-                  )}
-                >
-                  <t.icon className="w-3.5 h-3.5" />
-                  {t.label}
-                </button>
-              ))}
-              <div className="h-5 w-px bg-white/10" />
-              {activeLayer && (
-                <div className="flex items-center gap-1.5 text-xs text-white/40">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: activeLayer.color }} />
-                  Painting: <span className="text-white/70">{activeLayer.colorName}</span>
-                </div>
+      {/* ── MODE SWITCHER (floating top center) ──────────────────────── */}
+      <div className="fixed top-[4.6rem] left-1/2 -translate-x-1/2 z-40">
+        <div className="flex bg-black/55 backdrop-blur-2xl border border-white/8 rounded-full p-1 shadow-2xl gap-0.5">
+          {([
+            { id: 'edit', label: '✏ Edit' },
+            { id: 'relight', label: '☀ Relight' },
+            { id: 'prompt', label: '✦ Prompt' },
+          ] as { id: Mode; label: string }[]).map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setMode(id)}
+              className={cn(
+                'px-5 py-1.5 text-[11px] font-black rounded-full uppercase tracking-widest transition-all duration-200',
+                mode === id
+                  ? 'bg-white/10 text-[#FFFF00] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                  : 'text-white/30 hover:text-white/60'
               )}
-              {!activeLayerId && layers.length > 0 && (
-                <span className="text-white/25 text-xs">Select a layer to paint</span>
-              )}
-              {layers.length === 0 && (
-                <span className="text-white/25 text-xs">Add a layer in the panel →</span>
-              )}
-            </div>
-          )}
-
-          {/* Canvas area */}
-          <div
-            ref={containerRef}
-            className={cn(
-              'w-full relative flex items-center justify-center bg-[#050505] rounded-2xl border transition-colors flex-1 min-h-[400px] overflow-hidden',
-              isDraggingFile ? 'border-[#FFFF00]/40' : 'border-white/5'
-            )}
-          >
-            {!imageUrl ? (
-              /* Upload drop zone */
-              <label className="flex flex-col items-center justify-center gap-4 cursor-pointer w-full h-full">
-                <div className={cn(
-                  'flex flex-col items-center gap-3 p-8 rounded-2xl border-2 border-dashed transition-all',
-                  isDraggingFile ? 'border-[#FFFF00]/60 bg-[#FFFF00]/5' : 'border-white/10'
-                )}>
-                  <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/8 flex items-center justify-center">
-                    <IconUpload className="w-7 h-7 text-white/30" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-white/60 font-medium">Drop an image here or click to upload</p>
-                    <p className="text-white/25 text-sm mt-1">PNG, JPG, WebP — max 10MB</p>
-                  </div>
-                </div>
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-              </label>
-            ) : (
-              <>
-                <canvas
-                  ref={displayCanvasRef}
-                  className="block max-w-full max-h-full"
-                  style={{ cursor: canvasCursor, touchAction: 'none' }}
-                  onMouseDown={onMouseDown}
-                  onMouseMove={onMouseMove}
-                  onMouseUp={onMouseUp}
-                  onMouseLeave={e => { if (isDrawingRef.current) onMouseUp(e) }}
-                />
-
-                {/* Floating text input */}
-                {textInput.visible && (
-                  <div className="absolute z-20" style={{ left: textInput.screenX, top: textInput.screenY }}>
-                    <input
-                      ref={textInputRef}
-                      value={textValue}
-                      onChange={e => setTextValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') commitText()
-                        if (e.key === 'Escape') { setTextInput(p => ({ ...p, visible: false })); setTextValue('') }
-                      }}
-                      onBlur={commitText}
-                      className="bg-black/90 border border-[#FFFF00]/40 text-[#FFFF00] text-sm px-3 py-1.5 rounded-lg outline-none min-w-[160px] placeholder-white/30 shadow-xl"
-                      placeholder="Type & Enter…"
-                    />
-                  </div>
-                )}
-
-                {/* Rect drawing preview */}
-                {rectDraw && activeLayer && (
-                  <div
-                    className="absolute pointer-events-none border-2 rounded-sm"
-                    style={{
-                      left: rectDraw.screenX,
-                      top: rectDraw.screenY,
-                      width: rectDraw.screenW,
-                      height: rectDraw.screenH,
-                      borderColor: activeLayer.color,
-                      background: `${activeLayer.color}22`,
-                    }}
-                  />
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Status bar */}
-          <div className="mt-3 flex justify-between items-center text-[10px] text-gray-700 font-mono uppercase tracking-wider">
-            <div>
-              {imageDims ? `Source: ${imageDims.w}×${imageDims.h}` : 'No image loaded'}
-            </div>
-            <div>Sharpii Edit v2.0</div>
-          </div>
+            >{label}</button>
+          ))}
         </div>
       </div>
 
-      {/* ── RESULTS DOCK ──────────────────────────────────────────────────────── */}
-      {results.length > 0 && (
-        <div className={cn(
-          'fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl border-t border-white/8 transition-all duration-300',
-          dockOpen ? 'translate-y-0' : 'translate-y-[calc(100%-2.5rem)]'
-        )}>
-          {/* Dock header */}
+      {/* ── LEFT TOOL PALETTE (edit mode, has image) ─────────────────── */}
+      {imageUrl && mode === 'edit' && (
+        <div className="fixed left-5 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-1.5 p-2 rounded-[20px] bg-black/55 backdrop-blur-2xl border border-white/8 shadow-2xl">
+
+          {/* Active layer color swatch */}
+          {activeLayerId && (
+            <div
+              className="w-7 h-2 rounded-full mb-0.5 ring-1 ring-white/15"
+              style={{ background: layers.find(l => l.id === activeLayerId)?.color ?? '#fff' }}
+            />
+          )}
+
+          {/* Tool buttons */}
+          {[
+            { id: 'brush' as Tool, Icon: IconBrush, tip: 'Brush' },
+            { id: 'eraser' as Tool, Icon: IconEraser, tip: 'Erase' },
+            { id: 'rect' as Tool, Icon: IconSquare, tip: 'Rectangle' },
+            { id: 'text' as Tool, Icon: IconTypography, tip: 'Text' },
+          ].map(({ id, Icon, tip }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTool(id)}
+              title={tip}
+              className={cn(
+                'w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-150',
+                activeTool === id
+                  ? 'bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.3)]'
+                  : 'text-white/35 hover:text-white hover:bg-white/[0.06]'
+              )}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          ))}
+
+          {/* Brush size */}
+          {(activeTool === 'brush' || activeTool === 'eraser') && (
+            <>
+              <div className="w-px h-3 bg-white/10 my-0.5" />
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className="rounded-full border border-white/20"
+                  style={{
+                    width: Math.max(6, Math.min(32, brushSize * 0.5)),
+                    height: Math.max(6, Math.min(32, brushSize * 0.5)),
+                    background: activeTool === 'eraser' ? 'rgba(255,255,255,0.15)' : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '80',
+                  }}
+                />
+                <input
+                  type="range" min={4} max={80} value={brushSize}
+                  onChange={e => setBrushSize(Number(e.target.value))}
+                  className="w-1 h-20 opacity-0 absolute cursor-pointer"
+                  style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+                />
+                <span className="text-[9px] text-white/25 font-mono">{brushSize}</span>
+              </div>
+            </>
+          )}
+
+          <div className="w-px h-3 bg-white/10 my-0.5" />
+
+          {/* Add layer */}
           <button
-            className="w-full flex items-center gap-3 px-4 h-10 hover:bg-white/[0.02] transition-colors"
-            onClick={() => setDockOpen(p => !p)}
+            onClick={addLayer}
+            title="Add Mask Layer"
+            disabled={!imageUrl}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white/25 hover:text-[#FFFF00] hover:bg-[#FFFF00]/[0.08] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00] animate-pulse" />
-            <span className="text-xs font-bold text-white/70">
-              {results.length} Result{results.length !== 1 ? 's' : ''}
-            </span>
-            <span className="text-[10px] text-white/25 font-mono">
-              {new Date(results[0]!.timestamp).toLocaleTimeString()}
-            </span>
-            <div className="flex-1" />
-            {dockOpen
-              ? <IconChevronDown className="w-4 h-4 text-white/25" />
-              : <IconChevronUp className="w-4 h-4 text-white/25" />}
+            <IconPlus className="w-4 h-4" />
           </button>
 
-          {/* Thumbnails */}
-          {dockOpen && (
-            <div className="flex gap-3 px-4 pb-4 overflow-x-auto">
-              {results.map(result => (
-                <button
-                  key={result.id}
-                  onClick={() => { setSelectedResult(result); setShowResultModal(true) }}
-                  className="flex-shrink-0 relative group"
-                >
-                  <img
-                    src={result.url} alt=""
-                    className="w-20 h-20 object-cover rounded-xl border border-white/10 group-hover:border-[#FFFF00]/50 transition-colors"
+          {/* Layer dots */}
+          {layers.length > 0 && (
+            <>
+              <div className="w-px h-2 bg-white/10" />
+              <div className="flex flex-col gap-1.5">
+                {layers.map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => setActiveLayerId(l.id)}
+                    className={cn(
+                      'w-4 h-4 rounded-full ring-2 ring-offset-1 ring-offset-black/80 transition-all',
+                      activeLayerId === l.id ? 'ring-[#FFFF00] scale-110' : 'ring-white/20 hover:ring-white/40'
+                    )}
+                    style={{ background: l.color }}
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 rounded-xl transition-colors flex items-center justify-center">
-                    <IconMaximize className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="absolute bottom-1 left-1 bg-black/70 rounded px-1 py-0.5 text-[8px] text-white/50 uppercase">
-                    {result.mode}
-                  </div>
-                </button>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
 
-      {/* ── RESULT MODAL ──────────────────────────────────────────────────────── */}
-      {showResultModal && selectedResult && (
-        <ResultModal
-          result={selectedResult}
-          onClose={() => setShowResultModal(false)}
-          onUseAsInput={useAsInput}
-        />
+      {/* ── RELIGHT PANEL (floating left, mode=relight) ──────────────── */}
+      {mode === 'relight' && imageUrl && (
+        <div className="fixed left-5 top-[5.2rem] z-40 w-[270px] max-h-[calc(100vh-7.5rem)] overflow-y-auto overflow-x-hidden rounded-2xl bg-[#08080e]/90 backdrop-blur-2xl border border-white/8 shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 space-y-4">
+
+          {/* Sphere */}
+          <div className="flex flex-col items-center gap-3">
+            <RelightSphere
+              azimuth={lightSettings.azimuth}
+              elevation={lightSettings.elevation}
+              lightColor={lightSettings.color}
+              intensity={lightSettings.intensity}
+              onAzimuthChange={az => setLightSettings(p => ({ ...p, azimuth: az }))}
+              onElevationChange={el => setLightSettings(p => ({ ...p, elevation: el }))}
+              size={210}
+            />
+            {/* Readout */}
+            <div className="flex gap-5 text-[11px] font-mono">
+              <span className="text-white/25">AZ <span className="text-white/55">{lightSettings.azimuth}°</span></span>
+              <span className="text-white/25">EL <span className="text-white/55">{lightSettings.elevation > 0 ? '+' : ''}{lightSettings.elevation}°</span></span>
+            </div>
+          </div>
+
+          {/* Presets */}
+          <div>
+            <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em] mb-2">Quick Presets</p>
+            <div className="grid grid-cols-4 gap-1">
+              {RELIGHT_PRESETS.map(p => (
+                <button
+                  key={p.name}
+                  onClick={() => setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el }))}
+                  className={cn(
+                    'py-1.5 text-[10px] font-black rounded-xl border transition-all duration-150',
+                    lightSettings.azimuth === p.az && lightSettings.elevation === p.el
+                      ? 'border-[#FFFF00]/25 bg-[#FFFF00]/8 text-[#FFFF00]'
+                      : 'border-white/5 bg-white/[0.02] text-white/30 hover:text-white hover:border-white/12'
+                  )}
+                >{p.name}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Light color */}
+          <div>
+            <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em] mb-2.5">Light Color</p>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-white/10 flex-shrink-0">
+                <input type="color" value={lightSettings.color} onChange={e => setLightSettings(p => ({ ...p, color: e.target.value }))}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <div className="absolute inset-0 rounded-xl" style={{ background: lightSettings.color }} />
+              </div>
+              <input type="text" value={lightSettings.color} onChange={e => setLightSettings(p => ({ ...p, color: e.target.value }))}
+                className="flex-1 bg-black/40 border border-white/8 rounded-xl px-3 py-1.5 text-xs text-white font-mono uppercase outline-none focus:border-white/20" />
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {LIGHT_COLOR_PRESETS.map(c => (
+                <button key={c} onClick={() => setLightSettings(p => ({ ...p, color: c }))}
+                  className={cn('w-7 h-7 rounded-full border-2 transition-all duration-150', lightSettings.color === c ? 'border-white scale-110 shadow-lg' : 'border-white/15 hover:border-white/40')}
+                  style={{ background: c }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Intensity */}
+          <div>
+            <div className="flex justify-between items-center mb-2.5">
+              <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em]">Intensity</p>
+              <span className="text-[11px] font-mono text-white/45">{lightSettings.intensity}%</span>
+            </div>
+            <div className="relative h-2 rounded-full bg-white/8 overflow-hidden">
+              <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{
+                width: `${(lightSettings.intensity - 10) / 90 * 100}%`,
+                background: `linear-gradient(to right, ${lightSettings.color}66, ${lightSettings.color})`,
+              }} />
+              <input type="range" min={10} max={100} step={5} value={lightSettings.intensity}
+                onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
+                className="absolute inset-0 w-full opacity-0 cursor-pointer h-full" />
+            </div>
+          </div>
+
+          {/* Hard / Soft */}
+          <div className="grid grid-cols-2 gap-2">
+            {(['soft', 'hard'] as const).map(type => (
+              <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
+                className={cn(
+                  'py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all duration-150',
+                  lightSettings.softness === type
+                    ? 'bg-white/[0.07] border-[#FFFF00]/25 text-[#FFFF00]'
+                    : 'bg-transparent border-white/5 text-white/22 hover:text-white/50'
+                )}>{type} light</button>
+            ))}
+          </div>
+
+          {/* Scene lock */}
+          <button
+            onClick={() => setLightSettings(p => ({ ...p, sceneLock: !p.sceneLock }))}
+            className={cn(
+              'w-full flex items-center justify-between px-3.5 py-3 rounded-xl border transition-all duration-200',
+              lightSettings.sceneLock ? 'border-[#FFFF00]/18 bg-[#FFFF00]/[0.04]' : 'border-white/5 bg-white/[0.015]'
+            )}
+          >
+            <div className="text-left">
+              <p className={cn('text-xs font-black', lightSettings.sceneLock ? 'text-[#FFFF00]' : 'text-white/35')}>Scene Lock</p>
+              <p className="text-[10px] text-white/18 mt-0.5">Preserve pose & character</p>
+            </div>
+            <div className={cn('w-10 h-5.5 rounded-full border relative flex-shrink-0 transition-all duration-200',
+              lightSettings.sceneLock ? 'bg-[#FFFF00] border-[#FFFF00]' : 'bg-transparent border-white/18'
+            )} style={{ height: 22 }}>
+              <div className={cn('absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-200',
+                lightSettings.sceneLock ? 'left-[calc(100%-18px)]' : 'left-0.5'
+              )} />
+            </div>
+          </button>
+
+          {/* Prompt preview */}
+          <div className="bg-white/[0.015] border border-white/5 rounded-xl p-3">
+            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.15em] mb-1.5">Generated Prompt</p>
+            <p className="text-[10px] text-white/28 leading-relaxed font-mono break-words">{generateRelightPrompt(lightSettings)}</p>
+          </div>
+        </div>
       )}
 
-      {/* Hidden file input for drag-drop */}
-      <input type="file" accept="image/*" className="hidden" ref={fileInputRef}
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+      {/* ── PROMPT PANEL (floating left, mode=prompt) ─────────────────── */}
+      {mode === 'prompt' && imageUrl && (
+        <div className="fixed left-5 top-[5.2rem] z-40 w-[270px] rounded-2xl bg-[#08080e]/90 backdrop-blur-2xl border border-white/8 shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-4 space-y-3">
+          <p className="text-[9px] font-black text-white/25 uppercase tracking-[0.15em]">Edit Instruction</p>
+          <textarea
+            value={promptText}
+            onChange={e => setPromptText(e.target.value)}
+            placeholder={"e.g. 'Make the background a sunset beach, change jacket to red'"}
+            className="w-full bg-black/35 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/18 resize-none outline-none focus:border-white/18 leading-relaxed"
+            rows={4}
+          />
+          <div>
+            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.15em] mb-2">Reference (optional)</p>
+            {promptRefUrl ? (
+              <div className="flex items-center gap-2.5">
+                <img src={promptRefUrl} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/10 flex-shrink-0" />
+                <span className="text-xs text-white/30 flex-1">Reference attached</span>
+                <button onClick={() => setPromptRefUrl(null)} className="text-white/15 hover:text-red-400 transition-colors"><IconX className="w-4 h-4" /></button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-white/22 hover:text-white/50 transition-colors">
+                <IconPhoto className="w-4 h-4" />
+                Attach reference image
+                <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                  const file = e.target.files?.[0]; if (!file) return
+                  const fd = new FormData(); fd.append('file', file)
+                  try {
+                    const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
+                    const d = await r.json(); setPromptRefUrl(d.image?.url ?? URL.createObjectURL(file))
+                  } catch { setPromptRefUrl(URL.createObjectURL(file)) }
+                }} />
+              </label>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── BOTTOM BAR ───────────────────────────────────────────────── */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5">
+
+        {/* Upload / Replace */}
+        <label className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-2xl border border-white/8 shadow-xl cursor-pointer hover:border-white/14 transition-all duration-200">
+          <IconUpload className="w-4 h-4 text-white/40" />
+          <span className="text-xs font-black text-white/35 uppercase tracking-wide">{imageUrl ? 'Replace' : 'Upload'}</span>
+          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+        </label>
+
+        {/* Model selector */}
+        <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
+
+        {/* Generate CTA */}
+        <button
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          className={cn(
+            'flex items-center gap-2.5 px-8 py-3 rounded-2xl font-black text-sm uppercase tracking-wider transition-all duration-200 shadow-2xl',
+            canGenerate
+              ? 'bg-[#FFFF00] text-black hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(255,255,0,0.2)]'
+              : 'bg-white/[0.04] text-white/12 cursor-not-allowed border border-white/5'
+          )}
+        >
+          {isGenerating ? (
+            <><IconLoader2 className="w-4 h-4 animate-spin" />Generating…</>
+          ) : (
+            <><IconWand className="w-4 h-4" />Generate<span className="flex items-center gap-1 text-black/50 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span></>
+          )}
+        </button>
+      </div>
+
+      {/* ── RESULTS DOCK (floating bottom-right) ─────────────────────── */}
+      {results.length > 0 && (
+        <div className="fixed right-5 bottom-6 z-40">
+          <div className="bg-[#09090f]/90 backdrop-blur-2xl border border-white/8 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+              <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Results ({results.length})</span>
+              <button onClick={() => setResultsDockOpen(p => !p)} className="text-white/20 hover:text-white/50 transition-colors">
+                {resultsDockOpen ? <IconChevronDown className="w-4 h-4" /> : <IconChevronUp className="w-4 h-4" />}
+              </button>
+            </div>
+            {resultsDockOpen && (
+              <div className="flex gap-2 p-2.5" style={{ maxWidth: 320 }}>
+                {results.slice(0, 5).map(r => (
+                  <button
+                    key={r.id} onClick={() => setModalResult(r)}
+                    className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-white/8 hover:border-[#FFFF00]/40 transition-all duration-150 hover:scale-105"
+                  >
+                    <img src={r.url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── RESULT MODAL ─────────────────────────────────────────────── */}
+      {modalResult && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center" onClick={() => setModalResult(null)}>
+          <div className="flex flex-col gap-4 max-w-4xl max-h-[90vh] items-center" onClick={e => e.stopPropagation()}>
+            <img src={modalResult.url} alt="" className="rounded-2xl max-h-[74vh] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.8)]" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setImageUrl(modalResult.url); bgImageRef.current = null; setLayers([]); layerCanvasesRef.current.clear(); setModalResult(null) }}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#FFFF00] text-black font-black text-sm hover:scale-105 transition-transform"
+              >
+                <IconRefresh className="w-4 h-4" /> Use as Input
+              </button>
+              <a href={modalResult.url} download="result.png" className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/14 transition-colors">
+                <IconDownload className="w-4 h-4" /> Download
+              </a>
+              <button onClick={() => setModalResult(null)} className="px-6 py-2.5 rounded-xl bg-white/5 text-white/40 font-bold text-sm hover:bg-white/8 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ERROR TOAST ──────────────────────────────────────────────── */}
+      {error && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-red-500/12 border border-red-500/25 text-red-300 text-sm shadow-2xl backdrop-blur-xl">
+          <IconX className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="ml-2 text-red-300/40 hover:text-red-300 transition-colors"><IconX className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
     </div>
   )
 }
-
-// alias for tabler icon used in MaskLayerCard
-const IconBrush = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
-    <path d="M21 12h-8c-1.1 0-2 .9-2 2v5c0 1.1.9 2 2 2h8" />
-  </svg>
-)
