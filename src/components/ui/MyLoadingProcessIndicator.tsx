@@ -45,13 +45,13 @@ function SquareTile({ task, onClose }: { task: TaskItem; onClose: () => void }) 
         width: 48,
         height: 48,
         background: isSuccess
-          ? 'radial-gradient(circle at 50% 50%, #1a1a00 0%, #0c0c0c 100%)'
+          ? 'radial-gradient(circle at 50% 50%, #0a1a0f 0%, #0c0c0c 100%)'
           : isError
           ? 'radial-gradient(circle at 50% 50%, #1a0505 0%, #0c0c0c 100%)'
           : '#0d0d0d',
-        border: `1px solid ${isError ? '#4a1515' : isSuccess ? '#2e2e00' : '#222222'}`,
+        border: `1px solid ${isError ? '#4a1515' : isSuccess ? '#166534' : '#222222'}`,
         boxShadow: isSuccess
-          ? '0 0 16px rgba(255,255,0,0.18), 0 4px 24px rgba(0,0,0,0.9)'
+          ? '0 0 14px rgba(34,197,94,0.15), 0 4px 24px rgba(0,0,0,0.9)'
           : '0 4px 24px rgba(0,0,0,0.9)',
         cursor: (isError || isSuccess) ? 'pointer' : 'default',
       }}
@@ -80,31 +80,21 @@ function SquareTile({ task, onClose }: { task: TaskItem; onClose: () => void }) 
         </svg>
       )}
 
-      {/* Success: animated checkmark ring */}
+      {/* Success: animated green tick */}
       {isSuccess && (
-        <motion.svg
-          width="28" height="28" viewBox="0 0 28 28"
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
-        >
-          {/* Filled ring */}
-          <circle cx="14" cy="14" r={R} fill="none" stroke="#FFFF00" strokeWidth="2"
-            style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,0,0.4))' }} />
-          {/* Checkmark */}
+        <svg width="28" height="28" viewBox="0 0 28 28">
           <motion.path
-            d="M9 14.5l3.5 3.5 6.5-7"
+            d="M7 15l5 5 9-10"
             fill="none"
-            stroke="#FFFF00"
-            strokeWidth="2"
+            stroke="#22c55e"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.3, delay: 0.05, ease: 'easeOut' }}
-            style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,0,0.6))' }}
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
           />
-        </motion.svg>
+        </svg>
       )}
 
       {/* Error: X with shake */}

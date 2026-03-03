@@ -242,15 +242,18 @@ export async function POST(request: NextRequest) {
     .eq('id', taskId)
 
   // ── Deduct credits ────────────────────────────────────────────────────────
-  try {
-    await UnifiedCreditsService.deductCredits(
-      userId,
-      actualCredits,
-      taskId,
-      `Image generation: ${modelConfig.label} ×${outputUrls.length}`
+  const deductResult = await UnifiedCreditsService.deductCredits(
+    userId,
+    actualCredits,
+    taskId,
+    `Image generation: ${modelConfig.label} ×${outputUrls.length}`
+  )
+  if (!deductResult.success) {
+    // Images already generated — do not withhold them from the user, but log
+    // this as a critical failure for manual investigation and recovery.
+    console.error(
+      `🚨 CRITICAL generate-image: credit deduction FAILED for user=${userId} task=${taskId} amount=${actualCredits} — ${deductResult.error}`
     )
-  } catch (err) {
-    console.error('⚠️ generate-image: credit deduction failed (non-fatal):', err)
   }
 
   // ── Background: re-upload outputs to Bunny CDN (same pattern as poll endpoint)
