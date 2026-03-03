@@ -344,15 +344,17 @@ function FloatingMaskCard({
   onDelete: () => void
   onCardDrag: (dx: number, dy: number) => void
 }) {
+  // Use ref for DOM manipulation during drag — zero re-renders while dragging
+  const cardRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef({ startX: 0, startY: 0, active: false })
 
-  // Use centroid or default to canvas center
   const baseCentroidCss = layer.centroid
     ? { x: layer.centroid.x * scaleX, y: layer.centroid.y * scaleY }
     : { x: canvasW * 0.5, y: canvasH * 0.5 }
 
-  const cardX = baseCentroidCss.x + 18 + layer.cardOffset.x
-  const cardY = baseCentroidCss.y - 50 + layer.cardOffset.y
+  // Push card to the right side so it doesn't cover the painted area
+  const cardX = Math.min(baseCentroidCss.x + 90, canvasW - 20) + layer.cardOffset.x
+  const cardY = baseCentroidCss.y - 60 + layer.cardOffset.y
 
   return (
     <>
@@ -375,21 +377,23 @@ function FloatingMaskCard({
 
       {/* The card */}
       <div
+        ref={cardRef}
         className={cn(
-          'absolute w-[230px] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.6)] border transition-all duration-200',
-          isActive ? 'border-[#FFFF00]/25' : 'border-white/[0.06]'
+          'absolute w-[220px] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.6)] border',
+          isActive ? 'border-[#FFFF00]/30' : 'border-white/[0.08]'
         )}
         style={{
           left: cardX,
           top: cardY,
-          background: '#0c0c0e',
+          background: '#0d0d10',
           zIndex: isActive ? 20 : 10,
+          willChange: 'transform',
         }}
         onClick={onSelect}
       >
         {/* Drag handle / header */}
         <div
-          className="flex items-center justify-between px-3 pt-3 pb-1.5 cursor-grab active:cursor-grabbing"
+          className="flex items-center justify-between px-3 pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing select-none"
           onPointerDown={e => {
             dragRef.current = { startX: e.clientX, startY: e.clientY, active: true }
             e.currentTarget.setPointerCapture(e.pointerId)
@@ -397,14 +401,23 @@ function FloatingMaskCard({
           }}
           onPointerMove={e => {
             if (!dragRef.current.active) return
-            onCardDrag(e.clientX - dragRef.current.startX, e.clientY - dragRef.current.startY)
-            dragRef.current.startX = e.clientX
-            dragRef.current.startY = e.clientY
+            // Direct DOM transform — no React state update while dragging
+            const dx = e.clientX - dragRef.current.startX
+            const dy = e.clientY - dragRef.current.startY
+            if (cardRef.current) cardRef.current.style.transform = `translate(${dx}px,${dy}px)`
           }}
-          onPointerUp={() => { dragRef.current.active = false }}
+          onPointerUp={e => {
+            if (!dragRef.current.active) return
+            dragRef.current.active = false
+            const dx = e.clientX - dragRef.current.startX
+            const dy = e.clientY - dragRef.current.startY
+            // Remove CSS transform and commit delta to React state once
+            if (cardRef.current) cardRef.current.style.transform = ''
+            onCardDrag(dx, dy)
+          }}
         >
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ background: layer.color }} />
+            <div className="w-2.5 h-2.5 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ background: layer.color }} />
             <span className="text-[11px] font-black uppercase tracking-wider text-white capitalize">{layer.colorName}</span>
             {isActive && (
               <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-white/[0.09] text-[#FFFF00]">
@@ -421,7 +434,7 @@ function FloatingMaskCard({
               onClick={e => { e.stopPropagation(); onDelete() }}
               className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded hover:bg-red-500/10"
             >
-              <IconX className="w-3.5 h-3.5" />
+              <IconX className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -432,27 +445,29 @@ function FloatingMaskCard({
             value={layer.prompt}
             onChange={e => onUpdatePrompt(e.target.value)}
             onClick={e => e.stopPropagation()}
-            placeholder={`What to change in the ${layer.colorName} area…`}
-            className="w-full bg-transparent text-[12px] text-white placeholder:text-white/25 resize-none outline-none leading-relaxed"
-            style={{ minHeight: 48 }}
+            placeholder={`Describe what to change here…`}
+            className="w-full bg-white/[0.03] border border-white/5 rounded-lg px-2.5 py-2 text-[12px] text-white placeholder:text-white/30 resize-none outline-none leading-relaxed focus:border-white/15 transition-colors"
+            style={{ minHeight: 52 }}
             rows={2}
           />
         </div>
 
-        {/* Reference image */}
-        <div className="px-3 pb-2.5 border-t border-white/5 pt-2">
+        {/* Reference image — icon button style (consistent with image page) */}
+        <div className="px-3 pb-2.5 flex items-center gap-2">
           {layer.referenceImageUrl ? (
-            <div className="flex items-center gap-2">
-              <img src={layer.referenceImageUrl} alt="" className="w-7 h-7 rounded-lg object-cover border border-white/10 flex-shrink-0" />
-              <span className="text-[10px] text-gray-400 flex-1">Reference attached</span>
-              <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="text-gray-500 hover:text-red-400 transition-colors">
+            <>
+              <img src={layer.referenceImageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-white/10 flex-shrink-0" />
+              <span className="text-[10px] text-gray-400 flex-1 truncate">Ref attached</span>
+              <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded hover:bg-red-500/10">
                 <IconX className="w-3 h-3" />
               </button>
-            </div>
+            </>
           ) : (
-            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-gray-500 hover:text-white transition-colors" onClick={e => e.stopPropagation()}>
-              <IconPhoto className="w-3.5 h-3.5" />
-              Attach reference image
+            <label className="flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 transition-all text-gray-500 hover:text-white flex-shrink-0">
+                <IconPhoto className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] text-gray-500">Add reference</span>
               <input type="file" accept="image/*" className="hidden" onChange={async e => {
                 const file = e.target.files?.[0]; if (!file) return
                 const fd = new FormData(); fd.append('file', file)
@@ -978,6 +993,29 @@ export default function EditPage() {
       isDrawingRef.current = true; rectStartRef.current = pt; return
     }
 
+    if ((activeTool === 'brush' || activeTool === 'eraser') && mode === 'edit' && !activeLayerId && layers.length === 0 && imageNaturalSize) {
+      // Auto-create first layer so user doesn't need to click +
+      const colorData = LAYER_COLORS[nextColorIdx.current % LAYER_COLORS.length]!
+      nextColorIdx.current++
+      const newLayer: MaskLayer = {
+        id: uid(), color: colorData.hex, colorName: colorData.name,
+        prompt: '', referenceImageUrl: null, centroid: null, cardOffset: { x: 0, y: 0 },
+      }
+      const lc = document.createElement('canvas')
+      lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
+      layerCanvasesRef.current.set(newLayer.id, lc)
+      setLayers([newLayer])
+      setActiveLayerId(newLayer.id)
+      // Paint the first dot using the new layer directly
+      const ctx = lc.getContext('2d')!
+      const r = brushSize / (2 * scaleX)
+      paintDot(ctx, pt.x, pt.y, r, colorData.rgb, activeTool === 'eraser')
+      isDrawingRef.current = true
+      lastPointRef.current = pt
+      setTimeout(renderCanvas, 0)
+      return
+    }
+
     if ((activeTool === 'brush' || activeTool === 'eraser') && mode === 'edit' && activeLayerId) {
       const layer = layers.find(l => l.id === activeLayerId)
       const lc = layerCanvasesRef.current.get(activeLayerId)
@@ -1072,8 +1110,10 @@ export default function EditPage() {
       let combinedPrompt = ''
       const referenceImages: string[] = []
 
+      // Always get canvas contents as base64 (handles blob URLs + captures annotations)
+      compositeDataUrl = flattenForExport()
+
       if (mode === 'edit') {
-        compositeDataUrl = flattenForExport()
         const activeLayers = layers.filter(l => l.prompt.trim())
         combinedPrompt = activeLayers.map(l => `In the ${l.colorName} highlighted region: ${l.prompt.trim()}`).join('. ')
           + '. Keep all non-highlighted areas completely unchanged.'
@@ -1087,14 +1127,14 @@ export default function EditPage() {
 
       const body: Record<string, unknown> = {
         mode, model: selectedModel, taskId,
-        originalImageUrl: imageUrl, prompt: combinedPrompt, referenceImages,
+        originalImageUrl: imageUrl, combinedPrompt, referenceImages,
+        compositeDataUrl,
       }
-      if (compositeDataUrl) body.compositeDataUrl = compositeDataUrl
 
       const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
       const data = await res.json()
-      setResults(prev => [{ id: taskId, url: data.imageUrl, mode, timestamp: Date.now(), inputUrl: imageUrl, prompt: combinedPrompt }, ...prev])
+      setResults(prev => [{ id: taskId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl, prompt: combinedPrompt }, ...prev])
       setResultsDockOpen(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Generation failed')
@@ -1111,7 +1151,7 @@ export default function EditPage() {
 
   // ── Render
   return (
-    <div className="fixed inset-0 pt-16 bg-[#07070a] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px)', backgroundSize: '22px 22px' }}>
+    <div className="fixed inset-0 pt-16 bg-[#07070a] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.14) 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
 
       {/* ── CANVAS WORKSPACE ─────────────────────────────────────────── */}
       <div
@@ -1120,14 +1160,19 @@ export default function EditPage() {
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
       >
         {!imageUrl ? (
-          /* Drop zone */
-          <label className="group flex flex-col items-center gap-6 cursor-pointer">
-            <div className="w-28 h-28 rounded-xl border border-dashed border-white/10 group-hover:border-[#FFFF00]/30 bg-white/[0.015] group-hover:bg-[#FFFF00]/[0.02] flex items-center justify-center transition-all duration-500">
-              <IconUpload className="w-10 h-10 text-gray-600 group-hover:text-[#FFFF00]/50 transition-colors duration-300" />
+          /* ── REDESIGNED EMPTY STATE ─────────────────────────────────── */
+          <label className="group cursor-pointer flex flex-col items-center gap-8 select-none">
+            <div className="relative w-44 h-44 rounded-2xl border border-dashed border-white/15 group-hover:border-[#FFFF00]/40 bg-white/[0.02] group-hover:bg-[#FFFF00]/[0.025] flex flex-col items-center justify-center gap-3 transition-all duration-300">
+              <IconUpload className="w-12 h-12 text-white/25 group-hover:text-[#FFFF00]/60 transition-all duration-300 group-hover:-translate-y-0.5" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-white/25 group-hover:text-[#FFFF00]/50 transition-colors">Upload Image</span>
             </div>
-            <div className="text-center space-y-1">
-              <p className="text-base font-bold text-gray-400 group-hover:text-white transition-colors">Drop an image or click to upload</p>
-              <p className="text-xs text-gray-600">PNG · JPG · WebP · max 10MB</p>
+            <div className="text-center space-y-2.5">
+              <p className="text-sm font-semibold text-white/50 group-hover:text-white/80 transition-colors">Drop an image or click to browse</p>
+              <div className="flex items-center justify-center gap-2">
+                {['PNG', 'JPG', 'WebP'].map(t => (
+                  <span key={t} className="text-[10px] font-bold text-white/25 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] uppercase tracking-wide">{t}</span>
+                ))}
+              </div>
             </div>
             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
           </label>
@@ -1137,47 +1182,71 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: EDIT TOOLS ───────────────────────── */}
             {mode === 'edit' && (
-              <div className="flex-shrink-0 self-center flex flex-col items-center gap-1.5 p-2 rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-xl">
+              <div className="flex-shrink-0 self-center flex flex-col items-center gap-1 p-2 rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl">
+                {/* Active layer indicator */}
                 {activeLayerId && (
                   <div className="w-6 h-1.5 rounded-full mb-0.5" style={{ background: layers.find(l => l.id === activeLayerId)?.color ?? '#fff' }} />
                 )}
+
+                {/* Tool buttons */}
                 {[
-                  { id: 'brush' as Tool, Icon: IconBrush, tip: 'Brush' },
-                  { id: 'eraser' as Tool, Icon: IconEraser, tip: 'Erase' },
-                  { id: 'rect' as Tool, Icon: IconSquare, tip: 'Rect' },
-                  { id: 'text' as Tool, Icon: IconTypography, tip: 'Text' },
+                  { id: 'brush' as Tool, Icon: IconBrush, tip: 'Brush — paint mask area' },
+                  { id: 'eraser' as Tool, Icon: IconEraser, tip: 'Eraser — remove mask paint' },
+                  { id: 'rect' as Tool, Icon: IconSquare, tip: 'Rectangle annotation' },
+                  { id: 'text' as Tool, Icon: IconTypography, tip: 'Text annotation' },
                 ].map(({ id, Icon, tip }) => (
                   <button key={id} onClick={() => setActiveTool(id)} title={tip}
                     className={cn('w-9 h-9 rounded-lg flex items-center justify-center transition-all',
-                      activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                      activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-white/55 hover:text-white hover:bg-white/[0.08]'
                     )}>
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-4 h-4" strokeWidth={1.8} />
                   </button>
                 ))}
-                {(activeTool === 'brush' || activeTool === 'eraser') && (<>
-                  <div className="w-5 h-px bg-white/10 my-0.5" />
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="rounded-full border border-white/20" style={{
-                      width: Math.max(6, Math.min(28, brushSize * 0.45)), height: Math.max(6, Math.min(28, brushSize * 0.45)),
-                      background: activeTool === 'eraser' ? 'rgba(255,255,255,0.15)' : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '80',
-                    }} />
-                    <input type="range" min={4} max={80} value={brushSize} onChange={e => setBrushSize(Number(e.target.value))}
-                      className="w-1 h-16 opacity-0 absolute cursor-pointer" style={{ writingMode: 'vertical-lr', direction: 'rtl' }} />
-                    <span className="text-[9px] text-gray-500 font-mono">{brushSize}</span>
-                  </div>
-                </>)}
+
+                {/* Brush size slider (visible) */}
+                {(activeTool === 'brush' || activeTool === 'eraser') && (
+                  <>
+                    <div className="w-5 h-px bg-white/10 my-0.5" />
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="rounded-full border border-white/20 transition-all" style={{
+                        width: Math.max(6, Math.min(28, brushSize * 0.4)),
+                        height: Math.max(6, Math.min(28, brushSize * 0.4)),
+                        background: activeTool === 'eraser'
+                          ? 'rgba(255,255,255,0.25)'
+                          : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '99',
+                      }} />
+                      <input
+                        type="range" min={4} max={80} value={brushSize}
+                        onChange={e => setBrushSize(Number(e.target.value))}
+                        style={{
+                          writingMode: 'vertical-lr', direction: 'rtl',
+                          width: 10, height: 58,
+                          accentColor: '#FFFF00',
+                          cursor: 'ns-resize',
+                        }}
+                      />
+                      <span className="text-[9px] text-gray-400 font-mono">{brushSize}</span>
+                    </div>
+                  </>
+                )}
+
                 <div className="w-5 h-px bg-white/10 my-0.5" />
-                <button onClick={addLayer} title="Add Mask Layer" disabled={!imageUrl}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-[#FFFF00] hover:bg-[#FFFF00]/[0.06] transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+
+                {/* Add layer — visible with border */}
+                <button onClick={addLayer} title="Add new mask layer"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-white/60 hover:text-[#FFFF00] hover:bg-[#FFFF00]/[0.08] border border-white/[0.09] hover:border-[#FFFF00]/25 transition-all">
                   <IconPlus className="w-4 h-4" />
                 </button>
+
+                {/* Layer dots */}
                 {layers.length > 0 && (<>
                   <div className="w-5 h-px bg-white/10" />
                   <div className="flex flex-col gap-1.5">
                     {layers.map(l => (
                       <button key={l.id} onClick={() => setActiveLayerId(l.id)}
-                        className={cn('w-4 h-4 rounded-full ring-2 ring-offset-1 ring-offset-[#0c0c0e] transition-all',
-                          activeLayerId === l.id ? 'ring-[#FFFF00] scale-110' : 'ring-white/20 hover:ring-white/40')}
+                        title={`${l.colorName} layer`}
+                        className={cn('w-4 h-4 rounded-full ring-2 ring-offset-1 ring-offset-[#0d0d10] transition-all',
+                          activeLayerId === l.id ? 'ring-[#FFFF00] scale-110' : 'ring-white/25 hover:ring-white/50')}
                         style={{ background: l.color }} />
                     ))}
                   </div>
@@ -1187,7 +1256,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: RELIGHT ──────────────────────────── */}
             {mode === 'relight' && (
-              <div className="flex-shrink-0 w-[232px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-xl">
+              <div className="flex-shrink-0 w-[232px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl">
                 <div className="p-4 space-y-4">
 
                   {/* Lighting Style grid */}
@@ -1222,55 +1291,59 @@ export default function EditPage() {
                     </div>
                   </div>
 
-                  {/* Direction presets */}
-                  <div>
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Direction</p>
-                    <div className="grid grid-cols-4 gap-1">
-                      {RELIGHT_PRESETS.map(p => (
-                        <button key={p.name}
-                          onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
-                          className={cn('py-1.5 text-[10px] font-black rounded-md transition-all border',
-                            lightSettings.azimuth === p.az && lightSettings.elevation === p.el
-                              ? 'border-white/20 bg-white/[0.06] text-[#FFFF00]'
-                              : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
-                          )}>{p.name}</button>
-                      ))}
+                  {/* Direction + Intensity side-by-side to reduce height */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Direction presets */}
+                    <div>
+                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Direction</p>
+                      <div className="grid grid-cols-2 gap-1">
+                        {RELIGHT_PRESETS.map(p => (
+                          <button key={p.name}
+                            onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
+                            className={cn('py-1.5 text-[9px] font-black rounded-md transition-all border',
+                              lightSettings.azimuth === p.az && lightSettings.elevation === p.el
+                                ? 'border-white/20 bg-white/[0.06] text-[#FFFF00]'
+                                : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
+                            )}>{p.name}</button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Intensity */}
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all">
-                    <div className="flex justify-between items-center mb-2.5">
-                      <span className="text-xs font-black text-white uppercase tracking-wider">Intensity</span>
-                      <span className="font-mono text-[12px] text-white bg-white/5 px-1.5 py-0.5 rounded">{lightSettings.intensity}%</span>
-                    </div>
-                    <div className="relative h-1.5 rounded-full bg-white/10 overflow-hidden">
-                      <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{
-                        width: `${(lightSettings.intensity - 10) / 90 * 100}%`,
-                        background: `linear-gradient(to right, ${lightSettings.color}55, ${lightSettings.color})`,
-                      }} />
-                      <input type="range" min={10} max={100} step={5} value={lightSettings.intensity}
-                        onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
-                        className="absolute inset-0 w-full opacity-0 cursor-pointer h-full" />
-                    </div>
-                  </div>
-
-                  {/* Light Falloff — segmented */}
-                  <div>
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Light Falloff</p>
-                    <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
-                      {(['soft', 'hard'] as const).map(type => (
-                        <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
-                          className={cn('flex-1 py-1.5 text-[11px] font-black rounded-md transition-all uppercase tracking-wider',
-                            lightSettings.softness === type ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
-                          )}>{type}</button>
-                      ))}
+                    {/* Intensity + Falloff stacked */}
+                    <div className="flex flex-col gap-2">
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Intensity</p>
+                          <span className="font-mono text-[10px] text-white">{lightSettings.intensity}%</span>
+                        </div>
+                        <div className="relative h-1.5 rounded-full bg-white/10">
+                          <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{
+                            width: `${(lightSettings.intensity - 10) / 90 * 100}%`,
+                            background: `linear-gradient(to right, ${lightSettings.color}55, ${lightSettings.color})`,
+                          }} />
+                          <input type="range" min={10} max={100} step={5} value={lightSettings.intensity}
+                            onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
+                            className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
+                            style={{ accentColor: '#FFFF00' }} />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Falloff</p>
+                        <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
+                          {(['soft', 'hard'] as const).map(type => (
+                            <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
+                              className={cn('flex-1 py-1 text-[10px] font-black rounded-md transition-all uppercase tracking-wider',
+                                lightSettings.softness === type ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
+                              )}>{type}</button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Light Color */}
                   <div>
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Light Color</p>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Light Color</p>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/10 flex-shrink-0">
                         <input type="color" value={lightSettings.color}
@@ -1280,22 +1353,22 @@ export default function EditPage() {
                       </div>
                       <input type="text" value={lightSettings.color}
                         onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-mono uppercase outline-none focus:border-white/25 transition-all" />
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white font-mono uppercase outline-none focus:border-white/25 transition-all" />
                     </div>
-                    <div className="flex gap-1 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap">
                       {LIGHT_COLOR_PRESETS.map(c => (
                         <button key={c}
                           onClick={() => { setLightSettings(p => ({ ...p, color: c })); setActiveLightingStyle(null) }}
-                          className={cn('w-6 h-6 rounded-full border-2 transition-all', lightSettings.color === c ? 'border-white scale-110' : 'border-white/15 hover:border-white/40')}
+                          className={cn('w-5 h-5 rounded-full border-2 transition-all', lightSettings.color === c ? 'border-white scale-110' : 'border-white/15 hover:border-white/40')}
                           style={{ background: c }} />
                       ))}
                     </div>
                   </div>
 
                   {/* Scene Lock */}
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all">
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all">
                     <div>
-                      <span className="text-xs font-black text-white uppercase tracking-wider">Scene Lock</span>
+                      <span className="text-xs font-black text-white">Scene Lock</span>
                       <p className="text-[10px] text-gray-500 mt-0.5">Preserve pose & character</p>
                     </div>
                     <button onClick={() => setLightSettings(p => ({ ...p, sceneLock: !p.sceneLock }))}
@@ -1313,27 +1386,31 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
-              <div className="flex-shrink-0 w-[232px] self-center rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-xl p-4 space-y-3">
+              <div className="flex-shrink-0 w-[232px] self-center rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl p-4 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Edit Instruction</p>
                 <textarea
                   value={promptText}
                   onChange={e => setPromptText(e.target.value)}
                   placeholder={"e.g. 'Make the background a sunset beach'"}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 resize-none outline-none focus:border-white/25 leading-relaxed transition-all"
+                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/30 resize-none outline-none focus:border-white/25 leading-relaxed transition-all"
                   rows={5}
                 />
-                <div>
-                  <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-2">Reference (optional)</p>
+                {/* Reference image — icon button style (consistent with image page) */}
+                <div className="flex items-center gap-2 pt-1 border-t border-white/5">
                   {promptRefUrl ? (
-                    <div className="flex items-center gap-2.5">
+                    <>
                       <img src={promptRefUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-white/10 flex-shrink-0" />
                       <span className="text-xs text-gray-400 flex-1">Reference attached</span>
-                      <button onClick={() => setPromptRefUrl(null)} className="text-gray-500 hover:text-red-400 transition-colors"><IconX className="w-4 h-4" /></button>
-                    </div>
+                      <button onClick={() => setPromptRefUrl(null)} className="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10">
+                        <IconX className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   ) : (
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-500 hover:text-white transition-colors">
-                      <IconPhoto className="w-4 h-4" />
-                      Attach reference image
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 transition-all text-gray-500 hover:text-white flex-shrink-0">
+                        <IconPhoto className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs text-gray-500 hover:text-white transition-colors">Add reference image</span>
                       <input type="file" accept="image/*" className="hidden" onChange={async e => {
                         const file = e.target.files?.[0]; if (!file) return
                         const fd = new FormData(); fd.append('file', file)
@@ -1398,11 +1475,25 @@ export default function EditPage() {
               </div>
             )}
 
-            {/* Active tool & no-layer hint */}
-            {mode === 'edit' && !activeLayerId && layers.length === 0 && (
+            {/* Contextual hints */}
+            {mode === 'edit' && (activeTool === 'brush' || activeTool === 'eraser') && !activeLayerId && layers.length === 0 && (
               <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0c0c0e]/90 border border-white/[0.06] text-xs text-gray-400 font-bold">
-                  Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[#FFFF00] text-[10px]">+</kbd> in the toolbar to add a mask layer
+                <div className="px-4 py-2 rounded-lg bg-[#0d0d10]/95 border border-white/[0.08] text-xs text-gray-300 font-semibold shadow-lg">
+                  Paint anywhere to start masking — layer is created automatically
+                </div>
+              </div>
+            )}
+            {mode === 'edit' && activeTool === 'rect' && (
+              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
+                <div className="px-4 py-2 rounded-lg bg-[#0d0d10]/95 border border-white/[0.08] text-xs text-gray-300 font-semibold shadow-lg">
+                  Draw a rectangle, then describe the change in the floating card
+                </div>
+              </div>
+            )}
+            {mode === 'edit' && activeTool === 'text' && (
+              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
+                <div className="px-4 py-2 rounded-lg bg-[#0d0d10]/95 border border-white/[0.08] text-xs text-gray-300 font-semibold shadow-lg">
+                  Click anywhere on the image to add a text label
                 </div>
               </div>
             )}

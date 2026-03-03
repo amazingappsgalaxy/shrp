@@ -68,16 +68,18 @@ export async function POST(request: NextRequest) {
     // ALL masks are combined into ONE generation — no per-mask API calls
     const images: SynvowImageInput[] = []
 
-    if (mode === 'edit' && compositeDataUrl) {
-      // Upload the composite canvas (original image + all colored mask overlays) to Bunny
+    if (compositeDataUrl) {
+      // Upload the composite canvas to Bunny (works for all modes)
       const base64Data = compositeDataUrl.replace(/^data:image\/\w+;base64,/, '')
       const buffer = Buffer.from(base64Data, 'base64')
       const compositePath = getInputPath(userId, 'png')
       const compositeUrl = await uploadBuffer(compositePath, buffer, 'image/png')
       images.push({ type: 'url', data: compositeUrl })
-    } else {
-      // Relight/prompt modes: use original image as primary reference
+    } else if (originalImageUrl && originalImageUrl.startsWith('http')) {
+      // Fallback: use a real CDN URL directly
       images.push({ type: 'url', data: originalImageUrl })
+    } else {
+      return NextResponse.json({ error: 'No valid image provided' }, { status: 400 })
     }
 
     // Add any extra per-layer reference images or prompt reference images
