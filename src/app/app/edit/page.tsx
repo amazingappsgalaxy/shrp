@@ -36,11 +36,6 @@ interface TextAnnotation {
   fontSize: number
 }
 
-interface RectAnnotation {
-  id: string
-  x: number; y: number; w: number; h: number  // canvas-pixel
-  color: string
-}
 
 interface LightSettings {
   azimuth: number       // 0–360
@@ -92,15 +87,15 @@ const LIGHT_COLOR_PRESETS = [
 ]
 
 const LIGHTING_STYLES = [
-  { id: 'natural',   name: 'Natural',   color: '#ffe8d0', az: 45,  el: 35, intensity: 65, softness: 'soft'  as const },
-  { id: 'studio',    name: 'Studio',    color: '#ffffff', az: 0,   el: 45, intensity: 88, softness: 'soft'  as const },
-  { id: 'cinematic', name: 'Cinematic', color: '#ffd080', az: 135, el: 20, intensity: 90, softness: 'hard'  as const },
-  { id: 'sunlight',  name: 'Sunlight',  color: '#ffe44d', az: 90,  el: 62, intensity: 95, softness: 'hard'  as const },
-  { id: 'golden',    name: 'Golden Hr', color: '#ff9500', az: 270, el: 5,  intensity: 75, softness: 'soft'  as const },
-  { id: 'neon',      name: 'Neon',      color: '#00ffcc', az: 180, el: 25, intensity: 70, softness: 'hard'  as const },
-  { id: 'rim',       name: 'Rim Light', color: '#d0f0ff', az: 180, el: 10, intensity: 80, softness: 'hard'  as const },
-  { id: 'overhead',  name: 'Overhead',  color: '#ffffff', az: 0,   el: 85, intensity: 80, softness: 'soft'  as const },
-  { id: 'glare',     name: 'Glare',     color: '#ffffff', az: 0,   el: 25, intensity: 100, softness: 'hard' as const },
+  { id: 'studio',    name: 'Studio',    color: '#ffffff', az: 0,   el: 55, intensity: 88, softness: 'soft' as const },
+  { id: 'golden',    name: 'Golden Hr', color: '#ff8800', az: 275, el: 5,  intensity: 78, softness: 'soft' as const },
+  { id: 'moonlight', name: 'Moonlight', color: '#8ab0e0', az: 210, el: 68, intensity: 45, softness: 'soft' as const },
+  { id: 'campfire',  name: 'Campfire',  color: '#ff4400', az: 0,   el: -12, intensity: 88, softness: 'hard' as const },
+  { id: 'spotlight', name: 'Spotlight', color: '#ffffff', az: 0,   el: 90, intensity: 100, softness: 'hard' as const },
+  { id: 'window',    name: 'Window',    color: '#c8e0ff', az: 90,  el: 40, intensity: 58, softness: 'soft' as const },
+  { id: 'neon',      name: 'Neon',      color: '#00ffcc', az: 180, el: 18, intensity: 75, softness: 'hard' as const },
+  { id: 'horror',    name: 'Horror',    color: '#660000', az: 0,   el: -50, intensity: 95, softness: 'hard' as const },
+  { id: 'sunset',    name: 'Sunset',    color: '#ff2200', az: 282, el: 4,  intensity: 82, softness: 'soft' as const },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -385,11 +380,9 @@ function FloatingMaskCard({
     ? { x: layer.centroid.x * scaleX, y: layer.centroid.y * scaleY }
     : { x: canvasW * 0.5, y: canvasH * 0.5 }
 
-  // Clamp card within canvas bounds (don't clip into header or bottom bar)
-  const rawX = Math.min(baseCentroidCss.x + 80, canvasW - 210) + layer.cardOffset.x
-  const rawY = baseCentroidCss.y - 50 + layer.cardOffset.y
-  const cardX = Math.max(4, Math.min(canvasW - 210, rawX))
-  const cardY = Math.max(8, Math.min(canvasH - CARD_H - 8, rawY))
+  // Free positioning — no clamping so user can drag card anywhere
+  const cardX = baseCentroidCss.x + 80 + layer.cardOffset.x
+  const cardY = baseCentroidCss.y - 50 + layer.cardOffset.y
 
   return (
     <>
@@ -458,8 +451,9 @@ function FloatingMaskCard({
               {layer.colorName}
             </span>
           </div>
-          {/* X = delete layer */}
+          {/* X = delete layer — stopPropagation on pointerDown prevents header drag from stealing the click */}
           <button
+            onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onDelete() }}
             className="p-0.5 text-[#606060] hover:text-white transition-colors rounded"
           >
@@ -667,115 +661,53 @@ function MovableTextAnnotation({
   )
 }
 
-// ─── MovableRectAnnotation ────────────────────────────────────────────────────
+// ─── PremiumSlider ────────────────────────────────────────────────────────────
+// Segmented bar slider — no separate thumb, the filled bars are the control.
+// growing=true: bars ramp up in height left→right (for brush size)
+// growing=false: uniform height (for intensity, etc.)
 
-const ANNOT_HANDLES = [
-  { id: 'nw', cx: 0, cy: 0 }, { id: 'n', cx: 0.5, cy: 0 }, { id: 'ne', cx: 1, cy: 0 },
-  { id: 'w', cx: 0, cy: 0.5 },                               { id: 'e', cx: 1, cy: 0.5 },
-  { id: 'sw', cx: 0, cy: 1 }, { id: 's', cx: 0.5, cy: 1 },  { id: 'se', cx: 1, cy: 1 },
-]
-
-const HANDLE_CURSOR: Record<string, string> = {
-  nw: 'nw-resize', n: 'ns-resize', ne: 'ne-resize',
-  w: 'ew-resize', e: 'ew-resize',
-  sw: 'sw-resize', s: 'ns-resize', se: 'se-resize',
-}
-
-function MovableRectAnnotation({
-  ann, scaleX, scaleY, isSelected,
-  onSelect, onMove, onResize, onDelete,
-}: {
-  ann: RectAnnotation
-  scaleX: number; scaleY: number
-  isSelected: boolean
-  onSelect: (e: React.PointerEvent) => void
-  onMove: (dx: number, dy: number) => void
-  onResize: (dx: number, dy: number, handleId: string) => void
-  onDelete: () => void
+function PremiumSlider({ value, min, max, step, onChange, color, growing = false, segments = 20 }: {
+  value: number; min: number; max: number; step: number
+  onChange: (v: number) => void; color: string
+  growing?: boolean; segments?: number
 }) {
-  const bodyDragRef = useRef({ x: 0, y: 0, active: false })
-  const resizeDragRef = useRef({ x: 0, y: 0, active: false, handle: '' })
+  const trackRef = useRef<HTMLDivElement>(null)
+  const pct = (value - min) / (max - min)
+  const filledCount = Math.max(0, Math.round(pct * segments))
+
+  const update = (e: React.PointerEvent) => {
+    const r = trackRef.current!.getBoundingClientRect()
+    const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+    onChange(Math.round((min + p * (max - min)) / step) * step)
+  }
 
   return (
     <div
-      style={{
-        position: 'absolute',
-        left: ann.x * scaleX,
-        top: ann.y * scaleY,
-        width: Math.abs(ann.w) * scaleX,
-        height: Math.abs(ann.h) * scaleY,
-        border: `2px dashed ${ann.color}`,
-        background: ann.color + '18',
-        borderRadius: 3,
-        boxSizing: 'border-box',
-        pointerEvents: 'auto',
-        cursor: isSelected ? 'move' : 'default',
-        outline: isSelected ? `2px solid ${ann.color}55` : 'none',
-        outlineOffset: 2,
-        zIndex: isSelected ? 25 : 15,
-      }}
-      onPointerDown={e => {
-        e.stopPropagation()
-        onSelect(e)
-        bodyDragRef.current = { x: e.clientX, y: e.clientY, active: true }
-        e.currentTarget.setPointerCapture(e.pointerId)
-      }}
-      onPointerMove={e => {
-        if (!bodyDragRef.current.active) return
-        onMove((e.clientX - bodyDragRef.current.x) / scaleX, (e.clientY - bodyDragRef.current.y) / scaleY)
-        bodyDragRef.current.x = e.clientX
-        bodyDragRef.current.y = e.clientY
-      }}
-      onPointerUp={() => { bodyDragRef.current.active = false }}
+      ref={trackRef}
+      className="flex items-end gap-px w-full cursor-pointer select-none"
+      style={{ touchAction: 'none', height: growing ? 18 : 10 }}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); update(e) }}
+      onPointerMove={e => { if (e.buttons > 0) update(e) }}
     >
-      {/* Delete chip */}
-      {isSelected && (
-        <div style={{ position: 'absolute', top: -26, right: 0 }}>
-          <button
-            onPointerDown={e => { e.stopPropagation(); onDelete() }}
+      {Array.from({ length: segments }, (_, i) => {
+        const t = i / (segments - 1)
+        const isFilled = i < filledCount
+        const isEdge = isFilled && i === filledCount - 1
+        const h = growing ? 2 + t * 16 : 8
+        return (
+          <div
+            key={i}
+            className="flex-1 rounded-sm"
             style={{
-              background: '#b41e1e', border: '1px solid #d44444',
-              borderRadius: 5, padding: '2px 8px', color: 'white',
-              fontSize: 9, fontWeight: 700, cursor: 'pointer',
+              height: h,
+              background: isFilled
+                ? isEdge ? '#ffffff' : color
+                : '#282828',
+              opacity: isFilled && !isEdge ? 0.55 + t * 0.45 : 1,
             }}
-          >✕ Delete</button>
-        </div>
-      )}
-
-      {/* Resize handles */}
-      {isSelected && ANNOT_HANDLES.map(h => (
-        <div
-          key={h.id}
-          style={{
-            position: 'absolute',
-            width: 10, height: 10,
-            borderRadius: 2,
-            background: '#FFFF00',
-            border: '1.5px solid rgba(0,0,0,0.7)',
-            left: `calc(${h.cx * 100}% - 5px)`,
-            top: `calc(${h.cy * 100}% - 5px)`,
-            cursor: HANDLE_CURSOR[h.id] ?? 'default',
-            zIndex: 2,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
-          }}
-          onPointerDown={e => {
-            e.stopPropagation()
-            resizeDragRef.current = { x: e.clientX, y: e.clientY, active: true, handle: h.id }
-            e.currentTarget.setPointerCapture(e.pointerId)
-          }}
-          onPointerMove={e => {
-            if (!resizeDragRef.current.active) return
-            onResize(
-              (e.clientX - resizeDragRef.current.x) / scaleX,
-              (e.clientY - resizeDragRef.current.y) / scaleY,
-              resizeDragRef.current.handle
-            )
-            resizeDragRef.current.x = e.clientX
-            resizeDragRef.current.y = e.clientY
-          }}
-          onPointerUp={() => { resizeDragRef.current.active = false }}
-        />
-      ))}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -865,9 +797,8 @@ export default function EditPage() {
     applyHistory(entry)
   }, [applyHistory])
 
-  // ── Annotations
+  // ── Annotations (text only — rect is now a canvas mask tool)
   const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([])
-  const [rectAnnotations, setRectAnnotations] = useState<RectAnnotation[]>([])
   const [selectedAnnotId, setSelectedAnnotId] = useState<string | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [editingTextValue, setEditingTextValue] = useState('')
@@ -880,7 +811,7 @@ export default function EditPage() {
 
   // ── Prompt mode
   const [promptText, setPromptText] = useState('')
-  const [promptRefUrl, setPromptRefUrl] = useState<string | null>(null)
+  const [promptRefUrls, setPromptRefUrls] = useState<string[]>([])
 
   // ── Model
   const [selectedModel, setSelectedModel] = useState('nano-banana-2')
@@ -966,18 +897,8 @@ export default function EditPage() {
       ctx.fillText(ann.text, ann.x, ann.y)
       ctx.restore()
     }
-    for (const ann of rectAnnotations) {
-      ctx.save()
-      ctx.strokeStyle = ann.color
-      ctx.lineWidth = 2
-      ctx.setLineDash([6, 4])
-      ctx.strokeRect(ann.x, ann.y, ann.w, ann.h)
-      ctx.fillStyle = ann.color + '22'
-      ctx.fillRect(ann.x, ann.y, ann.w, ann.h)
-      ctx.restore()
-    }
     return tmp.toDataURL('image/png')
-  }, [textAnnotations, rectAnnotations])
+  }, [textAnnotations])
 
   // ── Annotation handlers
   const handleTextAnnotMove = useCallback((id: string, dx: number, dy: number) => {
@@ -998,28 +919,6 @@ export default function EditPage() {
     setEditingTextId(null)
   }, [])
 
-  const handleRectAnnotMove = useCallback((id: string, dx: number, dy: number) => {
-    setRectAnnotations(prev => prev.map(a => a.id === id ? { ...a, x: a.x + dx, y: a.y + dy } : a))
-  }, [])
-
-  const handleRectAnnotResize = useCallback((id: string, dx: number, dy: number, handleId: string) => {
-    setRectAnnotations(prev => prev.map(a => {
-      if (a.id !== id) return a
-      let { x, y, w, h } = a
-      if (handleId.includes('w')) { x += dx; w -= dx }
-      if (handleId.includes('e')) { w += dx }
-      if (handleId.includes('n')) { y += dy; h -= dy }
-      if (handleId.includes('s')) { h += dy }
-      if (w < 10) w = 10
-      if (h < 10) h = 10
-      return { ...a, x, y, w, h }
-    }))
-  }, [])
-
-  const handleRectAnnotDelete = useCallback((id: string) => {
-    setRectAnnotations(prev => prev.filter(a => a.id !== id))
-    setSelectedAnnotId(null)
-  }, [])
 
   const applyLightingStyle = useCallback((s: typeof LIGHTING_STYLES[0]) => {
     setActiveLightingStyle(s.id)
@@ -1047,7 +946,6 @@ export default function EditPage() {
       }
       setLayers([])
       setTextAnnotations([])
-      setRectAnnotations([])
       layerCanvasesRef.current.clear()
       nextColorIdx.current = 0
     }
@@ -1136,6 +1034,20 @@ export default function EditPage() {
     }
 
     if (activeTool === 'rect' && mode === 'edit') {
+      // Auto-create a layer if none exists
+      if (!activeLayerId && layers.length === 0 && imageNaturalSize) {
+        const colorData = LAYER_COLORS[nextColorIdx.current % LAYER_COLORS.length]!
+        nextColorIdx.current++
+        const newLayer: MaskLayer = {
+          id: uid(), color: colorData.hex, colorName: colorData.name,
+          prompt: '', referenceImageUrl: null, centroid: null, cardOffset: { x: 0, y: 0 },
+        }
+        const lc = document.createElement('canvas')
+        lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
+        layerCanvasesRef.current.set(newLayer.id, lc)
+        setLayers([newLayer])
+        setActiveLayerId(newLayer.id)
+      }
       isDrawingRef.current = true; rectStartRef.current = pt; return
     }
 
@@ -1209,12 +1121,22 @@ export default function EditPage() {
     if (activeTool === 'rect' && rectStartRef.current) {
       const pt = getCanvasPoint(e)
       const s = rectStartRef.current
-      const ann: RectAnnotation = {
-        id: uid(), color: layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00',
-        x: Math.min(s.x, pt.x), y: Math.min(s.y, pt.y),
-        w: Math.abs(pt.x - s.x), h: Math.abs(pt.y - s.y),
+      const rx = Math.min(s.x, pt.x), ry = Math.min(s.y, pt.y)
+      const rw = Math.abs(pt.x - s.x), rh = Math.abs(pt.y - s.y)
+      // Paint the rectangle area onto the active layer canvas as a mask
+      if (rw > 5 && rh > 5 && activeLayerId) {
+        const layer = layers.find(l => l.id === activeLayerId)
+        const lc = layerCanvasesRef.current.get(activeLayerId)
+        if (layer && lc) {
+          const colorData = LAYER_COLORS.find(c => c.hex === layer.color)
+          const ctx = lc.getContext('2d')!
+          ctx.globalCompositeOperation = 'source-over'
+          ctx.fillStyle = `rgba(${colorData?.rgb ?? '255,255,255'},0.55)`
+          ctx.fillRect(rx, ry, rw, rh)
+          captureHistory()
+          updateLayerCentroid(activeLayerId)
+        }
       }
-      if (ann.w > 5 && ann.h > 5) setRectAnnotations(prev => [...prev, ann])
       rectStartRef.current = null; setRectPreview(null)
       renderCanvas()
       return
@@ -1271,7 +1193,7 @@ export default function EditPage() {
         setDebugRelightPrompt(combinedPrompt)
       } else {
         combinedPrompt = promptText
-        if (promptRefUrl) referenceImages.push(promptRefUrl)
+        promptRefUrls.forEach(u => referenceImages.push(u))
       }
 
       const body: Record<string, unknown> = {
@@ -1288,7 +1210,7 @@ export default function EditPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Generation failed')
     } finally { setIsGenerating(false) }
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrl, selectedModel, flattenForExport])
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, flattenForExport])
 
   const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
 
@@ -1370,34 +1292,15 @@ export default function EditPage() {
                 {(activeTool === 'brush' || activeTool === 'eraser') && (
                   <>
                     <div className="w-5 h-px bg-[#1e1e1e] my-0.5" />
-                    <div className="flex flex-col items-center gap-1.5 px-0.5 w-full">
-                      {/* Brush preview dot */}
-                      <div className="rounded-full border border-[#383838] transition-all" style={{
-                        width: Math.max(5, Math.min(22, brushSize * 0.33)),
-                        height: Math.max(5, Math.min(22, brushSize * 0.33)),
-                        background: activeTool === 'eraser'
-                          ? '#4a4a4a'
-                          : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '99',
-                      }} />
-                      {/* Vertical range slider */}
-                      <div style={{ width: 10, height: 64, position: 'relative', overflow: 'visible' }}>
-                        <div style={{
-                          position: 'absolute',
-                          top: '50%', left: '50%',
-                          transform: 'translate(-50%, -50%) rotate(-90deg)',
-                          width: 64,
-                          transformOrigin: 'center center',
-                        }}>
-                          <input
-                            type="range" min={4} max={80} step={2}
-                            value={brushSize}
-                            onChange={e => setBrushSize(Number(e.target.value))}
-                            className="w-full cursor-pointer accent-white"
-                            style={{ height: 2 }}
-                          />
-                        </div>
-                      </div>
-                      <span className="text-[9px] text-[#606060] font-mono leading-none">{brushSize}</span>
+                    <div className="flex flex-col items-center gap-2 w-full px-0.5">
+                      <PremiumSlider
+                        min={4} max={80} step={2}
+                        value={brushSize}
+                        onChange={setBrushSize}
+                        color={activeTool === 'eraser' ? '#606060' : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00')}
+                        growing={true}
+                      />
+                      <span className="text-[9px] text-[#606060] font-mono leading-none">{brushSize}px</span>
                     </div>
                   </>
                 )}
@@ -1488,12 +1391,12 @@ export default function EditPage() {
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Intensity</p>
                         <span className="font-mono text-[10px] text-white">{lightSettings.intensity}%</span>
                       </div>
-                      <input
-                        type="range" min={10} max={100} step={5}
+                      <PremiumSlider
+                        min={10} max={100} step={5}
                         value={lightSettings.intensity}
-                        onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
-                        className="w-full cursor-pointer accent-white"
-                        style={{ height: 2 }}
+                        onChange={v => setLightSettings(p => ({ ...p, intensity: v }))}
+                        color={lightSettings.color}
+                        growing={false}
                       />
                     </div>
                     {/* Falloff */}
@@ -1569,41 +1472,46 @@ export default function EditPage() {
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
               <div className="flex-shrink-0 w-[260px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3">
-                {/* Image button — top */}
-                {promptRefUrl ? (
-                  <div className="relative w-full h-28 rounded-xl overflow-hidden">
-                    <img src={promptRefUrl} alt="" className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => setPromptRefUrl(null)}
-                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#0d0d0d] flex items-center justify-center text-[#a0a0a0] hover:text-white transition-colors"
-                    >
-                      <IconX className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center gap-2 cursor-pointer w-full h-28 rounded-xl border border-[#2e2e2e] hover:border-[#444444] transition-colors group">
-                    <div className="w-11 h-11 rounded-full bg-[#181818] flex items-center justify-center group-hover:bg-[#222222] transition-colors">
-                      <IconPhotoPlus className="w-5 h-5 text-[#a0a0a0] group-hover:text-white transition-colors" strokeWidth={1.5} />
-                    </div>
-                    <span className="text-[10px] font-bold text-[#686868] group-hover:text-[#a0a0a0] uppercase tracking-wide transition-colors">Add image</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                      const file = e.target.files?.[0]; if (!file) return
-                      const fd = new FormData(); fd.append('file', file)
-                      try {
-                        const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
-                        const d = await r.json(); setPromptRefUrl(d.image?.url ?? URL.createObjectURL(file))
-                      } catch { setPromptRefUrl(URL.createObjectURL(file)) }
-                    }} />
-                  </label>
-                )}
-                {/* Prompt textarea — below */}
+                {/* Prompt textarea — top */}
                 <textarea
                   value={promptText}
                   onChange={e => setPromptText(e.target.value)}
                   placeholder={"e.g. 'Make the background a sunset beach'"}
                   className="w-full bg-[#141414] border border-[#2e2e2e] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-[#606060] resize-none outline-none focus:border-[#3c3c3c] leading-relaxed transition-all"
-                  rows={4}
+                  rows={5}
                 />
+                {/* Reference images — thumbnails row + plus button below */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {promptRefUrls.map((url, i) => (
+                    <div key={i} className="relative w-11 h-11 rounded-lg overflow-hidden flex-shrink-0">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={() => setPromptRefUrls(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#0d0d0d] flex items-center justify-center text-[#c0c0c0] hover:text-white"
+                      >
+                        <IconX className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-11 h-11 rounded-lg border border-[#2e2e2e] bg-[#141414] flex items-center justify-center cursor-pointer hover:border-[#444444] hover:bg-[#1a1a1a] transition-colors flex-shrink-0">
+                    <IconPlus className="w-4 h-4 text-[#a0a0a0]" />
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={async e => {
+                      const files = Array.from(e.target.files ?? [])
+                      const urls: string[] = []
+                      for (const file of files) {
+                        try {
+                          const fd = new FormData(); fd.append('file', file)
+                          const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
+                          const d = await r.json()
+                          urls.push(d.image?.url ?? URL.createObjectURL(file))
+                        } catch { urls.push(URL.createObjectURL(file)) }
+                      }
+                      setPromptRefUrls(prev => [...prev, ...urls])
+                      e.target.value = ''
+                    }} />
+                  </label>
+                </div>
               </div>
             )}
 
@@ -1715,18 +1623,6 @@ export default function EditPage() {
                     onCommitEdit={text => handleTextAnnotCommitEdit(ann.id, text)}
                     onEditChange={v => setEditingTextValue(v)}
                     onScale={newFontSize => setTextAnnotations(prev => prev.map(a => a.id === ann.id ? { ...a, fontSize: newFontSize } : a))}
-                  />
-                ))}
-                {rectAnnotations.map(ann => (
-                  <MovableRectAnnotation
-                    key={ann.id}
-                    ann={ann}
-                    scaleX={scaleX} scaleY={scaleY}
-                    isSelected={selectedAnnotId === ann.id}
-                    onSelect={e => { e.stopPropagation(); setSelectedAnnotId(ann.id) }}
-                    onMove={(dx, dy) => handleRectAnnotMove(ann.id, dx, dy)}
-                    onResize={(dx, dy, handle) => handleRectAnnotResize(ann.id, dx, dy, handle)}
-                    onDelete={() => handleRectAnnotDelete(ann.id)}
                   />
                 ))}
               </div>
@@ -1850,7 +1746,6 @@ export default function EditPage() {
                     layerCanvasesRef.current.clear()
                     nextColorIdx.current = 0
                     setTextAnnotations([])
-                    setRectAnnotations([])
                     setMode('edit')
                   }
                   img.src = resultUrl
