@@ -54,7 +54,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function UpscalerContent() {
   const { user, isLoading, isDemo } = useAuth()
-  const { addWatchedTask } = useTaskManager()
+  const { addWatchedTask, resolveTask, failTask } = useTaskManager()
 
   // Image state
   const [uploadedImage, setUploadedImage] = useState<string | null>(DEMO_INPUT_URL)
@@ -278,6 +278,9 @@ function UpscalerContent() {
               setUpscaledImage(outputUrl)
             }
 
+            // Notify global task manager
+            resolveTask(dbTaskId)
+
             setActiveTasks(prev => {
               const newMap = new Map(prev)
               const task = newMap.get(taskId)
@@ -295,6 +298,9 @@ function UpscalerContent() {
             pollIntervalsRef.current.delete(taskId)
             const pInterval = taskIntervalsRef.current.get(taskId)
             if (pInterval) { clearInterval(pInterval); taskIntervalsRef.current.delete(taskId) }
+
+            // Notify global task manager
+            failTask(dbTaskId)
 
             setActiveTasks(prev => {
               const newMap = new Map(prev)

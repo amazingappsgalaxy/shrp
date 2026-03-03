@@ -83,8 +83,11 @@ const RELIGHT_PRESETS = [
 ]
 
 const LIGHT_COLOR_PRESETS = [
-  '#ffffff', '#ffe8d0', '#d0e8ff', '#48dbb6',
-  '#00ff88', '#ff4444', '#ff44ff', '#ffcc00',
+  '#ffffff',  // studio white
+  '#ffd080',  // golden hour
+  '#7eb8ff',  // cool blue
+  '#ff5533',  // fire red
+  '#00ffaa',  // neon teal
 ]
 
 const LIGHTING_STYLES = [
@@ -278,11 +281,11 @@ function WireframeSphere({
     })
   }
 
-  // Longitude meridian — uses gridProject
-  const longPts = (azDeg: number, steps = 80) => {
+  // Longitude meridian — full great circle so both hemispheres get grid lines
+  const longPts = (azDeg: number, steps = 120) => {
     const az = azDeg * Math.PI / 180
     return Array.from({ length: steps + 1 }, (_, i) => {
-      const el = -Math.PI / 2 + (i / steps) * Math.PI
+      const el = -Math.PI / 2 + (i / steps) * 2 * Math.PI  // 0 → 2π = full circle
       return gridProject(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
     })
   }
@@ -966,7 +969,7 @@ function PremiumSliderVertical({ value, min, max, step, onChange, color, segment
 
 export default function EditPage() {
   useAuth()
-  const { addWatchedTask } = useTaskManager()
+  const { addWatchedTask, resolveTask, failTask } = useTaskManager()
 
   // ── Image state
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -1521,16 +1524,19 @@ export default function EditPage() {
         const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
         const data = await res.json()
+        // Immediately notify task manager — API already updated DB to completed
+        resolveTask(historyId)
         setResults(prev => [{ id: historyId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl!, prompt: combinedPrompt }, ...prev])
         setResultsDockOpen(true)
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Generation failed'
+        failTask(historyId)
         setError(msg)
       } finally {
         setGeneratingCount(c => c - 1)
       }
     }))
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport])
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask])
 
   const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
   const totalCost = creditCost * genCount
@@ -1693,28 +1699,55 @@ export default function EditPage() {
                       <span className="text-[10px] text-gray-500 font-mono">EL <span className="text-white font-bold">{lightSettings.elevation > 0 ? '+' : ''}{lightSettings.elevation}°</span></span>
                     </div>
 
-                    {/* Presets — 3-column grid below the globe */}
+                    {/* Presets — mini globe previews */}
                     <div>
-                      <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider mb-1.5">Quick Presets</p>
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider mb-2">Quick Presets</p>
+                      <div className="flex gap-1.5 justify-between">
                         {WIREFRAME_PRESETS.map(p => {
                           const isActive = lightSettings.azimuth === p.az && lightSettings.elevation === p.el
+                          // Mini orthographic projection for the dot inside each preset globe
+                          const S = 28, miniR = 10.5, sx = S / 2, sy = S / 2
+                          const miniCam = 22 * Math.PI / 180
+                          const azR = p.az * Math.PI / 180, elR = p.el * Math.PI / 180
+                          const dotX = sx + Math.sin(azR) * Math.cos(elR) * miniR
+                          const dotY = sy - (Math.sin(elR) * Math.cos(miniCam) - Math.cos(azR) * Math.cos(elR) * Math.sin(miniCam)) * miniR
+                          const dotDepth = Math.sin(elR) * Math.sin(miniCam) + Math.cos(azR) * Math.cos(elR) * Math.cos(miniCam)
+                          const dotFront = dotDepth >= 0
                           return (
                             <button key={p.name}
                               onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
-                              className={cn('py-2 text-[10px] font-black rounded-lg border transition-all uppercase tracking-wider',
+                              className={cn('flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl border transition-all flex-1',
                                 isActive
-                                  ? 'border-[#555500] bg-[#1a1a00] text-[#FFFF00]'
-                                  : 'border-[#222222] text-gray-500 hover:text-white hover:border-[#333333] hover:bg-[#141414]'
+                                  ? 'border-[#FFFF00] bg-[#1a1a00]'
+                                  : 'border-[#222222] hover:border-[#383838] hover:bg-[#0f0f0f]'
                               )}>
-                              {p.name}
+                              <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ overflow: 'visible' }}>
+                                {/* Globe outline */}
+                                <circle cx={sx} cy={sy} r={miniR} fill="#111111" stroke={isActive ? 'rgba(255,255,0,0.25)' : 'rgba(255,255,255,0.12)'} strokeWidth="0.75" />
+                                {/* Equator hint */}
+                                <ellipse cx={sx} cy={sy} rx={miniR} ry={miniR * Math.sin(miniCam)} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" />
+                                {/* Meridian hint */}
+                                <ellipse cx={sx} cy={sy} rx={miniR * Math.sin(miniCam)} ry={miniR} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" />
+                                {/* Light dot with glow */}
+                                {dotFront && (
+                                  <circle cx={dotX} cy={dotY} r={4}
+                                    fill={isActive ? 'rgba(255,255,0,0.15)' : 'rgba(255,255,255,0.06)'} />
+                                )}
+                                <circle cx={dotX} cy={dotY} r={dotFront ? 2 : 1.2}
+                                  fill={dotFront
+                                    ? (isActive ? '#FFFF00' : '#ffffff')
+                                    : (isActive ? 'rgba(255,255,0,0.35)' : 'rgba(255,255,255,0.2)')}
+                                />
+                              </svg>
+                              <span className={cn('text-[8px] font-black uppercase tracking-wider leading-none',
+                                isActive ? 'text-[#FFFF00]' : 'text-[#555555]')}>{p.name}</span>
                             </button>
                           )
                         })}
                       </div>
                     </div>
 
-                    <p className="text-[8px] text-gray-600 mt-2 text-center">Click or drag on globe · dot = light source</p>
+                    <p className="text-[8px] text-gray-600 mt-2 text-center">Drag on globe to aim light</p>
                   </div>
 
                   {/* Intensity + Falloff side by side */}
@@ -2035,7 +2068,7 @@ export default function EditPage() {
       {/* ── BOTTOM BAR — only visible when an image is loaded ───────── */}
       {imageUrl && (
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl px-2.5 py-2 shadow-[0_8px_40px_rgba(0,0,0,0.85)]">
               {/* Replace image */}
               <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
                 <IconCloudUpload className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
@@ -2054,15 +2087,15 @@ export default function EditPage() {
                 <span className="font-mono text-sm font-medium text-white/70 tabular-nums">{totalCost}</span>
               </div>
 
-              {/* Generation count — pill segmented control matching image page */}
-              <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg shrink-0">
+              {/* Generation count — pill segmented control */}
+              <div className="flex bg-[#141414] border border-[#252525] p-0.5 rounded-lg shrink-0">
                 {([1, 2, 4] as const).map(n => (
                   <button
                     key={n}
                     onClick={() => setGenCount(n)}
                     className={cn(
                       'px-2 py-1.5 text-[10.5px] font-black uppercase tracking-wide rounded-md transition-all whitespace-nowrap w-8',
-                      genCount === n ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
+                      genCount === n ? 'bg-[#222222] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
                     )}
                   >{n}</button>
                 ))}

@@ -24,6 +24,8 @@ interface WatchedTask {
 
 interface TaskManagerContextValue {
   addWatchedTask: (historyId: string, label?: string) => void
+  resolveTask: (historyId: string) => void   // immediately mark as completed (API returned)
+  failTask: (historyId: string) => void       // immediately mark as failed
   dismissTask: (historyId: string) => void
 }
 
@@ -31,6 +33,8 @@ interface TaskManagerContextValue {
 
 const TaskManagerContext = createContext<TaskManagerContextValue>({
   addWatchedTask: () => {},
+  resolveTask: () => {},
+  failTask: () => {},
   dismissTask: () => {},
 })
 
@@ -40,8 +44,6 @@ export function useTaskManager() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'tm:tasks'
-const MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 h
 const POLL_INTERVAL_MS = 5000
 
 function playSuccessSound() {
@@ -64,33 +66,6 @@ function playSuccessSound() {
   } catch {}
 }
 
-function loadFromStorage(): Map<string, WatchedTask> {
-  if (typeof window === 'undefined') return new Map()
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return new Map()
-    const arr = JSON.parse(raw) as WatchedTask[]
-    const now = Date.now()
-    const map = new Map<string, WatchedTask>()
-    for (const t of arr) {
-      if (t.status === 'processing' && now - t.addedAt < MAX_AGE_MS) {
-        map.set(t.historyId, t)
-      }
-    }
-    return map
-  } catch {
-    return new Map()
-  }
-}
-
-function saveToStorage(tasks: Map<string, WatchedTask>) {
-  if (typeof window === 'undefined') return
-  try {
-    const arr = Array.from(tasks.values()).filter(t => t.status === 'processing')
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr))
-  } catch {}
-}
-
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function TaskManagerProvider({ children }: { children: React.ReactNode }) {
@@ -100,16 +75,14 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  // Load persisted tasks on mount
+  // One-time cleanup: remove any stale task state left in localStorage by the old system
   useEffect(() => {
-    const restored = loadFromStorage()
-    if (restored.size > 0) setTasks(restored)
+    try { localStorage.removeItem('tm:tasks') } catch {}
   }, [])
 
-  // Keep tasksRef in sync with state and persist on every change
+  // Keep tasksRef in sync with state
   useEffect(() => {
     tasksRef.current = tasks
-    saveToStorage(tasks)
   }, [tasks])
 
   // ── Poll — reads from tasksRef so it is NEVER stale ───────────────────────
@@ -189,6 +162,33 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
     setTimeout(() => { void poll() }, 300)
   }, [poll])
 
+  // Immediately mark a task as completed (called when the API returns success directly)
+  const resolveTask = useCallback((historyId: string) => {
+    setTasks(prev => {
+      const task = prev.get(historyId)
+      if (!task || task.status !== 'processing') return prev
+      const next = new Map(prev)
+      next.set(historyId, { ...task, status: 'completed', notified: true })
+      playSuccessSound()
+      const timer = setTimeout(() => {
+        setTasks(p => { const m = new Map(p); m.delete(historyId); return m })
+      }, 6000)
+      dismissTimers.current.set(historyId, timer)
+      return next
+    })
+  }, [])
+
+  // Immediately mark a task as failed
+  const failTask = useCallback((historyId: string) => {
+    setTasks(prev => {
+      const task = prev.get(historyId)
+      if (!task || task.status !== 'processing') return prev
+      const next = new Map(prev)
+      next.set(historyId, { ...task, status: 'failed' })
+      return next
+    })
+  }, [])
+
   const dismissTask = useCallback((historyId: string) => {
     const timer = dismissTimers.current.get(historyId)
     if (timer) { clearTimeout(timer); dismissTimers.current.delete(historyId) }
@@ -207,7 +207,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
   }))
 
   return (
-    <TaskManagerContext.Provider value={{ addWatchedTask, dismissTask }}>
+    <TaskManagerContext.Provider value={{ addWatchedTask, resolveTask, failTask, dismissTask }}>
       {children}
       <MyLoadingProcessIndicator
         isVisible={indicatorTasks.length > 0}

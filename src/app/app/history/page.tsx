@@ -127,13 +127,44 @@ export default function HistoryPage() {
     loadHistory(true)
   }, [user])
 
+  // Poll for new items at the top every 8s (items newer than the most recent one we have)
+  // This picks up items added while the user is on the history page without disrupting pagination
+  const checkForNewItems = async () => {
+    try {
+      const params = new URLSearchParams()
+      params.set('limit', '12')
+      params.set('order', 'desc')
+      const res = await fetch(`/api/history/list?${params.toString()}`, { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      const freshItems: HistoryListItem[] = data.items || []
+      if (freshItems.length === 0) return
+      setItems(prev => {
+        const existingIds = new Set(prev.map(i => i.id))
+        const brandNew = freshItems.filter(i => !existingIds.has(i.id))
+        if (brandNew.length === 0) return prev
+        // Prepend new items and also update any that changed status
+        const updated = prev.map(item => {
+          const refreshed = freshItems.find(f => f.id === item.id)
+          return refreshed ? { ...item, ...refreshed } : item
+        })
+        return [...brandNew, ...updated]
+      })
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!user) return
+    const interval = setInterval(checkForNewItems, 8000)
+    return () => clearInterval(interval)
+  }, [user])
+
   useEffect(() => {
     if (!refreshIfProcessing) return
-    // Poll every 15s — the server-side scheduled function updates the DB every minute,
-    // so users will see results reflected here within ~15s of DB update
+    // Poll processing items every 5s so status updates appear quickly
     const interval = setInterval(() => {
       updateProcessingItems()
-    }, 15000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [refreshIfProcessing])
 
