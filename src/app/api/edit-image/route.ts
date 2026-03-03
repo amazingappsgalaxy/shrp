@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
-import { uploadBuffer, getInputPath } from '@/lib/bunny'
+import { uploadBuffer, uploadFromUrl, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
 import { MODEL_REGISTRY } from '@/services/models'
@@ -12,6 +12,7 @@ import type { SynvowImageInput } from '@/services/ai-providers/synvow/types'
 
 export async function POST(request: NextRequest) {
   const supabase = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
+  let historyId: string | null = null
 
   try {
     // Auth
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
       combinedPrompt,         // pre-built prompt (all modes)
       referenceImages = [],   // extra reference images
       mode = 'edit',
+      historyId: clientHistoryId, // optional client-provided historyId for task tracking
     } = body as {
       compositeDataUrl?: string
       cleanOriginalDataUrl?: string
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
       combinedPrompt: string
       referenceImages?: string[]
       mode?: 'edit' | 'relight' | 'prompt'
+      historyId?: string
     }
 
     if (!model || !combinedPrompt) {
@@ -67,7 +70,21 @@ export async function POST(request: NextRequest) {
     }
 
     const taskId = uuidv4()
+    historyId = clientHistoryId || uuidv4()
     const startTime = Date.now()
+
+    // ── Insert a 'processing' record immediately so history page sees it ───────
+    await supabase.from('history_items').insert({
+      id: historyId,
+      user_id: userId,
+      task_id: taskId,
+      output_urls: [],
+      model_name: model,
+      page_name: 'app/edit',
+      status: 'processing',
+      generation_time_ms: null,
+      settings: { model, creditCost, mode },
+    })
 
     // ── Build reference images array ──────────────────────────────────────────
     const images: SynvowImageInput[] = []
@@ -128,7 +145,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Generation returned no output' }, { status: 500 })
     }
 
-    const outputUrl = result.immediateOutput
+    // ── Upload output to Bunny CDN (Synvow URLs expire in ~1 day) ─────────────
+    const rawOutputUrl = result.immediateOutput
+    const ext = extFromUrl(rawOutputUrl)
+    const outputUrl = await uploadFromUrl(getOutputPath(userId, ext), rawOutputUrl, mimeFromExt(ext))
     const generationMs = Date.now() - startTime
 
     // ── Deduct credits ONCE — covers all masks in a single generation ──────────
@@ -141,32 +161,30 @@ export async function POST(request: NextRequest) {
 
     await UnifiedCreditsService.deductCredits(userId, creditCost, taskId, description)
 
-    // ── Save to history ────────────────────────────────────────────────────────
-    await supabase.from('history_items').insert({
-      id: uuidv4(),
-      user_id: userId,
-      task_id: taskId,
+    // ── Update the processing record to completed ─────────────────────────────
+    await supabase.from('history_items').update({
       output_urls: [{ type: 'image', url: outputUrl }],
-      model_name: model,
-      page_name: 'app/edit',
-      status: 'success',
+      status: 'completed',
       generation_time_ms: generationMs,
-      settings: {
-        model,
-        creditCost,
-        mode,
-      },
-    })
+    }).eq('id', historyId)
 
     return NextResponse.json({
       success: true,
       outputUrl,
       taskId,
+      historyId,
       creditCost,
       generationMs,
     })
   } catch (err) {
     console.error('❌ edit-image error:', err)
+    // Mark the processing record as failed if it was created
+    if (historyId) {
+      await supabase.from('history_items').update({
+        status: 'failed',
+        settings: { failure_reason: err instanceof Error ? err.message : 'Unknown error' },
+      }).eq('id', historyId).catch(() => {})
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Internal server error' },
       { status: 500 }

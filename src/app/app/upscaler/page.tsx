@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
 import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
+import { useTaskManager } from "@/components/providers/TaskManagerProvider"
 import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
@@ -53,6 +54,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function UpscalerContent() {
   const { user, isLoading, isDemo } = useAuth()
+  const { addWatchedTask } = useTaskManager()
 
   // Image state
   const [uploadedImage, setUploadedImage] = useState<string | null>(DEMO_INPUT_URL)
@@ -255,6 +257,7 @@ function UpscalerContent() {
       if (!response.ok) throw new Error(data?.error || 'Upscaling failed')
 
       const dbTaskId: string = data.taskId
+      addWatchedTask(dbTaskId, 'Upscaling')
 
       const pollInterval = setInterval(async () => {
         try {

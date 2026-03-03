@@ -12,7 +12,7 @@ import {
   IconChevronDown, IconChevronUp, IconPencil, IconBulb, IconAi,
   IconCloudUpload, IconArrowBackUp, IconArrowForwardUp, IconPhotoPlus,
 } from '@tabler/icons-react'
-import MyLoadingProcessIndicator from '@/components/ui/MyLoadingProcessIndicator'
+import { useTaskManager } from '@/components/providers/TaskManagerProvider'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -163,52 +163,52 @@ function hexToRgbDesc(hex: string): string {
 
 function generateRelightPrompt(s: LightSettings) {
   const colorDesc = hexToRgbDesc(s.color)
-  const bright = s.intensity > 85 ? 'blazing, overwhelmingly powerful'
-    : s.intensity > 65 ? 'strong, dominant'
+  const bright = s.intensity > 85 ? 'extremely powerful'
+    : s.intensity > 65 ? 'strong'
     : s.intensity > 40 ? 'moderate'
-    : 'dim, subtle'
+    : 'dim and subtle'
   const dirDesc = azToDesc(s.azimuth)
   const elDesc = elToDesc(s.elevation)
   const lock = s.sceneLock
-    ? 'Do NOT change the subject\'s pose, face, or clothing. '
-    : ''
+    ? 'Keep the exact subject pose, face, clothing, and all scene objects identical — only change the lighting and shadows. '
+    : 'You may slightly adjust scene elements to make the lighting more convincing. '
 
-  // Direction-aware shadow hint
-  const shadowDir = s.azimuth < 45 || s.azimuth > 315 ? 'behind the subject, pointing away from the camera'
-    : s.azimuth < 135 ? 'to the left of the subject, stretching toward the left side of the frame'
-    : s.azimuth < 225 ? 'in front of the subject, pointing toward the camera'
-    : 'to the right of the subject, stretching toward the right side of the frame'
+  // Derive the geometric shadow direction from azimuth (light comes FROM dirDesc → shadow falls opposite)
+  const az = ((s.azimuth % 360) + 360) % 360
+  const shadowFallDir =
+    az < 22.5 || az >= 337.5 ? 'directly behind the subject (away from camera)'
+    : az < 67.5  ? 'toward the back-left of the scene'
+    : az < 112.5 ? 'toward the left side of the scene'
+    : az < 157.5 ? 'toward the front-left of the scene'
+    : az < 202.5 ? 'directly in front of the subject (toward camera)'
+    : az < 247.5 ? 'toward the front-right of the scene'
+    : az < 292.5 ? 'toward the right side of the scene'
+    : 'toward the back-right of the scene'
 
-  // Atmosphere hints per color type
-  const isWarm = colorDesc.includes('golden') || colorDesc.includes('warm') || colorDesc.includes('red') || colorDesc.includes('amber') || colorDesc.includes('yellow')
-  const isCool = colorDesc.includes('blue') || colorDesc.includes('cyan') || colorDesc.includes('moonlight')
-  const isNeon = colorDesc.includes('neon') || colorDesc.includes('magenta') || colorDesc.includes('lime')
+  // Elevation-based shadow length
+  const shadowLen = s.elevation > 60 ? 'short, directly beneath objects (overhead light)'
+    : s.elevation > 35 ? 'moderately short and angled'
+    : s.elevation > 10 ? 'medium length, clearly angled'
+    : s.elevation > -10 ? 'long, nearly horizontal (eye-level light)'
+    : 'very long, stretched away from the light (uplighting)'
 
-  const atmos = isWarm
-    ? `Add warm orange-amber bokeh orbs and glowing haze in the background. Lens flare or sun streak from the light direction. The entire sky and environment should glow warm. `
-    : isCool
-    ? `Add cool blue-silver fill on shadow sides. The background should feel dark and cold. Silver rim highlights on edges. `
-    : isNeon
-    ? `Add vivid colored glow blooms and light bleeds on nearby surfaces. Background should show deep shadows with colored neon reflections. `
-    : ''
-
-  const quality = s.softness === 'soft'
-    ? 'soft-box quality: smooth gradients, wide penumbra, gentle falloff across surfaces'
-    : 'hard point-source quality: razor-sharp shadow edges, crisp specular hotspots, high contrast terminator line'
+  const softEdge = s.softness === 'soft'
+    ? 'soft-edged shadows with smooth penumbra transitions'
+    : 'hard-edged shadows with sharp crisp terminator lines'
 
   return (
-    `COMPLETE LIGHTING OVERHAUL — this is NOT a color grade or filter. ${lock}` +
-    `Erase all existing lighting, shadows, and light-source artifacts from the scene entirely. ` +
-    `Then re-render the scene from scratch lit ONLY by a single ${bright} ${colorDesc} light source coming from ${dirDesc}, ${elDesc}. ` +
-    `MANDATORY changes: ` +
-    `(1) SHADOWS: cast new hard directional shadows ${shadowDir}. Every object, person, and surface must show a new shadow matching this light direction. The existing shadows must be completely gone. ` +
-    `(2) SHADOW SIDE: the side of the subject and scene facing away from the light must be significantly darker — deep shadow with only a faint ${isCool ? 'warm' : 'cool'} fill bounce. ` +
-    `(3) HIGHLIGHTS: bright ${colorDesc} specular hits on skin, hair, eyes, clothing, and any reflective surface directly facing the light. ` +
-    `(4) AMBIENT SHIFT: the entire scene's ambient color, walls, floor, and background must shift to ${colorDesc} tone — no surfaces should remain neutrally lit. ` +
-    `(5) RIM LIGHT: a rim or halo of ${colorDesc} light on the edges of the subject silhouette where light wraps around. ` +
-    `${atmos}` +
-    `Light quality: ${quality}. ` +
-    `Final result must look like this exact scene was physically photographed under only this light source — the viewer must immediately believe the lighting is real, not composited.`
+    `COMPLETELY REPLACE the entire lighting of this scene. STEP 1 — ELIMINATE all existing light sources: remove all ambient daylight, sunlight, artificial lights, and every shadow from the original image. The scene must appear as if it was never lit before. ` +
+    `STEP 2 — RELIGHT from absolute scratch with a ${bright} ${colorDesc} light source coming from ${dirDesc}, ${elDesc}. ${lock}` +
+    `This new light is the ONLY source — zero daylight leakage, zero residual brightness from the original scene, no mixing of old and new lighting. ` +
+    `SHADOW PHYSICS: Cast new 3D contact shadows and directional cast-shadows falling ${shadowFallDir}, ${shadowLen}. ` +
+    `Every vertical object must cast a shadow on the ground and adjacent surfaces in that direction. ` +
+    `Every horizontal surface must show cast shadows from objects above. Shadow edges must be ${softEdge}. ` +
+    `The lit face of every object (side facing ${dirDesc}) must be bright with ${colorDesc} tones; the unlit face must be significantly darker. ` +
+    `SURFACE SHADING: Apply realistic diffuse shading across all curved surfaces following 3D geometry. ` +
+    `Skin on the lit side gets ${colorDesc} specular highlights; skin on the shadow side gets deep shadow with a subtle bounce fill. ` +
+    `Ambient occlusion: creases, folds, corners must stay darker regardless of light direction. ` +
+    `COLOR TEMPERATURE: The entire scene — sky, background, walls, ambient — must completely transform to match ${colorDesc}. No trace of the original lighting's color temperature should remain. ` +
+    `Final result must look like a physically-accurate re-render under only this new light — not a filter, tint, or overlay applied on top of the original photo.`
   )
 }
 
@@ -433,16 +433,14 @@ function FloatingMaskCard({
       {/* The card */}
       <div
         ref={cardRef}
-        className={cn(
-          'absolute w-[200px] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] border',
-          isActive ? 'border-[#4a4a00]' : 'border-[#282828]'
-        )}
+        className="absolute w-[200px] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] border"
         style={{
           left: cardX,
           top: cardY,
           background: '#0d0d0d',
           zIndex: isActive ? 20 : 10,
           willChange: 'transform',
+          borderColor: isActive ? layer.color : '#282828',
         }}
         onClick={onSelect}
       >
@@ -800,6 +798,7 @@ function PremiumSliderVertical({ value, min, max, step, onChange, color, segment
 
 export default function EditPage() {
   useAuth()
+  const { addWatchedTask } = useTaskManager()
 
   // ── Image state
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -905,10 +904,9 @@ export default function EditPage() {
   const [selectedModel, setSelectedModel] = useState('nano-banana-2')
 
   // ── Generation
-  type GenTask = { id: string; status: 'loading' | 'success' | 'error'; message?: string; progress: number }
   const [generatingCount, setGeneratingCount] = useState(0)
   const isGenerating = generatingCount > 0
-  const [genTasks, setGenTasks] = useState<GenTask[]>([])
+  const [genCount, setGenCount] = useState<1 | 2 | 4>(1)
   const [results, setResults] = useState<GenerationResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [modalResult, setModalResult] = useState<GenerationResult | null>(null)
@@ -1107,54 +1105,13 @@ export default function EditPage() {
       return
     }
     ctx.globalCompositeOperation = 'source-over'
-
-    // ── Core solid circle — clean, no fading edges
     ctx.fillStyle = `rgba(${colorRgb}, 0.85)`
     ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill()
-
-    // ── Sparkle star-burst rays radiating outward from center
-    const numRays = 3 + Math.floor(Math.random() * 3)  // 3–5 rays per dot
-    for (let i = 0; i < numRays; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const len = radius * (1.6 + Math.random() * 1.8)
-      const alpha = 0.35 + Math.random() * 0.45
-      // Alternate between white sparkle and layer color sparkle
-      const useWhite = Math.random() > 0.45
-      ctx.strokeStyle = useWhite
-        ? `rgba(255,255,255,${alpha})`
-        : `rgba(${colorRgb},${alpha})`
-      ctx.lineWidth = radius * (0.06 + Math.random() * 0.1)
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(x + Math.cos(angle) * radius * 0.5, y + Math.sin(angle) * radius * 0.5)
-      ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len)
-      ctx.stroke()
-    }
-
-    // ── Scattered micro-sparkle dots around the stroke
-    const numDots = Math.max(4, Math.floor(radius * 0.55))
-    for (let i = 0; i < numDots; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const dist = radius * (1.0 + Math.random() * 1.6)
-      const sx = x + Math.cos(angle) * dist
-      const sy = y + Math.sin(angle) * dist
-      const sr = radius * (0.045 + Math.random() * 0.09)
-      const useWhite = Math.random() > 0.35
-      ctx.fillStyle = useWhite
-        ? `rgba(255,255,255,${0.55 + Math.random() * 0.4})`
-        : `rgba(${colorRgb},${0.5 + Math.random() * 0.45})`
-      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill()
-    }
-
-    // ── Bright center glint (white hot spot at the very center)
-    const glintR = radius * 0.22
-    ctx.fillStyle = `rgba(255,255,255,0.7)`
-    ctx.beginPath(); ctx.arc(x, y, glintR, 0, Math.PI * 2); ctx.fill()
   }, [])
 
   const paintLine = useCallback((ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, radius: number, colorRgb: string, erase: boolean) => {
     ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
-    ctx.strokeStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb}, 0.62)`
+    ctx.strokeStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb}, 0.85)`
     ctx.lineWidth = radius * 2
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
@@ -1257,12 +1214,11 @@ export default function EditPage() {
       const colorData = LAYER_COLORS.find(c => c.hex === layer.color)
       const r = brushSize / (2 * scaleX)
       const prev = lastPointRef.current ?? pt
-      paintDot(ctx, pt.x, pt.y, r, colorData?.rgb ?? '255,255,255', activeTool === 'eraser')
       paintLine(ctx, prev.x, prev.y, pt.x, pt.y, r, colorData?.rgb ?? '255,255,255', activeTool === 'eraser')
       lastPointRef.current = pt
       renderCanvas()
     }
-  }, [activeTool, activeLayerId, layers, getCanvasPoint, brushSize, scaleX, paintDot, paintLine, renderCanvas])
+  }, [activeTool, activeLayerId, layers, getCanvasPoint, brushSize, scaleX, paintLine, renderCanvas])
 
   const onMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawingRef.current) return
@@ -1324,77 +1280,92 @@ export default function EditPage() {
 
   const handleGenerate = useCallback(async () => {
     if (!canGenerate || !imageUrl) return
-    setGeneratingCount(c => c + 1); setError(null)
-    const taskId = uid()
-    setGenTasks(prev => [...prev, { id: taskId, status: 'loading', progress: 40 }])
-    try {
-      let compositeDataUrl: string | undefined
-      let cleanOriginalDataUrl: string | undefined
-      let combinedPrompt = ''
-      const referenceImages: string[] = []
+    setError(null)
 
-      if (mode === 'edit') {
-        // For edit: send the CLEAN original (no masks) as primary + the masked composite as secondary.
-        // This prevents the mask color overlays from being interpreted as image content.
-        if (bgImageRef.current) {
-          const cleanCanvas = document.createElement('canvas')
-          cleanCanvas.width = bgImageRef.current.naturalWidth
-          cleanCanvas.height = bgImageRef.current.naturalHeight
-          const cleanCtx = cleanCanvas.getContext('2d')!
-          cleanCtx.drawImage(bgImageRef.current, 0, 0)
-          cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
-        }
-        compositeDataUrl = flattenForExport()  // original + colored mask overlays
+    // ── Build shared image data (same for all variations) ──────────────────────
+    let compositeDataUrl: string | undefined
+    let cleanOriginalDataUrl: string | undefined
+    let basePrompt = ''
+    const referenceImages: string[] = []
 
-        const activeLayers = layers.filter(l => l.prompt.trim())
-        combinedPrompt =
-          'I am providing two images: image 1 is the original clean photo, image 2 is the same photo with semi-transparent colored overlays marking edit regions. ' +
-          activeLayers.map(l => `In the ${l.colorName}-colored overlay region: ${l.prompt.trim()}`).join('. ') +
-          '. Apply the edits to image 1 ONLY — use image 2 purely as a guide for WHERE to make changes. Keep everything outside the colored regions completely identical to image 1.'
-        activeLayers.forEach(l => l.referenceImageUrls.forEach(u => referenceImages.push(u)))
-      } else if (mode === 'relight') {
-        // Relight: send the clean original image
-        if (bgImageRef.current) {
-          const cleanCanvas = document.createElement('canvas')
-          cleanCanvas.width = bgImageRef.current.naturalWidth
-          cleanCanvas.height = bgImageRef.current.naturalHeight
-          const cleanCtx = cleanCanvas.getContext('2d')!
-          cleanCtx.drawImage(bgImageRef.current, 0, 0)
-          cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
-        }
-        combinedPrompt = generateRelightPrompt(lightSettings)
-        setDebugRelightPrompt(combinedPrompt)
-      } else {
-        // Prompt mode: composite (may have annotations)
-        compositeDataUrl = flattenForExport()
-        combinedPrompt = promptText
-        promptRefUrls.forEach(u => referenceImages.push(u))
+    if (mode === 'edit') {
+      if (bgImageRef.current) {
+        const cleanCanvas = document.createElement('canvas')
+        cleanCanvas.width = bgImageRef.current.naturalWidth
+        cleanCanvas.height = bgImageRef.current.naturalHeight
+        cleanCanvas.getContext('2d')!.drawImage(bgImageRef.current, 0, 0)
+        cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
       }
-
-      const body: Record<string, unknown> = {
-        mode, model: selectedModel, taskId,
-        originalImageUrl: imageUrl,
-        cleanOriginalDataUrl,  // clean version (no masks) — primary for edit/relight
-        combinedPrompt, referenceImages,
-        compositeDataUrl,      // masked composite — secondary hint for edit mode
+      compositeDataUrl = flattenForExport()
+      const activeLayers = layers.filter(l => l.prompt.trim())
+      basePrompt =
+        'I am providing two images: image 1 is the original clean photo, image 2 is the same photo with semi-transparent colored overlays marking edit regions. ' +
+        activeLayers.map(l => `In the ${l.colorName}-colored overlay region: ${l.prompt.trim()}`).join('. ') +
+        '. Apply the edits to image 1 ONLY — use image 2 purely as a guide for WHERE to make changes. Keep everything outside the colored regions completely identical to image 1.'
+      activeLayers.forEach(l => l.referenceImageUrls.forEach(u => referenceImages.push(u)))
+    } else if (mode === 'relight') {
+      if (bgImageRef.current) {
+        const cleanCanvas = document.createElement('canvas')
+        cleanCanvas.width = bgImageRef.current.naturalWidth
+        cleanCanvas.height = bgImageRef.current.naturalHeight
+        cleanCanvas.getContext('2d')!.drawImage(bgImageRef.current, 0, 0)
+        cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
       }
+      basePrompt = generateRelightPrompt(lightSettings)
+      setDebugRelightPrompt(basePrompt)
+    } else {
+      compositeDataUrl = flattenForExport()
+      basePrompt = promptText
+      promptRefUrls.forEach(u => referenceImages.push(u))
+    }
 
-      const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
-      const data = await res.json()
-      setResults(prev => [{ id: taskId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl, prompt: combinedPrompt }, ...prev])
-      setResultsDockOpen(true)
-      setGenTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'success', progress: 100 } : t))
-      // Auto-dismiss success task after 4s
-      setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== taskId)), 4000)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Generation failed'
-      setError(msg)
-      setGenTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error', message: msg, progress: 0 } : t))
-    } finally { setGeneratingCount(c => c - 1) }
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, flattenForExport])
+    // Variation suffixes — only when genCount > 1, to get distinct outputs
+    const VARIATION_SUFFIXES = [
+      '',
+      ' Interpretation: lean toward a slightly warmer, more saturated look.',
+      ' Interpretation: lean toward a slightly cooler, more desaturated look.',
+      ' Interpretation: emphasize contrast and depth more than the base request.',
+    ]
+
+    // Launch all variations in parallel
+    const variations = Array.from({ length: genCount }, (_, i) => i)
+    setGeneratingCount(c => c + genCount)
+
+    // Generate historyIds client-side so we can register with task manager immediately
+    const historyIds = variations.map(() => uid())
+    const modeLabel = mode === 'relight' ? 'Relighting' : mode === 'prompt' ? 'Editing' : 'Editing'
+    historyIds.forEach(hid => addWatchedTask(hid, modeLabel))
+
+    await Promise.all(variations.map(async (varIdx) => {
+      const historyId = historyIds[varIdx]!
+      const suffix = genCount > 1 ? (VARIATION_SUFFIXES[varIdx] ?? '') : ''
+      const combinedPrompt = basePrompt + suffix
+
+      try {
+        const body: Record<string, unknown> = {
+          mode, model: selectedModel,
+          historyId,
+          originalImageUrl: imageUrl,
+          cleanOriginalDataUrl,
+          combinedPrompt, referenceImages,
+          compositeDataUrl,
+        }
+        const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
+        const data = await res.json()
+        setResults(prev => [{ id: historyId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl!, prompt: combinedPrompt }, ...prev])
+        setResultsDockOpen(true)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Generation failed'
+        setError(msg)
+      } finally {
+        setGeneratingCount(c => c - 1)
+      }
+    }))
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport])
 
   const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
+  const totalCost = creditCost * genCount
 
   const canvasCursor = !bgImageRef.current ? 'default'
     : mode !== 'edit' ? 'default'
@@ -1881,28 +1852,50 @@ export default function EditPage() {
 
       {/* ── BOTTOM BAR — only visible when an image is loaded ───────── */}
       {imageUrl && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40">
+          <div className="flex items-center gap-2">
+              {/* Replace image */}
+              <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
+                <IconCloudUpload className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
+                <span className="text-[11px] font-black text-gray-400 uppercase tracking-wide">Replace</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+              </label>
 
-          {/* Replace image */}
-          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0c] border border-[#252525] shadow-lg cursor-pointer hover:border-[#303030] transition-all">
-            <IconCloudUpload className="w-4 h-4 text-gray-400" strokeWidth={1.6} />
-            <span className="text-xs font-black text-gray-400 uppercase tracking-wide">Replace</span>
-            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-          </label>
+              {/* Model selector */}
+              <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
 
-          {/* Model selector */}
-          <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
+              <div className="w-px h-4 bg-[#252525] shrink-0" />
 
-          {/* Generate CTA — no spinner inside */}
-          <button
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className="flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200"
-          >
-            <IconWand className="w-4 h-4" />
-            Generate
-            <span className="flex items-center gap-1 opacity-60 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span>
-          </button>
+              {/* Credit cost — matches image page style */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <CreditIcon className="w-5 h-5 rounded" iconClassName="w-2.5 h-2.5" />
+                <span className="font-mono text-sm font-medium text-white/70 tabular-nums">{totalCost}</span>
+              </div>
+
+              {/* Generation count — pill segmented control matching image page */}
+              <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg shrink-0">
+                {([1, 2, 4] as const).map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setGenCount(n)}
+                    className={cn(
+                      'px-2 py-1.5 text-[10.5px] font-black uppercase tracking-wide rounded-md transition-all whitespace-nowrap w-8',
+                      genCount === n ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
+                    )}
+                  >{n}</button>
+                ))}
+              </div>
+
+              {/* Generate CTA */}
+              <button
+                onClick={handleGenerate}
+                disabled={!canGenerate}
+                className="flex items-center gap-2 px-7 py-2 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0"
+              >
+                <IconWand className="w-4 h-4" />
+                Generate
+              </button>
+        </div>
         </div>
       )}
 
@@ -1981,13 +1974,7 @@ export default function EditPage() {
         </div>
       )}
 
-      {/* ── LOADING PROCESS INDICATOR — shows success sound + error toasts ── */}
-      <MyLoadingProcessIndicator
-        isVisible={genTasks.length > 0}
-        tasks={genTasks}
-        onCloseTask={id => setGenTasks(prev => prev.filter(t => t.id !== id))}
-        mode="bottom-right"
-      />
+      {/* Task progress shown globally via TaskManagerProvider */}
     </div>
   )
 }
