@@ -82,43 +82,9 @@ export default function HistoryPage() {
     }
   }
 
-  const updateProcessingItems = async () => {
-    const processingIds = items
-      .filter(item => item.status === 'processing')
-      .map(item => item.id)
-
-    if (processingIds.length === 0) return
-
-    try {
-      const params = new URLSearchParams()
-      params.set('ids', processingIds.join(','))
-
-      const res = await fetch(`/api/history/list?${params.toString()}`, { cache: 'no-store' })
-      if (!res.ok) return
-
-      const data = await res.json()
-      const updatedItems: HistoryListItem[] = data.items || []
-
-      if (updatedItems.length > 0) {
-        setItems(prev => prev.map(item => {
-          const updated = updatedItems.find(u => u.id === item.id)
-          return updated ? { ...item, ...updated } : item
-        }))
-      }
-    } catch (error) {
-      // Silent fail for background updates
-      console.error('Background update failed', error)
-    }
-  }
-
   const TWELVE_DAYS_MS = 12 * 24 * 60 * 60 * 1000
   const displayedItems = useMemo(
     () => items.filter(item => Date.now() - new Date(item.createdAt).getTime() < TWELVE_DAYS_MS),
-    [items]
-  )
-
-  const refreshIfProcessing = useMemo(
-    () => items.some(item => item.status === 'processing'),
     [items]
   )
 
@@ -127,46 +93,45 @@ export default function HistoryPage() {
     loadHistory(true)
   }, [user])
 
-  // Poll for new items at the top every 8s (items newer than the most recent one we have)
-  // This picks up items added while the user is on the history page without disrupting pagination
-  const checkForNewItems = async () => {
-    try {
-      const params = new URLSearchParams()
-      params.set('limit', '12')
-      params.set('order', 'desc')
-      const res = await fetch(`/api/history/list?${params.toString()}`, { cache: 'no-store' })
-      if (!res.ok) return
-      const data = await res.json()
-      const freshItems: HistoryListItem[] = data.items || []
-      if (freshItems.length === 0) return
-      setItems(prev => {
-        const existingIds = new Set(prev.map(i => i.id))
-        const brandNew = freshItems.filter(i => !existingIds.has(i.id))
-        if (brandNew.length === 0) return prev
-        // Prepend new items and also update any that changed status
-        const updated = prev.map(item => {
-          const refreshed = freshItems.find(f => f.id === item.id)
-          return refreshed ? { ...item, ...refreshed } : item
-        })
-        return [...brandNew, ...updated]
-      })
-    } catch {}
-  }
-
+  // Single polling function: fetches top 20 items every 4s.
+  // - Prepends any brand-new items (e.g. a generation just started)
+  // - Updates status of existing items (e.g. processing → completed)
+  // Runs immediately on mount AND on the 4s interval.
+  // Uses setItems(prev => ...) to always operate on fresh state, not a stale closure.
   useEffect(() => {
     if (!user) return
-    const interval = setInterval(checkForNewItems, 8000)
+
+    const refresh = async () => {
+      try {
+        const res = await fetch('/api/history/list?limit=20', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        const fresh: HistoryListItem[] = data.items || []
+        if (fresh.length === 0) return
+
+        setItems(prev => {
+          const freshMap = new Map(fresh.map(f => [f.id, f]))
+          // Update status for any existing items that appear in the fresh batch
+          let changed = false
+          const updated = prev.map(item => {
+            const f = freshMap.get(item.id)
+            if (f && f.status !== item.status) { changed = true; return { ...item, ...f } }
+            return item
+          })
+          // Prepend items that are brand-new (not yet in list)
+          const existingIds = new Set(prev.map(i => i.id))
+          const brandNew = fresh.filter(f => !existingIds.has(f.id))
+          if (brandNew.length === 0 && !changed) return prev
+          return [...brandNew, ...updated]
+        })
+      } catch {}
+    }
+
+    // Fire immediately to catch items added before this page loaded
+    void refresh()
+    const interval = setInterval(refresh, 4000)
     return () => clearInterval(interval)
   }, [user])
-
-  useEffect(() => {
-    if (!refreshIfProcessing) return
-    // Poll processing items every 5s so status updates appear quickly
-    const interval = setInterval(() => {
-      updateProcessingItems()
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [refreshIfProcessing])
 
   const openDetail = async (id: string) => {
     setLoadingItemId(id)
