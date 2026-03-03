@@ -10,9 +10,8 @@ import {
   IconBrush, IconLoader2, IconDownload, IconX, IconPhoto,
   IconTypography, IconSquare, IconSparkles, IconRefresh,
   IconChevronDown, IconChevronUp, IconPencil, IconBulb, IconAi,
-  IconCloudUpload, IconArrowBackUp, IconArrowForwardUp,
+  IconCloudUpload, IconArrowBackUp, IconArrowForwardUp, IconPhotoPlus,
 } from '@tabler/icons-react'
-import { MechanicalSlider } from '@/components/ui/mechanical-slider'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -451,18 +450,18 @@ function FloatingMaskCard({
           }}
         >
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: layer.color }} />
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#c0c0c0] capitalize">{layer.colorName}</span>
-            {isActive && (
-              <span className="text-[8px] px-1 py-px rounded-sm font-black uppercase tracking-wider bg-[#1f1f00] text-[#FFFF00] leading-none">
-                ON
-              </span>
-            )}
+            {/* Solid color chip with layer name */}
+            <span
+              className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm leading-none"
+              style={{ background: layer.color, color: '#000' }}
+            >
+              {layer.colorName}
+            </span>
           </div>
           {/* X = delete layer */}
           <button
             onClick={e => { e.stopPropagation(); onDelete() }}
-            className="p-0.5 text-[#505050] hover:text-red-400 transition-colors rounded hover:bg-[#2a1010]"
+            className="p-0.5 text-[#606060] hover:text-white transition-colors rounded"
           >
             <IconX className="w-3 h-3" />
           </button>
@@ -577,7 +576,7 @@ function MovableTextAnnotation({
           onBlur={() => onCommitEdit(editValue)}
           onClick={e => e.stopPropagation()}
           style={{
-            background: 'rgba(0,0,0,0.7)',
+            background: '#0d0d0d',
             border: `1px solid ${ann.color}`,
             borderRadius: 6,
             outline: 'none',
@@ -604,7 +603,7 @@ function MovableTextAnnotation({
           whiteSpace: 'nowrap',
           outline: isSelected ? `1.5px solid ${ann.color}` : 'none',
           outlineOffset: 3,
-          background: isSelected ? 'rgba(0,0,0,0.35)' : 'transparent',
+          background: isSelected ? '#1a1a1a' : 'transparent',
         }}>
           {ann.text}
         </span>
@@ -649,7 +648,7 @@ function MovableTextAnnotation({
           <button
             onPointerDown={e => { e.stopPropagation(); onStartEdit() }}
             style={{
-              background: 'rgba(20,20,30,0.9)', border: `1px solid ${ann.color}55`,
+              background: '#141414', border: `1px solid ${ann.color}55`,
               borderRadius: 5, padding: '2px 7px', color: ann.color,
               fontSize: 9, fontWeight: 700, cursor: 'pointer', letterSpacing: 1,
             }}
@@ -657,7 +656,7 @@ function MovableTextAnnotation({
           <button
             onPointerDown={e => { e.stopPropagation(); onDelete() }}
             style={{
-              background: 'rgba(180,30,30,0.85)', border: '1px solid rgba(255,100,100,0.3)',
+              background: '#b41e1e', border: '1px solid #d44444',
               borderRadius: 5, padding: '2px 7px', color: 'white',
               fontSize: 9, fontWeight: 700, cursor: 'pointer',
             }}
@@ -735,7 +734,7 @@ function MovableRectAnnotation({
           <button
             onPointerDown={e => { e.stopPropagation(); onDelete() }}
             style={{
-              background: 'rgba(180,30,30,0.9)', border: '1px solid rgba(255,100,100,0.3)',
+              background: '#b41e1e', border: '1px solid #d44444',
               borderRadius: 5, padding: '2px 8px', color: 'white',
               fontSize: 9, fontWeight: 700, cursor: 'pointer',
             }}
@@ -931,11 +930,11 @@ export default function EditPage() {
   // Keep renderCanvasRef in sync so applyHistory can call it without dep issues
   useEffect(() => { renderCanvasRef.current = renderCanvas }, [renderCanvas])
 
-  // ── Clear floating text input whenever mode changes
+  // ── Clear floating text input whenever mode OR tool changes
   useEffect(() => {
     setTextInput({ visible: false, screenX: 0, screenY: 0, canvasX: 0, canvasY: 0 })
     setTextValue('')
-  }, [mode])
+  }, [mode, activeTool])
 
   // ── Keyboard shortcuts: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo
   useEffect(() => {
@@ -1228,6 +1227,9 @@ export default function EditPage() {
   }, [activeTool, activeLayerId, layers, getCanvasPoint, renderCanvas, updateLayerCentroid, captureHistory])
 
   const commitText = useCallback(() => {
+    // Always hide the input first — even on empty submit
+    setTextInput(p => ({ ...p, visible: false }))
+    setTextValue('')
     if (!textValue.trim()) return
     const layer = layers.find(l => l.id === activeLayerId)
     setTextAnnotations(prev => [...prev, {
@@ -1235,8 +1237,6 @@ export default function EditPage() {
       x: textInput.canvasX, y: textInput.canvasY,
       color: layer?.color ?? '#FFFF00', fontSize: 20,
     }])
-    setTextInput(p => ({ ...p, visible: false }))
-    setTextValue('')
     setTimeout(renderCanvas, 0)
   }, [textValue, textInput, activeLayerId, layers, renderCanvas])
 
@@ -1311,9 +1311,9 @@ export default function EditPage() {
         {!imageUrl ? (
           /* ── REDESIGNED EMPTY STATE ─────────────────────────────────── */
           <label className="group cursor-pointer flex flex-col items-center gap-8 select-none">
-            <div className="relative w-48 h-44 rounded-xl border border-dashed border-[#333333] group-hover:border-[#686800] bg-[#111111] group-hover:bg-[#151500] flex flex-col items-center justify-center gap-3 transition-all duration-300">
-              <IconCloudUpload className="w-11 h-11 text-[#585858] group-hover:text-[#aaaa00] transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
-              <span className="text-[11px] font-black uppercase tracking-widest text-[#585858] group-hover:text-[#999900] transition-colors">Upload Image</span>
+            <div className="relative w-48 h-44 rounded-xl border border-[#333333] group-hover:border-[#505050] bg-[#111111] group-hover:bg-[#161616] flex flex-col items-center justify-center gap-3 transition-all duration-300">
+              <IconCloudUpload className="w-11 h-11 text-[#686868] group-hover:text-[#b0b0b0] transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
+              <span className="text-[11px] font-black uppercase tracking-widest text-[#686868] group-hover:text-[#b0b0b0] transition-colors">Upload Image</span>
             </div>
             <div className="text-center space-y-2.5">
               <p className="text-sm font-semibold text-[#787878] group-hover:text-[#c0c0c0] transition-colors">Drop an image or click to browse</p>
@@ -1335,11 +1335,11 @@ export default function EditPage() {
                 {/* Undo / Redo */}
                 <div className="flex gap-0.5 mb-0.5">
                   <button onClick={undo} title="Undo (Ctrl+Z)"
-                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#606060] hover:text-white hover:bg-[#191919] transition-all">
+                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#a0a0a0] hover:text-white hover:bg-[#222222] transition-all">
                     <IconArrowBackUp className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={redo} title="Redo (Ctrl+Shift+Z)"
-                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#606060] hover:text-white hover:bg-[#191919] transition-all">
+                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#a0a0a0] hover:text-white hover:bg-[#222222] transition-all">
                     <IconArrowForwardUp className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1360,7 +1360,7 @@ export default function EditPage() {
                 ].map(({ id, Icon, tip }) => (
                   <button key={id} onClick={() => setActiveTool(id)} title={tip}
                     className={cn('w-9 h-9 rounded-lg flex items-center justify-center transition-all',
-                      activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-[#808080] hover:text-white hover:bg-[#1a1a1a]'
+                      activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-[#c0c0c0] hover:text-white hover:bg-[#222222]'
                     )}>
                     <Icon className="w-4 h-4" strokeWidth={1.8} />
                   </button>
@@ -1379,7 +1379,7 @@ export default function EditPage() {
                           ? '#4a4a4a'
                           : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '99',
                       }} />
-                      {/* Vertical mechanical slider via rotate */}
+                      {/* Vertical range slider */}
                       <div style={{ width: 10, height: 64, position: 'relative', overflow: 'visible' }}>
                         <div style={{
                           position: 'absolute',
@@ -1388,11 +1388,12 @@ export default function EditPage() {
                           width: 64,
                           transformOrigin: 'center center',
                         }}>
-                          <MechanicalSlider
-                            min={4} max={80} step={2}
-                            value={[brushSize]}
-                            onValueChange={([v]) => { if (v !== undefined) setBrushSize(v) }}
-                            visualTicks={true}
+                          <input
+                            type="range" min={4} max={80} step={2}
+                            value={brushSize}
+                            onChange={e => setBrushSize(Number(e.target.value))}
+                            className="w-full cursor-pointer accent-white"
+                            style={{ height: 2 }}
                           />
                         </div>
                       </div>
@@ -1403,10 +1404,10 @@ export default function EditPage() {
 
                 <div className="w-5 h-px bg-[#1e1e1e] my-1" />
 
-                {/* Add layer — bright CTA button */}
+                {/* Add layer — yellow circle CTA */}
                 <button onClick={addLayer} title="Add new mask layer"
-                  className="w-9 h-8 rounded-md flex items-center justify-center bg-[#191919] hover:bg-[#1c1c00] border border-[#323232] hover:border-[#686800] text-[#787878] hover:text-[#FFFF00] transition-all shadow-sm">
-                  <IconPlus className="w-4 h-4" strokeWidth={2} />
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-[#FFFF00] text-black hover:scale-105 active:scale-95 transition-all shadow-md">
+                  <IconPlus className="w-4 h-4" strokeWidth={2.5} />
                 </button>
 
                 {/* Layer dots */}
@@ -1417,7 +1418,7 @@ export default function EditPage() {
                       <button key={l.id} onClick={() => setActiveLayerId(l.id)}
                         title={`${l.colorName} layer`}
                         className={cn('w-4 h-4 rounded-full ring-2 ring-offset-1 ring-offset-[#0d0d0d] transition-all',
-                          activeLayerId === l.id ? 'ring-[#FFFF00] scale-110' : 'ring-white/25 hover:ring-white/50')}
+                          activeLayerId === l.id ? 'ring-[#FFFF00] scale-110' : 'ring-[#555555] hover:ring-[#888888]')}
                         style={{ background: l.color }} />
                     ))}
                   </div>
@@ -1487,17 +1488,18 @@ export default function EditPage() {
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Intensity</p>
                         <span className="font-mono text-[10px] text-white">{lightSettings.intensity}%</span>
                       </div>
-                      <MechanicalSlider
-                        min={10} max={100} step={5}
-                        value={[lightSettings.intensity]}
-                        onValueChange={([v]) => { if (v !== undefined) setLightSettings(p => ({ ...p, intensity: v })) }}
-                        visualTicks={true}
+                      <input
+                        type="range" min={10} max={100} step={5}
+                        value={lightSettings.intensity}
+                        onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
+                        className="w-full cursor-pointer accent-white"
+                        style={{ height: 2 }}
                       />
                     </div>
                     {/* Falloff */}
                     <div>
                       <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Falloff</p>
-                      <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-md border border-[rgb(255_255_255_/_0.04)]">
+                      <div className="flex bg-[#141414] p-0.5 rounded-md border border-[#222222]">
                         {(['soft', 'hard'] as const).map(type => (
                           <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
                             className={cn('flex-1 py-1 text-[10px] font-black rounded-sm transition-all uppercase tracking-wider',
@@ -1567,41 +1569,41 @@ export default function EditPage() {
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
               <div className="flex-shrink-0 w-[260px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3">
-                <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Edit Instruction</p>
+                {/* Image button — top */}
+                {promptRefUrl ? (
+                  <div className="relative w-full h-28 rounded-xl overflow-hidden">
+                    <img src={promptRefUrl} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setPromptRefUrl(null)}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#0d0d0d] flex items-center justify-center text-[#a0a0a0] hover:text-white transition-colors"
+                    >
+                      <IconX className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 cursor-pointer w-full h-28 rounded-xl border border-[#2e2e2e] hover:border-[#444444] transition-colors group">
+                    <div className="w-11 h-11 rounded-full bg-[#181818] flex items-center justify-center group-hover:bg-[#222222] transition-colors">
+                      <IconPhotoPlus className="w-5 h-5 text-[#a0a0a0] group-hover:text-white transition-colors" strokeWidth={1.5} />
+                    </div>
+                    <span className="text-[10px] font-bold text-[#686868] group-hover:text-[#a0a0a0] uppercase tracking-wide transition-colors">Add image</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                      const file = e.target.files?.[0]; if (!file) return
+                      const fd = new FormData(); fd.append('file', file)
+                      try {
+                        const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
+                        const d = await r.json(); setPromptRefUrl(d.image?.url ?? URL.createObjectURL(file))
+                      } catch { setPromptRefUrl(URL.createObjectURL(file)) }
+                    }} />
+                  </label>
+                )}
+                {/* Prompt textarea — below */}
                 <textarea
                   value={promptText}
                   onChange={e => setPromptText(e.target.value)}
                   placeholder={"e.g. 'Make the background a sunset beach'"}
                   className="w-full bg-[#141414] border border-[#2e2e2e] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-[#606060] resize-none outline-none focus:border-[#3c3c3c] leading-relaxed transition-all"
-                  rows={5}
+                  rows={4}
                 />
-                {/* Reference image — icon button style (consistent with image page) */}
-                <div className="flex items-center gap-2 pt-1 border-t border-[#222222]">
-                  {promptRefUrl ? (
-                    <>
-                      <img src={promptRefUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-[#2e2e2e] flex-shrink-0" />
-                      <span className="text-xs text-gray-400 flex-1">Reference attached</span>
-                      <button onClick={() => setPromptRefUrl(null)} className="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-[#2a1010]">
-                        <IconX className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <div className="w-9 h-9 flex items-center justify-center rounded-lg border border-[#2e2e2e] bg-[#121212] hover:bg-[#181818] hover:border-[#383838] transition-all text-gray-500 hover:text-white flex-shrink-0">
-                        <IconPhoto className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs text-gray-500 hover:text-white transition-colors">Add reference image</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                        const file = e.target.files?.[0]; if (!file) return
-                        const fd = new FormData(); fd.append('file', file)
-                        try {
-                          const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
-                          const d = await r.json(); setPromptRefUrl(d.image?.url ?? URL.createObjectURL(file))
-                        } catch { setPromptRefUrl(URL.createObjectURL(file)) }
-                      }} />
-                    </label>
-                  )}
-                </div>
               </div>
             )}
 
@@ -1749,7 +1751,7 @@ export default function EditPage() {
                 'flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-black rounded-lg uppercase tracking-widest transition-all duration-200',
                 mode === id
                   ? 'bg-[#FFFF00] text-black shadow-sm'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-[#b0b0b0] hover:text-white'
               )}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -1781,8 +1783,8 @@ export default function EditPage() {
             className={cn(
               'flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-200',
               canGenerate
-                ? 'bg-[#FFFF00] text-black hover:bg-[#e6e600] shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)]'
-                : 'bg-[#141414] text-gray-600 cursor-not-allowed border border-[#222222]'
+                ? 'bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)]'
+                : 'bg-[#FFFF00] text-black cursor-not-allowed'
             )}
           >
             {isGenerating ? (
@@ -1809,7 +1811,7 @@ export default function EditPage() {
                 {results.slice(0, 5).map(r => (
                   <button
                     key={r.id} onClick={() => setModalResult(r)}
-                    className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-[#282828] hover:border-[#686800] transition-all duration-150 hover:scale-105"
+                    className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-[#282828] hover:border-[#505050] transition-all duration-150 hover:scale-105"
                   >
                     <img src={r.url} alt="" className="w-full h-full object-cover" />
                   </button>
@@ -1822,7 +1824,7 @@ export default function EditPage() {
 
       {/* ── RESULT MODAL ─────────────────────────────────────────────── */}
       {modalResult && (
-        <div className="fixed inset-0 z-50 bg-[#080808] backdrop-blur-2xl flex items-center justify-center" onClick={() => setModalResult(null)}>
+        <div className="fixed inset-0 z-50 bg-[#080808]  flex items-center justify-center" onClick={() => setModalResult(null)}>
           <div className="flex flex-col gap-4 max-w-4xl max-h-[90vh] items-center" onClick={e => e.stopPropagation()}>
             <img src={modalResult.url} alt="" className="rounded-2xl max-h-[74vh] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.8)]" />
             <div className="flex items-center gap-3">
@@ -1872,7 +1874,7 @@ export default function EditPage() {
 
       {/* ── ERROR TOAST ──────────────────────────────────────────────── */}
       {error && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-red-500/12 border border-red-500/25 text-red-300 text-sm shadow-2xl backdrop-blur-xl">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-[#2a0808] border border-[#5a1818] text-red-300 text-sm shadow-2xl backdrop-blur-xl">
           <IconX className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
           <button onClick={() => setError(null)} className="ml-2 text-red-300/40 hover:text-red-300 transition-colors"><IconX className="w-3.5 h-3.5" /></button>
