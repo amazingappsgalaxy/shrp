@@ -62,10 +62,9 @@ export async function POST(request: NextRequest) {
     }
     const creditCost = modelConfig.credits
 
-    // Check user credits
+    // Check user credits — use the authoritative total from the DB RPC
     const creditBalance = await UnifiedCreditsService.getUserCredits(userId)
-    const total = (creditBalance.subscription_credits ?? 0) + (creditBalance.permanent_credits ?? 0)
-    if (total < creditCost) {
+    if (creditBalance.total < creditCost) {
       return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
     }
 
@@ -158,6 +157,15 @@ export async function POST(request: NextRequest) {
     const outputUrl = await uploadFromUrl(getOutputPath(userId, ext), rawOutputUrl, mimeFromExt(ext))
     const generationMs = Date.now() - startTime
 
+    // ── Mark history record as completed BEFORE deducting credits ────────────
+    // This ensures the DB state is always correct even if credit deduction fails.
+    // The user has already received the output; DB must reflect that.
+    await supabase.from('history_items').update({
+      output_urls: [{ type: 'image', url: outputUrl }],
+      status: 'completed',
+      generation_time_ms: generationMs,
+    }).eq('id', historyId)
+
     // ── Deduct credits ONCE — covers all masks in a single generation ──────────
     const activeMaskCount = masks.filter(m => m.prompt.trim()).length
     const description = mode === 'edit'
@@ -166,14 +174,13 @@ export async function POST(request: NextRequest) {
       ? `Image relight — ${modelConfig.label}`
       : `Prompt edit — ${modelConfig.label}`
 
-    await UnifiedCreditsService.deductCredits(userId, creditCost, taskId, description)
-
-    // ── Update the processing record to completed ─────────────────────────────
-    await supabase.from('history_items').update({
-      output_urls: [{ type: 'image', url: outputUrl }],
-      status: 'completed',
-      generation_time_ms: generationMs,
-    }).eq('id', historyId)
+    const deductResult = await UnifiedCreditsService.deductCredits(userId, creditCost, taskId, description)
+    if (!deductResult.success) {
+      // Output already delivered and DB marked completed — log critically for manual recovery.
+      console.error(
+        `🚨 CRITICAL edit-image: credit deduction FAILED for user=${userId} task=${taskId} amount=${creditCost} — ${deductResult.error}`
+      )
+    }
 
     return NextResponse.json({
       success: true,

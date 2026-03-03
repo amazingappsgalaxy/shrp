@@ -120,10 +120,11 @@ export async function GET(request: NextRequest) {
       if (won) {
         // We won the race — deduct credits
         if (creditsToDeduct > 0) {
-          try {
-            await UnifiedCreditsService.deductCredits(userId, creditsToDeduct, taskId, 'Image enhancement')
-          } catch (e) {
-            console.error('Poll: credit deduction failed (non-fatal):', e)
+          const deductResult = await UnifiedCreditsService.deductCredits(userId, creditsToDeduct, taskId, 'Image enhancement')
+          if (!deductResult.success) {
+            console.error(
+              `🚨 CRITICAL poll: credit deduction FAILED for user=${userId} task=${taskId} amount=${creditsToDeduct} — ${deductResult.error}`
+            )
           }
         }
 

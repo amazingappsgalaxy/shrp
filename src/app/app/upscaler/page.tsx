@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
 import { useTaskManager } from "@/components/providers/TaskManagerProvider"
+import { useCredits } from "@/lib/hooks/use-credits"
 import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
@@ -73,14 +74,8 @@ function UpscalerContent() {
   const [maxmode, setMaxmode] = useState(false)
   const [maxResolution, setMaxResolution] = useState<'4k' | '8k'>('4k')
 
-  // Credit balance
-  const [creditBalance, setCreditBalance] = useState<number | null>(null)
-  useEffect(() => {
-    fetch('/api/credits/balance')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.balance !== undefined) setCreditBalance(d.balance) })
-      .catch((err) => console.error('Failed to fetch credit balance:', err))
-  }, [])
+  // Credit balance — from shared SWR cache, auto-refreshed after task completion
+  const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
   // Compute credit cost based on selected model + settings
   const creditCost = selectedModel === 'pro-upscaler'
@@ -159,11 +154,11 @@ function UpscalerContent() {
   const handleUpscale = async () => {
     if (!uploadedImage) return
 
-    if (creditBalance === null || creditBalance <= 0) {
+    if (!creditsLoading && creditBalance <= 0) {
       openPlansPopup()
       return
     }
-    if (creditBalance < creditCost) {
+    if (!creditsLoading && creditBalance < creditCost) {
       const toastId = `${Date.now()}-topup`
       setToasts(prev => [...prev, { id: toastId, message: 'Not enough credits. Top up your account from the dashboard.', type: 'error' }])
       setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 5000)

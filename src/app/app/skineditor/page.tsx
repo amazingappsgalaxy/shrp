@@ -31,6 +31,7 @@ import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
 import { startSmartProgress, type TaskStatus, type TaskEntry } from "@/lib/task-progress"
 import { SKIN_EDITOR_TASK_DURATION_SECS } from "@/models/skin-editor/config"
+import { useCredits } from "@/lib/hooks/use-credits"
 
 // --- TYPES ---
 interface AreaProtectionSettings {
@@ -197,14 +198,8 @@ function EditorContent() {
   // Smart Upscale Settings
   const [upscaleResolution, setUpscaleResolution] = useState<'4k' | '8k'>('4k')
 
-  // Credit balance
-  const [creditBalance, setCreditBalance] = useState<number | null>(null)
-  useEffect(() => {
-    fetch('/api/credits/balance')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.balance !== undefined) setCreditBalance(d.balance) })
-      .catch((err) => console.error('Failed to fetch credit balance:', err))
-  }, [])
+  // Credit balance — from shared SWR cache, auto-refreshed after task completion
+  const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -345,12 +340,12 @@ function EditorContent() {
     if (!uploadedImage) return
 
     // No credits at all → show pricing plans popup
-    if (creditBalance === null || creditBalance <= 0) {
+    if (!creditsLoading && creditBalance <= 0) {
       openPlansPopup()
       return
     }
     // Has some credits but not enough for this task → small top-up notice
-    if (creditCost !== null && creditCost !== undefined && creditBalance < creditCost) {
+    if (!creditsLoading && creditCost !== null && creditCost !== undefined && creditBalance < creditCost) {
       const toastId = `${Date.now()}-topup`
       setToasts(prev => [...prev, { id: toastId, message: 'Not enough credits. Top up your account from the dashboard.', type: 'error' }])
       setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 5000)

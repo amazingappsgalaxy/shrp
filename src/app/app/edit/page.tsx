@@ -13,6 +13,7 @@ import {
   IconCloudUpload, IconArrowBackUp, IconArrowForwardUp, IconPhotoPlus,
 } from '@tabler/icons-react'
 import { useTaskManager } from '@/components/providers/TaskManagerProvider'
+import { useCredits } from '@/lib/hooks/use-credits'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -970,6 +971,7 @@ function PremiumSliderVertical({ value, min, max, step, onChange, color, segment
 export default function EditPage() {
   useAuth()
   const { addWatchedTask, resolveTask, failTask } = useTaskManager()
+  const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
   // ── Image state
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -1449,9 +1451,18 @@ export default function EditPage() {
     return false
   }, [imageUrl, mode, layers, promptText])
 
+  const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
+  const totalCost = creditCost * genCount
+
   const handleGenerate = useCallback(async () => {
     if (!canGenerate || !imageUrl) return
     setError(null)
+
+    // Client-side credit guard — avoids a server round-trip for an obvious 402
+    if (!creditsLoading && totalCost > 0 && creditBalance < totalCost) {
+      setError(`Not enough credits (${creditBalance} available, ${totalCost} required). Top up from the dashboard.`)
+      return
+    }
 
     // ── Build shared image data (same for all variations) ──────────────────────
     let compositeDataUrl: string | undefined
@@ -1536,10 +1547,8 @@ export default function EditPage() {
         setGeneratingCount(c => c - 1)
       }
     }))
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask])
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask, creditBalance, creditsLoading, totalCost])
 
-  const creditCost = MODEL_REGISTRY[selectedModel]?.credits ?? 20
-  const totalCost = creditCost * genCount
 
   const canvasCursor = !bgImageRef.current ? 'default'
     : mode !== 'edit' ? 'default'

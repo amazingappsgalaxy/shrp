@@ -8,7 +8,9 @@ import React, {
   useRef,
   useState,
 } from 'react'
+import { useSWRConfig } from 'swr'
 import MyLoadingProcessIndicator from '@/components/ui/MyLoadingProcessIndicator'
+import { APP_DATA_KEY } from '@/lib/hooks/use-app-data'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -74,6 +76,9 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
   const tasksRef = useRef<Map<string, WatchedTask>>(new Map())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  // Track previous task statuses so we can detect completions without polling
+  const prevTaskStatusRef = useRef<Map<string, TaskStatus>>(new Map())
+  const { mutate } = useSWRConfig()
 
   // One-time cleanup: remove any stale task state left in localStorage by the old system
   useEffect(() => {
@@ -84,6 +89,21 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     tasksRef.current = tasks
   }, [tasks])
+
+  // ── Credit refresh — whenever a task transitions to completed, re-fetch
+  // the credit balance so every page reflects the deduction immediately.
+  useEffect(() => {
+    let needsRefresh = false
+    tasks.forEach((task, id) => {
+      const prev = prevTaskStatusRef.current.get(id)
+      if (task.status === 'completed' && prev !== 'completed') needsRefresh = true
+    })
+    // Snapshot current statuses for next comparison
+    prevTaskStatusRef.current = new Map(
+      Array.from(tasks.entries()).map(([id, t]) => [id, t.status] as [string, TaskStatus])
+    )
+    if (needsRefresh) void mutate(APP_DATA_KEY)
+  }, [tasks, mutate])
 
   // ── Poll — reads from tasksRef so it is NEVER stale ───────────────────────
   // No deps on tasks/state — always up-to-date via tasksRef.current

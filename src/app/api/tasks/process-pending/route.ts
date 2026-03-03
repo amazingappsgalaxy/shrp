@@ -115,15 +115,16 @@ async function processPendingTask(
         .maybeSingle()
 
       if (won && creditsToDeduct > 0) {
-        try {
-          await UnifiedCreditsService.deductCredits(
-            task.user_id,
-            creditsToDeduct,
-            task.id,
-            'Image enhancement'
+        const deductResult = await UnifiedCreditsService.deductCredits(
+          task.user_id,
+          creditsToDeduct,
+          task.id,
+          'Image enhancement'
+        )
+        if (!deductResult.success) {
+          console.error(
+            `🚨 CRITICAL process-pending: credit deduction FAILED for user=${task.user_id} task=${task.id} amount=${creditsToDeduct} — ${deductResult.error}`
           )
-        } catch (e) {
-          console.error(`process-pending: credit deduction failed for task ${task.id}:`, e)
         }
       }
 
