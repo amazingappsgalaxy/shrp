@@ -12,6 +12,7 @@ import {
   IconChevronDown, IconChevronUp, IconPencil, IconBulb, IconAi,
   IconCloudUpload, IconArrowBackUp, IconArrowForwardUp, IconPhotoPlus,
 } from '@tabler/icons-react'
+import MyLoadingProcessIndicator from '@/components/ui/MyLoadingProcessIndicator'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ interface MaskLayer {
   color: string
   colorName: string
   prompt: string
-  referenceImageUrl: string | null
+  referenceImageUrls: string[]
   centroid: { x: number; y: number } | null  // canvas-pixel space
   cardOffset: { x: number; y: number }        // user-dragged offset (CSS px)
 }
@@ -366,7 +367,7 @@ const CARD_H = 140  // approximate card height for Y clamping
 
 function FloatingMaskCard({
   layer, scaleX, scaleY, canvasW, canvasH, isActive,
-  onSelect, onUpdatePrompt, onAttachRef, onDelete, onCardDrag,
+  onSelect, onUpdatePrompt, onUpdateRefs, onDelete, onCardDrag,
 }: {
   layer: MaskLayer
   scaleX: number; scaleY: number
@@ -374,7 +375,7 @@ function FloatingMaskCard({
   isActive: boolean
   onSelect: () => void
   onUpdatePrompt: (p: string) => void
-  onAttachRef: (url: string) => void
+  onUpdateRefs: (urls: string[]) => void
   onDelete: () => void
   onCardDrag: (dx: number, dy: number) => void
 }) {
@@ -479,34 +480,41 @@ function FloatingMaskCard({
           />
         </div>
 
-        {/* Reference image — icon only */}
+        {/* Reference images — multiple, thumbnails + add button */}
         <div className="px-2.5 pb-2.5">
-          {layer.referenceImageUrl ? (
-            <div className="flex items-center gap-1.5">
-              <img src={layer.referenceImageUrl} alt="" className="w-7 h-7 rounded-md object-cover border border-[#2e2e2e] flex-shrink-0" />
-              <span className="text-[9px] text-[#606060] flex-1 truncate">Reference Image</span>
-              <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="p-0.5 text-[#505050] hover:text-red-400 transition-colors rounded">
-                <IconX className="w-3 h-3" />
-              </button>
-            </div>
-          ) : (
-            <label className="cursor-pointer" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[#252525] bg-[#111111] hover:bg-[#161616] hover:border-[#2e2e2e] transition-all">
-                <IconPlus className="w-3 h-3 text-[#606060]" />
-                <IconPhoto className="w-3 h-3 text-[#606060]" />
-                <span className="text-[9px] font-bold text-[#606060] uppercase tracking-wide">Add image</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {layer.referenceImageUrls.map((url, i) => (
+              <div key={i} className="relative w-9 h-9 rounded-md overflow-hidden flex-shrink-0 border border-[#2e2e2e]">
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <button
+                  onPointerDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onUpdateRefs(layer.referenceImageUrls.filter((_, j) => j !== i)) }}
+                  className="absolute top-0 right-0 w-3.5 h-3.5 rounded-bl bg-[#0d0d0d] flex items-center justify-center text-[#a0a0a0] hover:text-white"
+                >
+                  <IconX className="w-2 h-2" />
+                </button>
               </div>
-              <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                const file = e.target.files?.[0]; if (!file) return
-                const fd = new FormData(); fd.append('file', file)
-                try {
-                  const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
-                  const d = await r.json()
-                  onAttachRef(d.image?.url ?? URL.createObjectURL(file))
-                } catch { onAttachRef(URL.createObjectURL(file)) }
+            ))}
+            {/* Add more images */}
+            <label className="cursor-pointer w-9 h-9 rounded-md border border-dashed border-[#333333] bg-[#111111] flex items-center justify-center hover:border-[#555555] hover:bg-[#161616] transition-all flex-shrink-0" onClick={e => e.stopPropagation()}>
+              <IconPlus className="w-3 h-3 text-[#606060]" />
+              <input type="file" accept="image/*" multiple className="hidden" onChange={async e => {
+                const files = Array.from(e.target.files ?? [])
+                if (!files.length) return
+                const urls: string[] = []
+                for (const file of files) {
+                  try {
+                    const fd = new FormData(); fd.append('file', file)
+                    const r = await fetch('/api/images/upload', { method: 'POST', body: fd })
+                    const d = await r.json()
+                    urls.push(d.image?.url ?? URL.createObjectURL(file))
+                  } catch { urls.push(URL.createObjectURL(file)) }
+                }
+                onUpdateRefs([...layer.referenceImageUrls, ...urls])
+                e.target.value = ''
               }} />
             </label>
-          )}
+          </div>
         </div>
       </div>
     </>
@@ -757,8 +765,8 @@ function PremiumSliderVertical({ value, min, max, step, onChange, color, segment
             style={{
               width: w,
               height: 4,
-              background: isFilled ? (isEdge ? '#ffffff' : color) : '#282828',
-              opacity: isFilled && !isEdge ? 0.45 + t * 0.55 : 1,
+              background: isFilled ? (isEdge ? '#ffffff' : color) : '#252525',
+              opacity: isFilled && !isEdge ? 0.55 + t * 0.45 : 1,  // min 55% so color is always vivid
             }}
           />
         )
@@ -876,8 +884,10 @@ export default function EditPage() {
   const [selectedModel, setSelectedModel] = useState('nano-banana-2')
 
   // ── Generation
+  type GenTask = { id: string; status: 'loading' | 'success' | 'error'; message?: string; progress: number }
   const [generatingCount, setGeneratingCount] = useState(0)
   const isGenerating = generatingCount > 0
+  const [genTasks, setGenTasks] = useState<GenTask[]>([])
   const [results, setResults] = useState<GenerationResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [modalResult, setModalResult] = useState<GenerationResult | null>(null)
@@ -888,10 +898,12 @@ export default function EditPage() {
   const displayCanvasRef = useRef<HTMLCanvasElement>(null)
   const bgImageRef = useRef<HTMLImageElement | null>(null)
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
+  const brushCursorRef = useRef<HTMLDivElement>(null)
   const isDrawingRef = useRef(false)
   const lastPointRef = useRef<Point | null>(null)
   const rectStartRef = useRef<Point | null>(null)
   const [rectPreview, setRectPreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [showBrushCursor, setShowBrushCursor] = useState(false)
 
   // ── Text input
   const [textInput, setTextInput] = useState({ visible: false, screenX: 0, screenY: 0, canvasX: 0, canvasY: 0 })
@@ -912,7 +924,14 @@ export default function EditPage() {
     ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height)
     for (const layer of layers) {
       const lc = layerCanvasesRef.current.get(layer.id)
-      if (lc) ctx.drawImage(lc, 0, 0)
+      if (lc) {
+        // Draw with a soft glow matching the layer color for a premium feel
+        ctx.save()
+        ctx.shadowColor = layer.color
+        ctx.shadowBlur = 18
+        ctx.drawImage(lc, 0, 0)
+        ctx.restore()
+      }
     }
     // Text and rect annotations rendered as HTML overlays (moveable)
   }, [layers])
@@ -1022,7 +1041,7 @@ export default function EditPage() {
       const idx = prev.length
       const layer: MaskLayer = {
         id: uid(), color: colorData.hex, colorName: colorData.name,
-        prompt: '', referenceImageUrl: null, centroid: null,
+        prompt: '', referenceImageUrls: [], centroid: null,
         cardOffset: { x: idx * 12, y: idx * 90 },
       }
       const lc = document.createElement('canvas')
@@ -1064,18 +1083,30 @@ export default function EditPage() {
   }, [scaleX, scaleY])
 
   const paintDot = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, colorRgb: string, erase: boolean) => {
-    ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
-    ctx.fillStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb},0.55)`
-    ctx.beginPath()
-    ctx.arc(x, y, radius, 0, Math.PI * 2)
-    ctx.fill()
+    if (erase) {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.fillStyle = 'rgba(0,0,0,1)'
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill()
+      return
+    }
+    // Radial gradient — bright core fading to transparent edge (soft, premium feel)
+    ctx.globalCompositeOperation = 'source-over'
+    const r = radius * 1.15
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
+    grad.addColorStop(0,   `rgba(${colorRgb}, 0.92)`)  // bright center
+    grad.addColorStop(0.38,`rgba(${colorRgb}, 0.72)`)
+    grad.addColorStop(0.72,`rgba(${colorRgb}, 0.38)`)
+    grad.addColorStop(1,   `rgba(${colorRgb}, 0)`)     // feathered edge
+    ctx.fillStyle = grad
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill()
   }, [])
 
   const paintLine = useCallback((ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, radius: number, colorRgb: string, erase: boolean) => {
     ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over'
-    ctx.strokeStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb},0.55)`
+    ctx.strokeStyle = erase ? 'rgba(0,0,0,1)' : `rgba(${colorRgb}, 0.62)`
     ctx.lineWidth = radius * 2
     ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
   }, [])
 
@@ -1100,7 +1131,7 @@ export default function EditPage() {
         nextColorIdx.current++
         const newLayer: MaskLayer = {
           id: uid(), color: colorData.hex, colorName: colorData.name,
-          prompt: '', referenceImageUrl: null, centroid: null, cardOffset: { x: 0, y: 0 },
+          prompt: '', referenceImageUrls: [], centroid: null, cardOffset: { x: 0, y: 0 },
         }
         const lc = document.createElement('canvas')
         lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
@@ -1117,7 +1148,7 @@ export default function EditPage() {
       nextColorIdx.current++
       const newLayer: MaskLayer = {
         id: uid(), color: colorData.hex, colorName: colorData.name,
-        prompt: '', referenceImageUrl: null, centroid: null, cardOffset: { x: 0, y: 0 },
+        prompt: '', referenceImageUrls: [], centroid: null, cardOffset: { x: 0, y: 0 },
       }
       const lc = document.createElement('canvas')
       lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
@@ -1149,6 +1180,15 @@ export default function EditPage() {
   }, [activeTool, mode, activeLayerId, layers, getCanvasPoint, brushSize, scaleX, paintDot, renderCanvas])
 
   const onMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Update custom brush cursor via DOM ref — zero re-renders
+    if (brushCursorRef.current) {
+      const canvas = displayCanvasRef.current!
+      const rect = canvas.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      brushCursorRef.current.style.transform = `translate(${cx}px, ${cy}px)`
+    }
+
     if (!isDrawingRef.current) return
     const pt = getCanvasPoint(e)
 
@@ -1235,6 +1275,7 @@ export default function EditPage() {
     if (!canGenerate || !imageUrl) return
     setGeneratingCount(c => c + 1); setError(null)
     const taskId = uid()
+    setGenTasks(prev => [...prev, { id: taskId, status: 'loading', progress: 40 }])
     try {
       let compositeDataUrl: string | undefined
       let cleanOriginalDataUrl: string | undefined
@@ -1259,7 +1300,7 @@ export default function EditPage() {
           'I am providing two images: image 1 is the original clean photo, image 2 is the same photo with semi-transparent colored overlays marking edit regions. ' +
           activeLayers.map(l => `In the ${l.colorName}-colored overlay region: ${l.prompt.trim()}`).join('. ') +
           '. Apply the edits to image 1 ONLY — use image 2 purely as a guide for WHERE to make changes. Keep everything outside the colored regions completely identical to image 1.'
-        activeLayers.forEach(l => { if (l.referenceImageUrl) referenceImages.push(l.referenceImageUrl) })
+        activeLayers.forEach(l => l.referenceImageUrls.forEach(u => referenceImages.push(u)))
       } else if (mode === 'relight') {
         // Relight: send the clean original image
         if (bgImageRef.current) {
@@ -1292,8 +1333,13 @@ export default function EditPage() {
       const data = await res.json()
       setResults(prev => [{ id: taskId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl, prompt: combinedPrompt }, ...prev])
       setResultsDockOpen(true)
+      setGenTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'success', progress: 100 } : t))
+      // Auto-dismiss success task after 4s
+      setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== taskId)), 4000)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Generation failed')
+      const msg = err instanceof Error ? err.message : 'Generation failed'
+      setError(msg)
+      setGenTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'error', message: msg, progress: 0 } : t))
     } finally { setGeneratingCount(c => c - 1) }
   }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, flattenForExport])
 
@@ -1301,8 +1347,8 @@ export default function EditPage() {
 
   const canvasCursor = !bgImageRef.current ? 'default'
     : mode !== 'edit' ? 'default'
-    : !activeLayerId ? 'crosshair'
     : activeTool === 'text' ? 'text'
+    : (activeTool === 'brush' || activeTool === 'eraser') ? 'none'  // custom cursor ring takes over
     : 'crosshair'
 
   // ── Render
@@ -1637,8 +1683,30 @@ export default function EditPage() {
               onMouseDown={onMouseDown}
               onMouseMove={onMouseMove}
               onMouseUp={onMouseUp}
-              onMouseLeave={e => { if (isDrawingRef.current) onMouseUp(e) }}
+              onMouseEnter={() => setShowBrushCursor(true)}
+              onMouseLeave={e => { setShowBrushCursor(false); if (isDrawingRef.current) onMouseUp(e) }}
             />
+
+            {/* ── Custom brush cursor ring — zero-rerender, DOM-only updates ── */}
+            {mode === 'edit' && (activeTool === 'brush' || activeTool === 'eraser') && showBrushCursor && (() => {
+              const activeLayer = layers.find(l => l.id === activeLayerId)
+              const cursorColor = activeTool === 'eraser' ? '#888888' : (activeLayer?.color ?? '#FFFF00')
+              const cursorSize = brushSize  // in display pixels
+              return (
+                <div
+                  ref={brushCursorRef}
+                  className="absolute top-0 left-0 pointer-events-none z-30"
+                  style={{
+                    width: cursorSize, height: cursorSize,
+                    marginLeft: -cursorSize / 2, marginTop: -cursorSize / 2,
+                    borderRadius: '50%',
+                    border: `1.5px solid ${cursorColor}`,
+                    boxShadow: `0 0 ${Math.max(8, cursorSize / 3)}px ${cursorColor}77, inset 0 0 ${Math.max(4, cursorSize / 6)}px ${cursorColor}33`,
+                    willChange: 'transform',
+                  }}
+                />
+              )
+            })()}
 
             {/* Rect preview overlay */}
             {rectPreview && displaySize && (
@@ -1700,7 +1768,7 @@ export default function EditPage() {
                 isActive={activeLayerId === layer.id}
                 onSelect={() => setActiveLayerId(layer.id)}
                 onUpdatePrompt={p => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, prompt: p } : l))}
-                onAttachRef={url => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, referenceImageUrl: url || null } : l))}
+                onUpdateRefs={urls => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, referenceImageUrls: urls } : l))}
 
                 onDelete={() => removeLayer(layer.id)}
                 onCardDrag={(dx, dy) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cardOffset: { x: l.cardOffset.x + dx, y: l.cardOffset.y + dy } } : l))}
@@ -1774,17 +1842,15 @@ export default function EditPage() {
           {/* Model selector */}
           <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
 
-          {/* Generate CTA */}
+          {/* Generate CTA — no spinner inside */}
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isGenerating ? (
-              <><IconLoader2 className="w-4 h-4 animate-spin" />Generating ({generatingCount})…</>
-            ) : (
-              <><IconWand className="w-4 h-4" />Generate<span className="flex items-center gap-1 opacity-60 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span></>
-            )}
+            <IconWand className="w-4 h-4" />
+            Generate
+            <span className="flex items-center gap-1 opacity-60 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span>
           </button>
         </div>
       )}
@@ -1800,8 +1866,8 @@ export default function EditPage() {
               </button>
             </div>
             {resultsDockOpen && (
-              <div className="flex gap-2 p-2.5" style={{ maxWidth: 320 }}>
-                {results.slice(0, 5).map(r => (
+              <div className="flex gap-2 p-2.5 overflow-x-auto" style={{ maxWidth: 340 }}>
+                {results.map(r => (
                   <button
                     key={r.id} onClick={() => setModalResult(r)}
                     className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-[#282828] hover:border-[#505050] transition-all duration-150 hover:scale-105"
@@ -1864,14 +1930,12 @@ export default function EditPage() {
         </div>
       )}
 
-      {/* ── ERROR TOAST ──────────────────────────────────────────────── */}
-      {error && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-[#2a0808] border border-[#5a1818] text-red-300 text-sm shadow-2xl backdrop-blur-xl">
-          <IconX className="w-4 h-4 flex-shrink-0" />
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-2 text-red-300/40 hover:text-red-300 transition-colors"><IconX className="w-3.5 h-3.5" /></button>
-        </div>
-      )}
+      {/* ── LOADING PROCESS INDICATOR — shows success sound + error toasts ── */}
+      <MyLoadingProcessIndicator
+        isVisible={genTasks.length > 0}
+        tasks={genTasks}
+        onCloseTask={id => setGenTasks(prev => prev.filter(t => t.id !== id))}
+      />
     </div>
   )
 }

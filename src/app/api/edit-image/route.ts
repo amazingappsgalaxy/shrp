@@ -152,9 +152,6 @@ export async function POST(request: NextRequest) {
       status: 'success',
       generation_time_ms: generationMs,
       settings: {
-        originalImageUrl,
-        masks,
-        prompt: combinedPrompt,
         model,
         creditCost,
         mode,
