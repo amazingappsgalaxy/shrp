@@ -9,7 +9,8 @@ import {
   IconUpload, IconTrash, IconPlus, IconWand, IconEraser,
   IconBrush, IconLoader2, IconDownload, IconX, IconPhoto,
   IconTypography, IconSquare, IconSparkles, IconRefresh,
-  IconChevronDown, IconChevronUp,
+  IconChevronDown, IconChevronUp, IconPencil, IconBulb, IconStars,
+  IconCloudUpload,
 } from '@tabler/icons-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -107,7 +108,7 @@ const LIGHTING_STYLES = [
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 function computeDisplaySize(nw: number, nh: number): { w: number; h: number } {
-  const maxW = Math.min(window.innerWidth - 360, 860)  // reserve for inline left panel + gaps
+  const maxW = Math.min(window.innerWidth - 400, 860)  // reserve for inline left panel (280px) + gaps
   const maxH = Math.min(window.innerHeight - 210, 700)
   let w = nw, h = nh
   if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
@@ -149,12 +150,44 @@ function elToDesc(el: number) {
   return 'uplighting from below'
 }
 
+function hexToRgbDesc(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  if (r > 220 && g > 220 && b > 220) return 'cool white'
+  if (r > 220 && g > 160 && b < 120) return 'warm golden amber'
+  if (r > 220 && g > 200 && b < 80) return 'bright yellow sunlight'
+  if (r < 80 && g > 180 && b > 180) return 'cool cyan-teal'
+  if (r > 200 && g < 100 && b < 100) return 'deep red'
+  if (r > 200 && g < 100 && b > 200) return 'vivid magenta'
+  if (r < 80 && g < 80 && b > 200) return 'electric blue neon'
+  if (r > 150 && g > 200 && b < 80) return 'lime green neon'
+  return `colored (${r},${g},${b})`
+}
+
 function generateRelightPrompt(s: LightSettings) {
+  const colorDesc = hexToRgbDesc(s.color)
+  const bright = s.intensity > 85 ? 'extremely bright, high-intensity'
+    : s.intensity > 65 ? 'bright'
+    : s.intensity > 40 ? 'moderate'
+    : 'subtle, low-key'
+  const dirDesc = azToDesc(s.azimuth)
+  const elDesc = elToDesc(s.elevation)
+  const falloff = s.softness === 'soft' ? 'soft diffuse falloff, gentle shadows with feathered penumbra'
+    : 'hard sharp shadows with well-defined terminator and crisp specular highlights'
   const lock = s.sceneLock
-    ? 'SCENE LOCK, FIXED VIEWPOINT, maintaining character consistency and pose. RELIGHTING ONLY: '
-    : 'Relight: '
-  const bright = s.intensity > 70 ? 'bright' : s.intensity > 40 ? 'medium' : 'subtle'
-  return `${lock}${bright} ${s.softness} light source from ${azToDesc(s.azimuth)}, ${elToDesc(s.elevation)}, light color ${s.color}, cinematic relighting`
+    ? 'PRESERVE exact subject pose, facial features, clothing, and scene geometry. Only change the lighting. '
+    : ''
+  return (
+    `Physically-based 3D relighting: ${lock}` +
+    `Apply a ${bright} ${colorDesc} light source positioned at ${dirDesc}, ${elDesc}. ` +
+    `Cast accurate directional shadows that follow the geometry of the subject. ` +
+    `Render realistic specular highlights on skin, hair, and surfaces facing the light. ` +
+    `Subsurface scattering in skin, ambient occlusion in crevices, rim lighting on edges facing away. ` +
+    `${falloff}. ` +
+    `The unlit side should have natural shadow tone — not pure black, but dark with subtle fill light bounce. ` +
+    `Do NOT change colors, textures, or scene content — only relight.`
+  )
 }
 
 // ─── RelightSphere ────────────────────────────────────────────────────────────
@@ -771,6 +804,7 @@ export default function EditPage() {
   const [error, setError] = useState<string | null>(null)
   const [modalResult, setModalResult] = useState<GenerationResult | null>(null)
   const [resultsDockOpen, setResultsDockOpen] = useState(true)
+  const [debugRelightPrompt, setDebugRelightPrompt] = useState<string | null>(null)
 
   // ── Canvas refs
   const displayCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -1120,6 +1154,7 @@ export default function EditPage() {
         activeLayers.forEach(l => { if (l.referenceImageUrl) referenceImages.push(l.referenceImageUrl) })
       } else if (mode === 'relight') {
         combinedPrompt = generateRelightPrompt(lightSettings)
+        setDebugRelightPrompt(combinedPrompt)
       } else {
         combinedPrompt = promptText
         if (promptRefUrl) referenceImages.push(promptRefUrl)
@@ -1151,7 +1186,7 @@ export default function EditPage() {
 
   // ── Render
   return (
-    <div className="fixed inset-0 pt-16 bg-[#07070a] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.14) 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
+    <div className="fixed inset-0 pt-16 bg-[#07070a] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.22) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }}>
 
       {/* ── CANVAS WORKSPACE ─────────────────────────────────────────── */}
       <div
@@ -1162,8 +1197,8 @@ export default function EditPage() {
         {!imageUrl ? (
           /* ── REDESIGNED EMPTY STATE ─────────────────────────────────── */
           <label className="group cursor-pointer flex flex-col items-center gap-8 select-none">
-            <div className="relative w-44 h-44 rounded-2xl border border-dashed border-white/15 group-hover:border-[#FFFF00]/40 bg-white/[0.02] group-hover:bg-[#FFFF00]/[0.025] flex flex-col items-center justify-center gap-3 transition-all duration-300">
-              <IconUpload className="w-12 h-12 text-white/25 group-hover:text-[#FFFF00]/60 transition-all duration-300 group-hover:-translate-y-0.5" />
+            <div className="relative w-48 h-44 rounded-xl border border-dashed border-white/15 group-hover:border-[#FFFF00]/40 bg-white/[0.02] group-hover:bg-[#FFFF00]/[0.025] flex flex-col items-center justify-center gap-3 transition-all duration-300">
+              <IconCloudUpload className="w-11 h-11 text-white/25 group-hover:text-[#FFFF00]/60 transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
               <span className="text-[11px] font-black uppercase tracking-widest text-white/25 group-hover:text-[#FFFF00]/50 transition-colors">Upload Image</span>
             </div>
             <div className="text-center space-y-2.5">
@@ -1256,7 +1291,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: RELIGHT ──────────────────────────── */}
             {mode === 'relight' && (
-              <div className="flex-shrink-0 w-[232px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl">
+              <div className="flex-shrink-0 w-[280px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl">
                 <div className="p-4 space-y-4">
 
                   {/* Lighting Style grid */}
@@ -1265,12 +1300,13 @@ export default function EditPage() {
                     <div className="grid grid-cols-3 gap-1">
                       {LIGHTING_STYLES.map(s => (
                         <button key={s.id} onClick={() => applyLightingStyle(s)}
-                          className={cn('py-2 rounded-lg border text-center transition-all',
+                          className={cn('py-2 rounded-md border text-center transition-all',
                             activeLightingStyle === s.id
-                              ? 'border-white/20 bg-white/[0.06] text-[#FFFF00]'
+                              ? 'border-[#FFFF00]/30 bg-[#FFFF00]/[0.08] text-[#FFFF00]'
                               : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
                           )}>
-                          <span className="text-[10px] font-black uppercase tracking-wide leading-none">{s.name}</span>
+                          <div className="w-3 h-3 rounded-full mx-auto mb-1 border border-white/10" style={{ background: s.color }} />
+                          <span className="text-[9px] font-black uppercase tracking-wide leading-none">{s.name}</span>
                         </button>
                       ))}
                     </div>
@@ -1291,52 +1327,51 @@ export default function EditPage() {
                     </div>
                   </div>
 
-                  {/* Direction + Intensity side-by-side to reduce height */}
+                  {/* Direction presets */}
+                  <div>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Direction Presets</p>
+                    <div className="grid grid-cols-4 gap-1">
+                      {RELIGHT_PRESETS.map(p => (
+                        <button key={p.name}
+                          onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
+                          className={cn('py-1.5 text-[9px] font-black rounded-md transition-all border',
+                            lightSettings.azimuth === p.az && lightSettings.elevation === p.el
+                              ? 'border-[#FFFF00]/30 bg-[#FFFF00]/[0.08] text-[#FFFF00]'
+                              : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
+                          )}>{p.name}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Intensity + Falloff side by side */}
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Direction presets */}
+                    {/* Intensity */}
                     <div>
-                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Direction</p>
-                      <div className="grid grid-cols-2 gap-1">
-                        {RELIGHT_PRESETS.map(p => (
-                          <button key={p.name}
-                            onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
-                            className={cn('py-1.5 text-[9px] font-black rounded-md transition-all border',
-                              lightSettings.azimuth === p.az && lightSettings.elevation === p.el
-                                ? 'border-white/20 bg-white/[0.06] text-[#FFFF00]'
-                                : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
-                            )}>{p.name}</button>
-                        ))}
+                      <div className="flex justify-between items-center mb-1.5">
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Intensity</p>
+                        <span className="font-mono text-[10px] text-white">{lightSettings.intensity}%</span>
+                      </div>
+                      <div className="relative h-1.5 rounded-full bg-white/10">
+                        <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{
+                          width: `${(lightSettings.intensity - 10) / 90 * 100}%`,
+                          background: `linear-gradient(to right, ${lightSettings.color}55, ${lightSettings.color})`,
+                        }} />
+                        <input type="range" min={10} max={100} step={5} value={lightSettings.intensity}
+                          onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
+                          className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
+                          style={{ accentColor: '#FFFF00' }} />
                       </div>
                     </div>
-
-                    {/* Intensity + Falloff stacked */}
-                    <div className="flex flex-col gap-2">
-                      <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Intensity</p>
-                          <span className="font-mono text-[10px] text-white">{lightSettings.intensity}%</span>
-                        </div>
-                        <div className="relative h-1.5 rounded-full bg-white/10">
-                          <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{
-                            width: `${(lightSettings.intensity - 10) / 90 * 100}%`,
-                            background: `linear-gradient(to right, ${lightSettings.color}55, ${lightSettings.color})`,
-                          }} />
-                          <input type="range" min={10} max={100} step={5} value={lightSettings.intensity}
-                            onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
-                            className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
-                            style={{ accentColor: '#FFFF00' }} />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Falloff</p>
-                        <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg border border-[rgb(255_255_255_/_0.04)]">
-                          {(['soft', 'hard'] as const).map(type => (
-                            <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
-                              className={cn('flex-1 py-1 text-[10px] font-black rounded-md transition-all uppercase tracking-wider',
-                                lightSettings.softness === type ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
-                              )}>{type}</button>
-                          ))}
-                        </div>
+                    {/* Falloff */}
+                    <div>
+                      <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Falloff</p>
+                      <div className="flex bg-[rgb(255_255_255_/_0.04)] p-0.5 rounded-md border border-[rgb(255_255_255_/_0.04)]">
+                        {(['soft', 'hard'] as const).map(type => (
+                          <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
+                            className={cn('flex-1 py-1 text-[10px] font-black rounded-sm transition-all uppercase tracking-wider',
+                              lightSettings.softness === type ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
+                            )}>{type}</button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1380,13 +1415,26 @@ export default function EditPage() {
                     </button>
                   </div>
 
+                  {/* DEBUG: live prompt preview */}
+                  <div className="rounded-lg bg-black/40 border border-white/[0.06] p-2.5">
+                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Live Prompt Preview</p>
+                    <p className="text-[9px] text-gray-400 leading-relaxed font-mono break-words">
+                      {generateRelightPrompt(lightSettings)}
+                    </p>
+                    {debugRelightPrompt && (
+                      <p className="mt-2 text-[9px] text-[#FFFF00]/70 font-mono break-words leading-relaxed">
+                        ↳ Last sent: {debugRelightPrompt}
+                      </p>
+                    )}
+                  </div>
+
                 </div>
               </div>
             )}
 
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
-              <div className="flex-shrink-0 w-[232px] self-center rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl p-4 space-y-3">
+              <div className="flex-shrink-0 w-[260px] self-center rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl p-4 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Edit Instruction</p>
                 <textarea
                   value={promptText}
@@ -1555,58 +1603,63 @@ export default function EditPage() {
 
       {/* ── MODE SWITCHER (floating top center) ──────────────────────── */}
       <div className="fixed top-[4.6rem] left-1/2 -translate-x-1/2 z-40">
-        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] rounded-full p-1 shadow-xl gap-0.5">
+        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] rounded-xl p-1 shadow-xl gap-0.5">
           {([
-            { id: 'edit', label: '✏ Edit' },
-            { id: 'relight', label: '☀ Relight' },
-            { id: 'prompt', label: '✦ Prompt' },
-          ] as { id: Mode; label: string }[]).map(({ id, label }) => (
+            { id: 'edit',    label: 'Edit',    Icon: IconPencil  },
+            { id: 'relight', label: 'Relight', Icon: IconBulb    },
+            { id: 'prompt',  label: 'Prompt',  Icon: IconStars   },
+          ] as { id: Mode; label: string; Icon: React.ComponentType<{ className?: string }> }[]).map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setMode(id)}
               className={cn(
-                'px-5 py-1.5 text-[11px] font-black rounded-full uppercase tracking-widest transition-all duration-200',
+                'flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-black rounded-lg uppercase tracking-widest transition-all duration-200',
                 mode === id
                   ? 'bg-[#FFFF00] text-black shadow-sm'
                   : 'text-gray-400 hover:text-white'
               )}
-            >{label}</button>
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
           ))}
         </div>
       </div>
 
 
-      {/* ── BOTTOM BAR ───────────────────────────────────────────────── */}
-      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
+      {/* ── BOTTOM BAR — only visible when an image is loaded ───────── */}
+      {imageUrl && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
 
-        {/* Upload / Replace */}
-        <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-lg cursor-pointer hover:border-white/12 transition-all">
-          <IconUpload className="w-4 h-4 text-gray-400" />
-          <span className="text-xs font-black text-gray-400 uppercase tracking-wide">{imageUrl ? 'Replace' : 'Upload'}</span>
-          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-        </label>
+          {/* Replace image */}
+          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-lg cursor-pointer hover:border-white/12 transition-all">
+            <IconCloudUpload className="w-4 h-4 text-gray-400" strokeWidth={1.6} />
+            <span className="text-xs font-black text-gray-400 uppercase tracking-wide">Replace</span>
+            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+          </label>
 
-        {/* Model selector */}
-        <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
+          {/* Model selector */}
+          <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
 
-        {/* Generate CTA */}
-        <button
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          className={cn(
-            'flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-200',
-            canGenerate
-              ? 'bg-[#FFFF00] text-black hover:bg-[#e6e600] shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)]'
-              : 'bg-white/[0.04] text-gray-600 cursor-not-allowed border border-white/5'
-          )}
-        >
-          {isGenerating ? (
-            <><IconLoader2 className="w-4 h-4 animate-spin" />Generating…</>
-          ) : (
-            <><IconWand className="w-4 h-4" />Generate<span className="flex items-center gap-1 opacity-60 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span></>
-          )}
-        </button>
-      </div>
+          {/* Generate CTA */}
+          <button
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            className={cn(
+              'flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-200',
+              canGenerate
+                ? 'bg-[#FFFF00] text-black hover:bg-[#e6e600] shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)]'
+                : 'bg-white/[0.04] text-gray-600 cursor-not-allowed border border-white/5'
+            )}
+          >
+            {isGenerating ? (
+              <><IconLoader2 className="w-4 h-4 animate-spin" />Generating…</>
+            ) : (
+              <><IconWand className="w-4 h-4" />Generate<span className="flex items-center gap-1 opacity-60 font-mono text-xs"><CreditIcon className="w-3 h-3" />{creditCost}</span></>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* ── RESULTS DOCK (floating bottom-right) ─────────────────────── */}
       {results.length > 0 && (
@@ -1641,10 +1694,36 @@ export default function EditPage() {
             <img src={modalResult.url} alt="" className="rounded-2xl max-h-[74vh] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.8)]" />
             <div className="flex items-center gap-3">
               <button
-                onClick={() => { setImageUrl(modalResult.url); bgImageRef.current = null; setLayers([]); layerCanvasesRef.current.clear(); setModalResult(null) }}
+                onClick={() => {
+                  const resultUrl = modalResult.url
+                  const img = new Image()
+                  img.crossOrigin = 'anonymous'
+                  img.onload = () => {
+                    bgImageRef.current = img
+                    const nat = { w: img.naturalWidth, h: img.naturalHeight }
+                    setImageNaturalSize(nat)
+                    const ds = computeDisplaySize(nat.w, nat.h)
+                    setDisplaySize(ds)
+                    const canvas = displayCanvasRef.current
+                    if (canvas) {
+                      canvas.width = nat.w; canvas.height = nat.h
+                      const ctx = canvas.getContext('2d')
+                      ctx?.drawImage(img, 0, 0)
+                    }
+                    setLayers([])
+                    layerCanvasesRef.current.clear()
+                    nextColorIdx.current = 0
+                    setTextAnnotations([])
+                    setRectAnnotations([])
+                    setMode('edit')
+                  }
+                  img.src = resultUrl
+                  setImageUrl(resultUrl)
+                  setModalResult(null)
+                }}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#FFFF00] text-black font-black text-sm hover:scale-105 transition-transform"
               >
-                <IconRefresh className="w-4 h-4" /> Use as Input
+                <IconPencil className="w-4 h-4" /> Edit this
               </button>
               <a href={modalResult.url} download="result.png" className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/14 transition-colors">
                 <IconDownload className="w-4 h-4" /> Download
