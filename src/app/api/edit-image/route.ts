@@ -123,6 +123,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (images.length === 0) {
+      // Mark the already-inserted processing record as failed before returning
+      if (historyId) {
+        await supabase.from('history_items').update({
+          status: 'failed',
+          settings: { model, creditCost, mode, failure_reason: 'No valid image could be prepared' },
+        }).eq('id', historyId)
+      }
       return NextResponse.json({ error: 'No valid image could be prepared' }, { status: 400 })
     }
 
@@ -179,11 +186,11 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('❌ edit-image error:', err)
     // Mark the processing record as failed if it was created
+    // Only update status — don't touch settings so the original model/mode fields are preserved
     if (historyId) {
       await supabase.from('history_items').update({
         status: 'failed',
-        settings: { failure_reason: err instanceof Error ? err.message : 'Unknown error' },
-      }).eq('id', historyId).catch(() => {})
+      }).eq('id', historyId)
     }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Internal server error' },

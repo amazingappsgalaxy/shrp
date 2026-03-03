@@ -95,6 +95,8 @@ function saveToStorage(tasks: Map<string, WatchedTask>) {
 
 export function TaskManagerProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Map<string, WatchedTask>>(new Map())
+  // Ref always holds the latest tasks — prevents stale closures in the poll interval
+  const tasksRef = useRef<Map<string, WatchedTask>>(new Map())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
@@ -104,22 +106,16 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
     if (restored.size > 0) setTasks(restored)
   }, [])
 
-  // Persist on every change
+  // Keep tasksRef in sync with state and persist on every change
   useEffect(() => {
+    tasksRef.current = tasks
     saveToStorage(tasks)
   }, [tasks])
 
-  // ── Poll ──────────────────────────────────────────────────────────────────
+  // ── Poll — reads from tasksRef so it is NEVER stale ───────────────────────
+  // No deps on tasks/state — always up-to-date via tasksRef.current
   const poll = useCallback(async () => {
-    setTasks(current => {
-      const processing = Array.from(current.values()).filter(t => t.status === 'processing')
-      if (processing.length === 0) return current
-      return current // actual fetch happens outside setState
-    })
-
-    // Capture current processing tasks
-    const snapshot = new Map(tasks)
-    const processing = Array.from(snapshot.values()).filter(t => t.status === 'processing')
+    const processing = Array.from(tasksRef.current.values()).filter(t => t.status === 'processing')
     if (processing.length === 0) return
 
     const ids = processing.map(t => t.historyId).join(',')
@@ -134,26 +130,30 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
         for (const item of data.items) {
           const task = next.get(item.id)
           if (!task || task.status !== 'processing') continue
-          if (item.status === 'completed' || item.status === 'failed') {
-            next.set(item.id, { ...task, status: item.status as TaskStatus })
-            changed = true
-            if (item.status === 'completed' && !task.notified) {
-              next.set(item.id, { ...task, status: 'completed', notified: true })
-              playSuccessSound()
-              // auto-dismiss after 6s
-              const timer = setTimeout(() => {
-                setTasks(p => { const m = new Map(p); m.delete(item.id); return m })
-              }, 6000)
-              dismissTimers.current.set(item.id, timer)
-            }
+          // Only accept known terminal statuses
+          if (item.status !== 'completed' && item.status !== 'failed') continue
+
+          const newStatus = item.status as TaskStatus
+          changed = true
+
+          if (item.status === 'completed' && !task.notified) {
+            next.set(item.id, { ...task, status: 'completed', notified: true })
+            playSuccessSound()
+            // auto-dismiss after 6s
+            const timer = setTimeout(() => {
+              setTasks(p => { const m = new Map(p); m.delete(item.id); return m })
+            }, 6000)
+            dismissTimers.current.set(item.id, timer)
+          } else {
+            next.set(item.id, { ...task, status: newStatus })
           }
         }
         return changed ? next : prev
       })
     } catch {}
-  }, [tasks])
+  }, []) // stable — reads from tasksRef.current, never captures stale state
 
-  // Start/stop poll interval based on whether any tasks are processing
+  // Start / stop the poll interval whenever processing task count changes
   useEffect(() => {
     const hasProcessing = Array.from(tasks.values()).some(t => t.status === 'processing')
     if (hasProcessing) {
@@ -166,7 +166,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
         intervalRef.current = null
       }
     }
-    return () => {}
+    // poll is stable (no deps), so this effect only re-runs when `tasks` changes
   }, [tasks, poll])
 
   // Cleanup on unmount
@@ -185,7 +185,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
       next.set(historyId, { historyId, label, addedAt: Date.now(), status: 'processing', notified: false })
       return next
     })
-    // Immediate poll after a short delay
+    // Trigger an immediate poll after tasksRef has been updated (next render cycle)
     setTimeout(() => { void poll() }, 300)
   }, [poll])
 

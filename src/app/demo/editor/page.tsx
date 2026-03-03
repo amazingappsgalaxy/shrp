@@ -552,8 +552,7 @@ export default function DemoEditorPage() {
       {/* Loading Process Indicator */}
       <MyLoadingProcessIndicator
         isVisible={isEnhancing}
-        progress={enhancementProgress}
-        status={enhancementStatus}
+        tasks={[{ id: 'demo-enhance', progress: enhancementProgress, status: enhancementStatus }]}
       />
 
       {/* Popup View Modal */}
