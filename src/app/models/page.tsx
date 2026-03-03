@@ -17,7 +17,7 @@ const models = [
         icon: Zap,
         features: ['4x Upscaling', 'Detail Restoration', 'High Fidelity'],
         color: 'from-blue-500 to-cyan-400',
-        link: '/app/editor?model=runninghub-flux-upscaling'
+        link: '/app/skineditor?model=runninghub-flux-upscaling'
     },
     {
         id: 'skin-editor',
@@ -26,7 +26,7 @@ const models = [
         icon: Sparkles,
         features: ['Texture Preservation', 'Blemish Removal', 'Natural Look'],
         color: 'from-pink-500 to-rose-400',
-        link: '/app/editor?model=skin-editor'
+        link: '/app/skineditor?model=skin-editor'
     }
 ]
 

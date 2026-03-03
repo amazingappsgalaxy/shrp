@@ -402,7 +402,7 @@ export function AuthUI() {
         <button
           onClick={() => {
             document.cookie = 'demo=true; path=/; max-age=7200; SameSite=Lax'
-            router.push('/app/editor')
+            router.push('/app/skineditor')
           }}
           className="group flex items-center gap-2.5 px-5 py-2.5 rounded-md bg-white/4 border border-white/8 hover:border-[#FFFF00]/30 transition-all duration-200 hover:bg-white/6"
         >

@@ -201,7 +201,7 @@ export default function HistoryPage() {
                 <span className="text-2xl">📜</span>
               </div>
               <p className="text-white/60 text-sm">No history items yet</p>
-              <button onClick={() => window.location.href = '/app/editor'} className="text-[#FFFF00] text-sm hover:underline">Start Creating</button>
+              <button onClick={() => window.location.href = '/app/skineditor'} className="text-[#FFFF00] text-sm hover:underline">Start Creating</button>
             </div>
           ) : (
             <HistoryGrid items={displayedItems} onSelect={openDetail} loadingItemId={loadingItemId} />

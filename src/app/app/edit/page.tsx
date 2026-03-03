@@ -212,26 +212,111 @@ function generateRelightPrompt(s: LightSettings) {
   )
 }
 
-// ─── RelightSphere ────────────────────────────────────────────────────────────
-// A CSS-based sphere with a dynamic highlight that you drag to position the light
+// ─── WireframeSphere ─────────────────────────────────────────────────────────
+// 3D wireframe globe. Drag = anchored-delta trackball (full ±360/±85° access
+// including back hemisphere). Intensity drives a multi-stop radial bloom glow.
 
-function RelightSphere({
+const WIREFRAME_PRESETS = [
+  { name: 'Top',   az: 0,   el: 85  },
+  { name: 'Front', az: 0,   el: 25  },
+  { name: 'Right', az: 90,  el: 25  },
+  { name: 'Left',  az: 270, el: 25  },
+  { name: 'Back',  az: 180, el: 25  },
+  { name: 'Below', az: 0,   el: -60 },
+]
+
+function WireframeSphere({
   azimuth, elevation, lightColor, intensity,
   onAzimuthChange, onElevationChange,
-  size = 200,
+  size = 180,
 }: {
   azimuth: number; elevation: number; lightColor: string; intensity: number
   onAzimuthChange: (v: number) => void
   onElevationChange: (v: number) => void
   size?: number
 }) {
+  const svgRef  = useRef<SVGSVGElement>(null)
   const dragging = useRef(false)
   const startRef = useRef({ x: 0, y: 0, az: 0, el: 0 })
 
-  // Highlight position on sphere surface (% within the circle)
-  const hx = 50 + Math.sin(azimuth * Math.PI / 180) * 32
-  const hy = 50 - Math.sin(elevation * Math.PI / 180) * 32
-  const bri = 0.35 + (intensity / 100) * 0.65
+  const R   = (size / 2) - 9
+  const cx  = size / 2
+  const cy  = size / 2
+  const CAM = 22 * Math.PI / 180  // camera tilt above equator
+
+  // Orthographic projection (camera tilted CAM above equator)
+  const project = (x: number, y: number, z: number) => ({
+    px:    cx + x * R,
+    py:    cy - (y * Math.cos(CAM) - z * Math.sin(CAM)) * R,
+    depth: y * Math.sin(CAM) + z * Math.cos(CAM),
+  })
+
+  // Latitude circle
+  const latPts = (elDeg: number, steps = 80) => {
+    const el = elDeg * Math.PI / 180
+    return Array.from({ length: steps + 1 }, (_, i) => {
+      const az = (i / steps) * 2 * Math.PI
+      return project(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
+    })
+  }
+
+  // Longitude meridian
+  const longPts = (azDeg: number, steps = 80) => {
+    const az = azDeg * Math.PI / 180
+    return Array.from({ length: steps + 1 }, (_, i) => {
+      const el = -Math.PI / 2 + (i / steps) * Math.PI
+      return project(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el))
+    })
+  }
+
+  // Split into front-visible and back-hidden SVG path segments
+  const splitSegs = (pts: Array<{ px: number; py: number; depth: number }>) => {
+    const vis: string[] = [], hid: string[] = []
+    const f = pts[0]; if (!f) return { vis, hid }
+    let cur = `M${f.px.toFixed(1)},${f.py.toFixed(1)}`, isVis = f.depth >= 0
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i]; if (!p) continue
+      const v = p.depth >= 0
+      const c = `${p.px.toFixed(1)},${p.py.toFixed(1)}`
+      if (v !== isVis) {
+        if (cur.length > 1) (isVis ? vis : hid).push(cur)
+        cur = `M${c}`; isVis = v
+      } else { cur += ` L${c}` }
+    }
+    if (cur.length > 1) (isVis ? vis : hid).push(cur)
+    return { vis, hid }
+  }
+
+  // Light 3D → 2D
+  const azR  = azimuth   * Math.PI / 180
+  const elR  = elevation * Math.PI / 180
+  const lProj = project(
+    Math.sin(azR) * Math.cos(elR),
+    Math.sin(elR),
+    Math.cos(azR) * Math.cos(elR),
+  )
+  const { px: lsx, py: lsy, depth: lDep } = lProj
+  const onFront = lDep >= 0
+  const intN    = intensity / 100   // 0 → 1
+
+  // Cone rays fan from dot toward center
+  const toCenter  = Math.atan2(cy - lsy, cx - lsx)
+  const HALF_CONE = 17 * Math.PI / 180
+  const N_RAYS    = 11
+  const rays = Array.from({ length: N_RAYS }, (_, i) => {
+    const t = i / (N_RAYS - 1)
+    const a = toCenter + (t - 0.5) * 2 * HALF_CONE
+    const d = Math.hypot(lsx - cx, lsy - cy) + 16
+    return { x2: lsx + Math.cos(a) * d, y2: lsy + Math.sin(a) * d }
+  })
+
+  const latSegs  = [-60, -30, 0, 30, 60].map(e => splitSegs(latPts(e)))
+  const longSegs = [0, 30, 60, 90, 120, 150].map(a => splitSegs(longPts(a)))
+
+  // ── Drag: anchored-delta trackball ─────────────────────────────────────────
+  // 1 sphere diameter (2R px) = 180° — smooth, no drift, back hemisphere reachable
+  const AZ_SENS = 180 / R   // °/px
+  const EL_SENS = 90  / R   // °/px
 
   const onPointerDown = (e: React.PointerEvent) => {
     dragging.current = true
@@ -243,320 +328,165 @@ function RelightSphere({
     if (!dragging.current) return
     const dx = e.clientX - startRef.current.x
     const dy = e.clientY - startRef.current.y
-    onAzimuthChange(Math.round(((startRef.current.az + dx * 1.1) % 360 + 360) % 360))
-    onElevationChange(Math.round(Math.max(-85, Math.min(85, startRef.current.el - dy * 0.7))))
+    onAzimuthChange(Math.round(((startRef.current.az + dx * AZ_SENS) % 360 + 360) % 360))
+    onElevationChange(Math.round(Math.max(-85, Math.min(85, startRef.current.el - dy * EL_SENS))))
   }
   const onPointerUp = () => { dragging.current = false }
 
+  const uid = 'wfs'  // single sphere per page
+
+  // Bloom glow radius scales with intensity
+  const bloomR = 16 + intN * 26   // 16–42 px
+
   return (
-    <div
-      style={{ width: size, height: size, position: 'relative', borderRadius: '50%', cursor: 'grab', touchAction: 'none', userSelect: 'none' }}
+    <svg
+      ref={svgRef}
+      width={size} height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ cursor: 'grab', touchAction: 'none', userSelect: 'none', display: 'block' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      {/* Base sphere – deep dark globe */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: 'radial-gradient(circle at 42% 38%, #1e1e1e 0%, #080808 70%)',
-        boxShadow: 'inset 0 0 40px rgba(0,0,0,0.95)',
-      }} />
+      <defs>
+        {/* Sphere dark background */}
+        <radialGradient id={`${uid}-bg`} cx="42%" cy="34%" r="70%">
+          <stop offset="0%"   stopColor="#1d1d1d" />
+          <stop offset="100%" stopColor="#020202" />
+        </radialGradient>
 
-      {/* Dynamic light hit */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: `radial-gradient(circle at ${hx}% ${hy}%, ${lightColor} 0%, ${lightColor}99 18%, ${lightColor}33 38%, transparent 58%)`,
-        opacity: bri,
-        transition: 'background 0.05s',
-      }} />
+        {/* Sphere surface lit face — directional illumination from light position */}
+        <radialGradient id={`${uid}-lit`} gradientUnits="userSpaceOnUse"
+          cx={lsx.toFixed(1)} cy={lsy.toFixed(1)} r={`${(R * 1.3).toFixed(1)}`}
+          fx={lsx.toFixed(1)} fy={lsy.toFixed(1)}>
+          <stop offset="0%"   stopColor={lightColor}
+            stopOpacity={onFront ? (0.08 + intN * 0.22).toFixed(3) : '0'} />
+          <stop offset="45%"  stopColor={lightColor} stopOpacity="0" />
+        </radialGradient>
 
-      {/* Ambient glow fill */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: `radial-gradient(circle at ${100 - hx}% ${100 - hy}%, rgba(255,255,255,0.04) 0%, transparent 50%)`,
-      }} />
+        {/* Multi-stop radial bloom — the real "glow" effect */}
+        <radialGradient id={`${uid}-bloom`} gradientUnits="userSpaceOnUse"
+          cx={lsx.toFixed(1)} cy={lsy.toFixed(1)} r={`${bloomR.toFixed(1)}`}
+          fx={lsx.toFixed(1)} fy={lsy.toFixed(1)}>
+          <stop offset="0%"   stopColor="#ffffff"   stopOpacity={onFront ? '1'  : '0'} />
+          <stop offset="8%"   stopColor={lightColor} stopOpacity={onFront ? (0.85 + intN * 0.15).toFixed(2) : '0'} />
+          <stop offset="28%"  stopColor={lightColor} stopOpacity={onFront ? (0.30 + intN * 0.25).toFixed(2) : '0'} />
+          <stop offset="60%"  stopColor={lightColor} stopOpacity={onFront ? (intN * 0.14).toFixed(3) : '0'} />
+          <stop offset="100%" stopColor={lightColor} stopOpacity="0" />
+        </radialGradient>
 
-      {/* Specular rim on surface edge */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.1) 0%, transparent 35%)',
-      }} />
+        {/* Cone ray gradient: bright at source → transparent at center */}
+        <linearGradient id={`${uid}-ray`} gradientUnits="userSpaceOnUse"
+          x1={lsx.toFixed(1)} y1={lsy.toFixed(1)}
+          x2={cx.toFixed(1)}  y2={cy.toFixed(1)}>
+          <stop offset="0%"   stopColor={lightColor} stopOpacity={(0.25 + intN * 0.55).toFixed(2)} />
+          <stop offset="100%" stopColor={lightColor} stopOpacity="0" />
+        </linearGradient>
 
-      {/* Outer glow */}
-      <div style={{
-        position: 'absolute', inset: -8, borderRadius: '50%',
-        boxShadow: `0 0 ${Math.round(50 * bri)}px ${lightColor}${Math.round(bri * 60).toString(16).padStart(2, '0')}`,
-        pointerEvents: 'none',
-      }} />
+        <clipPath id={`${uid}-clip`}>
+          <circle cx={cx} cy={cy} r={R} />
+        </clipPath>
+      </defs>
 
-      {/* Light indicator dot */}
-      <div style={{
-        position: 'absolute',
-        width: 10, height: 10,
-        borderRadius: '50%',
-        background: lightColor,
-        left: `calc(${hx}% - 5px)`,
-        top: `calc(${hy}% - 5px)`,
-        boxShadow: `0 0 10px ${lightColor}, 0 0 4px white`,
-        pointerEvents: 'none',
-        transition: 'left 0.04s, top 0.04s',
-      }} />
+      {/* Sphere base */}
+      <circle cx={cx} cy={cy} r={R} fill={`url(#${uid}-bg)`} />
 
-      {/* Direction labels */}
-      {[
-        { l: 'F', x: '50%', y: 6 },
-        { l: 'B', x: '50%', y: size - 18 },
-        { l: 'L', x: 6,     y: '50%' },
-        { l: 'R', x: size - 14, y: '50%' },
-      ].map(({ l, x, y }) => (
-        <span key={l} style={{
-          position: 'absolute',
-          left: typeof x === 'number' ? x : undefined,
-          top: typeof y === 'number' ? y : undefined,
-          right: undefined,
-          transform: typeof x === 'string' ? 'translateX(-50%)' : typeof y === 'string' ? 'translateY(-50%)' : undefined,
-          fontSize: 10, fontWeight: 900,
-          color: '#686868',
-          pointerEvents: 'none',
-          lineHeight: 1,
-        }}>{l}</span>
+      {/* Directional lit face */}
+      <circle cx={cx} cy={cy} r={R} fill={`url(#${uid}-lit)`}
+        clipPath={`url(#${uid}-clip)`} />
+
+      {/* Cone rays (behind wireframe, clipped to sphere) */}
+      <g clipPath={`url(#${uid}-clip)`} opacity={onFront ? 1 : 0.08}>
+        {rays.map((ray, i) => (
+          <line key={i}
+            x1={lsx} y1={lsy} x2={ray.x2} y2={ray.y2}
+            stroke={`url(#${uid}-ray)`}
+            strokeWidth={i === (N_RAYS >> 1) ? 1.7 : 0.85}
+            strokeLinecap="round"
+          />
+        ))}
+      </g>
+
+      {/* Hidden wireframe — dashed, very faint */}
+      <g clipPath={`url(#${uid}-clip)`}>
+        {latSegs.map((s, i) => s.hid.map((d, j) => (
+          <path key={`lh${i}${j}`} d={d} fill="none"
+            stroke="rgba(255,255,255,0.07)" strokeWidth="0.65" strokeDasharray="2,4" />
+        )))}
+        {longSegs.map((s, i) => s.hid.map((d, j) => (
+          <path key={`mh${i}${j}`} d={d} fill="none"
+            stroke="rgba(255,255,255,0.07)" strokeWidth="0.65" strokeDasharray="2,4" />
+        )))}
+      </g>
+
+      {/* Visible wireframe — solid */}
+      <g clipPath={`url(#${uid}-clip)`}>
+        {latSegs.map((s, i) => s.vis.map((d, j) => (
+          <path key={`lv${i}${j}`} d={d} fill="none"
+            stroke="rgba(255,255,255,0.26)" strokeWidth="0.9" />
+        )))}
+        {longSegs.map((s, i) => s.vis.map((d, j) => (
+          <path key={`mv${i}${j}`} d={d} fill="none"
+            stroke="rgba(255,255,255,0.26)" strokeWidth="0.9" />
+        )))}
+      </g>
+
+      {/* Sphere border */}
+      <circle cx={cx} cy={cy} r={R} fill="none"
+        stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+
+      {/* Character center dot */}
+      <circle cx={cx} cy={cy} r={3.5} fill="rgba(255,255,255,0.08)" />
+      <circle cx={cx} cy={cy} r={1.6} fill="rgba(255,255,255,0.55)" />
+
+      {/* Cardinal labels */}
+      {([
+        ['F', cx,        cy - R + 11],
+        ['B', cx,        cy + R - 4 ],
+        ['L', cx - R + 7, cy + 3.5  ],
+        ['R', cx + R - 5, cy + 3.5  ],
+      ] as [string, number, number][]).map(([l, x, y]) => (
+        <text key={l} x={x} y={y} textAnchor="middle" fontSize="7.5"
+          fill="rgba(255,255,255,0.25)" fontWeight="bold"
+          style={{ pointerEvents: 'none', fontFamily: 'monospace' }}>
+          {l}
+        </text>
       ))}
 
-      {/* Drag hint text */}
-      <div style={{
-        position: 'absolute', bottom: '14%', left: 0, right: 0,
-        textAlign: 'center', fontSize: 10, color: '#606060',
-        pointerEvents: 'none', fontWeight: 700, letterSpacing: 1,
-      }}>DRAG TO MOVE LIGHT</div>
-    </div>
-  )
-}
+      {/* ── LIGHT SOURCE — multi-stop bloom glow ── */}
+      {/* Drawn ABOVE wireframe so it radiates on top of the grid */}
+      <circle cx={lsx} cy={lsy} r={bloomR}
+        fill={`url(#${uid}-bloom)`}
+        style={{ pointerEvents: 'none' }} />
 
-// ─── Option A: Overhead Map ────────────────────────────────────────────────────
-// Top-down view of the scene — drag the dot to position the light source.
-// Angle from center = azimuth (North = Front). Distance from center maps to elevation
-// (center = overhead 90°, edge = horizon 0°, beyond = below -20°).
+      {/* Solid colored core */}
+      {onFront && (
+        <circle cx={lsx} cy={lsy} r={3 + intN * 2.5}
+          fill={lightColor} opacity={(0.75 + intN * 0.25).toFixed(2)}
+          style={{ pointerEvents: 'none' }} />
+      )}
 
-function OverheadMap({
-  azimuth, elevation, lightColor, intensity,
-  onAzimuthChange, onElevationChange,
-}: {
-  azimuth: number; elevation: number; lightColor: string; intensity: number
-  onAzimuthChange: (v: number) => void; onElevationChange: (v: number) => void
-}) {
-  const dragging = useRef(false)
-  const mapRef = useRef<HTMLDivElement>(null)
+      {/* White hot center point */}
+      <circle cx={lsx} cy={lsy} r={1.6}
+        fill="white"
+        opacity={onFront ? '0.95' : '0.25'}
+        style={{ pointerEvents: 'none' }} />
 
-  // Map az/el to dot position (% within circle)
-  // elevation 90 → center, 0 → edge (75%), -20 → just outside edge
-  const elevR = Math.max(0, Math.min(1, (90 - elevation) / 110)) * 0.76
-  const azRad = azimuth * Math.PI / 180
-  const dotX = 50 + Math.sin(azRad) * elevR * 50
-  const dotY = 50 - Math.cos(azRad) * elevR * 50
-
-  const applyPointer = (e: React.PointerEvent) => {
-    const rect = mapRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
-    const dx = e.clientX - cx
-    const dy = e.clientY - cy
-    const radius = rect.width / 2
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    const az = ((Math.atan2(dx, -dy) * 180 / Math.PI) + 360) % 360
-    const el = Math.round(Math.max(-20, Math.min(90, 90 - (dist / radius) * 110)))
-    onAzimuthChange(Math.round(az))
-    onElevationChange(el)
-  }
-
-  return (
-    <div
-      ref={mapRef}
-      style={{ width: 148, height: 148, position: 'relative', borderRadius: '50%', cursor: 'crosshair', touchAction: 'none', userSelect: 'none', overflow: 'hidden', background: '#080808', border: '1px solid #1e1e1e' }}
-      onPointerDown={e => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); applyPointer(e) }}
-      onPointerMove={e => { if (dragging.current) applyPointer(e) }}
-      onPointerUp={() => { dragging.current = false }}
-    >
-      {/* Concentric rings for elevation hint */}
-      {[0.38, 0.63, 0.88].map((r, i) => (
-        <div key={i} style={{ position: 'absolute', borderRadius: '50%', border: '1px solid #1a1a1a', width: `${r * 100}%`, height: `${r * 100}%`, left: `${50 - r * 50}%`, top: `${50 - r * 50}%`, pointerEvents: 'none' }} />
-      ))}
-      {/* Crosshairs */}
-      <div style={{ position: 'absolute', width: 1, top: 0, bottom: 0, left: '50%', background: '#141414', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', height: 1, left: 0, right: 0, top: '50%', background: '#141414', pointerEvents: 'none' }} />
-      {/* Compass labels */}
-      {[['FRONT', '50%', 4, undefined, undefined],
-        ['BACK',  '50%', undefined, undefined, 4],
-        ['L',     3,     '50%', undefined, undefined],
-        ['R',     undefined, '50%', 3, undefined],
-      ].map(([label, left, top, right, bottom]) => (
-        <span key={String(label)} style={{ position: 'absolute', fontSize: 8, fontWeight: 900, color: '#353535', letterSpacing: 1, pointerEvents: 'none', lineHeight: 1,
-          left: typeof left === 'string' ? left : left != null ? left as number : undefined,
-          top: typeof top === 'string' ? top : top != null ? top as number : undefined,
-          right: right != null ? right as number : undefined,
-          bottom: bottom != null ? bottom as number : undefined,
-          transform: typeof left === 'string' ? 'translateX(-50%)' : typeof top === 'string' ? 'translateY(-50%)' : undefined,
-        }}>{label}</span>
-      ))}
-      {/* Glow halo where the light is */}
-      <div style={{ position: 'absolute', width: 40, height: 40, borderRadius: '50%', background: lightColor, opacity: (0.06 + intensity / 400), filter: 'blur(14px)', left: `calc(${dotX}% - 20px)`, top: `calc(${dotY}% - 20px)`, pointerEvents: 'none' }} />
-      {/* Light dot */}
-      <div style={{ position: 'absolute', width: 10, height: 10, borderRadius: '50%', background: lightColor, boxShadow: `0 0 8px 2px ${lightColor}88`, left: `calc(${dotX}% - 5px)`, top: `calc(${dotY}% - 5px)`, pointerEvents: 'none' }} />
-    </div>
-  )
-}
-
-// ─── Option B: Compass Clock ────────────────────────────────────────────────────
-// 8 directional buttons arranged in a clock/compass ring + 4 elevation preset buttons.
-
-const CLOCK_DIRS = [
-  { label: 'Front',  az: 0,   icon: '↑' },
-  { label: 'F·R',    az: 45,  icon: '↗' },
-  { label: 'Right',  az: 90,  icon: '→' },
-  { label: 'B·R',    az: 135, icon: '↘' },
-  { label: 'Back',   az: 180, icon: '↓' },
-  { label: 'B·L',    az: 225, icon: '↙' },
-  { label: 'Left',   az: 270, icon: '←' },
-  { label: 'F·L',    az: 315, icon: '↖' },
-]
-
-const CLOCK_ELEVS = [
-  { label: 'Top',   el: 75 },
-  { label: 'High',  el: 45 },
-  { label: 'Mid',   el: 20 },
-  { label: 'Below', el: -25 },
-]
-
-function CompassClock({
-  azimuth, elevation, lightColor,
-  onAzimuthChange, onElevationChange,
-}: {
-  azimuth: number; elevation: number; lightColor: string
-  onAzimuthChange: (v: number) => void; onElevationChange: (v: number) => void
-}) {
-  const activeAz = CLOCK_DIRS.find(d => d.az === azimuth)?.az
-  const activeEl = CLOCK_ELEVS.find(e => e.el === elevation)?.el
-
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-      {/* 8-direction ring */}
-      <div style={{ position: 'relative', width: 118, height: 118, flexShrink: 0 }}>
-        {CLOCK_DIRS.map((d, i) => {
-          const angle = (i / 8) * Math.PI * 2 - Math.PI / 2
-          const r = 44
-          const x = 59 + Math.cos(angle) * r
-          const y = 59 + Math.sin(angle) * r
-          const active = azimuth === d.az
-          return (
-            <button
-              key={d.az}
-              onClick={() => onAzimuthChange(d.az)}
-              title={d.label}
-              style={{
-                position: 'absolute', width: 26, height: 26, borderRadius: 7,
-                left: x - 13, top: y - 13,
-                background: active ? '#1a1a00' : '#111',
-                border: `1px solid ${active ? '#555500' : '#222'}`,
-                color: active ? lightColor : '#555',
-                fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', transition: 'all 0.1s', padding: 0,
-              }}
-            >{d.icon}</button>
-          )
-        })}
-        {/* Center ring */}
-        <div style={{ position: 'absolute', width: 26, height: 26, borderRadius: '50%', background: '#0a0a0a', border: '1px solid #1e1e1e', left: 46, top: 46 }} />
-      </div>
-
-      {/* Elevation buttons */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {CLOCK_ELEVS.map(e => {
-          const active = activeEl === e.el
-          return (
-            <button key={e.label} onClick={() => onElevationChange(e.el)} style={{
-              padding: '4px 8px', borderRadius: 5, fontSize: 9, fontWeight: 900,
-              background: active ? '#1a1a00' : '#111',
-              border: `1px solid ${active ? '#555500' : '#222'}`,
-              color: active ? lightColor : '#555',
-              cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em',
-              transition: 'all 0.1s',
-            }}>{e.label}</button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ─── Option C: Dual Sliders ──────────────────────────────────────────────────────
-// Azimuth slider with a rotating mini-compass indicator + elevation slider with a sun
-// height diagram. Gives precise numeric control.
-
-function DualSliders({
-  azimuth, elevation, lightColor,
-  onAzimuthChange, onElevationChange,
-}: {
-  azimuth: number; elevation: number; lightColor: string
-  onAzimuthChange: (v: number) => void; onElevationChange: (v: number) => void
-}) {
-  const azRad = (azimuth - 90) * Math.PI / 180
-  const needleX2 = 12 + Math.cos(azRad) * 8
-  const needleY2 = 12 + Math.sin(azRad) * 8
-
-  // Sun vertical position: el=-90 → 22, el=90 → 2
-  const sunY = 12 - (elevation / 90) * 10
-
-  return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Direction */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="10" fill="#0a0a0a" stroke="#1e1e1e" strokeWidth="1" />
-            <text x="12" y="6.5" textAnchor="middle" fontSize="3" fill="#333" fontWeight="bold">F</text>
-            <text x="12" y="20.5" textAnchor="middle" fontSize="3" fill="#333" fontWeight="bold">B</text>
-            <text x="5.5" y="13" textAnchor="middle" fontSize="3" fill="#333" fontWeight="bold">L</text>
-            <text x="18.5" y="13" textAnchor="middle" fontSize="3" fill="#333" fontWeight="bold">R</text>
-            <line x1="12" y1="12" x2={needleX2} y2={needleY2} stroke={lightColor} strokeWidth="1.8" strokeLinecap="round" />
-            <circle cx="12" cy="12" r="1.2" fill={lightColor} />
-          </svg>
-          <div>
-            <div style={{ fontSize: 9, color: '#555', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Direction</div>
-            <div style={{ fontSize: 10, color: '#aaa', fontFamily: 'monospace' }}>{azimuth}°</div>
-          </div>
-        </div>
-        <input type="range" min="0" max="359" step="1" value={azimuth}
-          onChange={e => onAzimuthChange(parseInt(e.target.value))}
-          style={{ width: '100%', accentColor: lightColor, cursor: 'pointer' }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#333', marginTop: 2 }}>
-          <span>Front (0°)</span><span>Right (90°)</span><span>Back (180°)</span><span>Left (270°)</span>
-        </div>
-      </div>
-
-      {/* Height */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-            <line x1="4" y1="18" x2="20" y2="18" stroke="#1e1e1e" strokeWidth="1" />
-            <line x1="12" y1="4" x2="12" y2="18" stroke="#1a1a1a" strokeWidth="1" strokeDasharray="1,1.5" />
-            <circle cx="12" cy={sunY} r="2.5" fill={lightColor} opacity="0.85" />
-            <line x1="12" y1={sunY} x2="12" y2="18" stroke={lightColor} strokeWidth="0.7" strokeDasharray="1,1" opacity="0.35" />
-          </svg>
-          <div>
-            <div style={{ fontSize: 9, color: '#555', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Height</div>
-            <div style={{ fontSize: 10, color: '#aaa', fontFamily: 'monospace' }}>{elevation > 0 ? '+' : ''}{elevation}°</div>
-          </div>
-        </div>
-        <input type="range" min="-85" max="85" step="1" value={elevation}
-          onChange={e => onElevationChange(parseInt(e.target.value))}
-          style={{ width: '100%', accentColor: lightColor, cursor: 'pointer' }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: '#333', marginTop: 2 }}>
-          <span>Below (−85°)</span><span>Horizon (0°)</span><span>Overhead (+85°)</span>
-        </div>
-      </div>
-    </div>
+      {/* Behind-sphere indicator */}
+      {!onFront && (
+        <>
+          <circle cx={lsx} cy={lsy} r={5.5}
+            fill="none" stroke={lightColor} strokeWidth="1.2"
+            strokeDasharray="3,2" opacity="0.4"
+            style={{ pointerEvents: 'none' }} />
+          <text x={cx} y={cy + R + 12} textAnchor="middle" fontSize="7"
+            fill={lightColor} opacity="0.5" fontWeight="bold"
+            style={{ pointerEvents: 'none', letterSpacing: '0.08em' }}>
+            LIGHT BEHIND — KEEP DRAGGING
+          </text>
+        </>
+      )}
+    </svg>
   )
 }
 
@@ -1122,7 +1052,6 @@ export default function EditPage() {
     azimuth: 45, elevation: 35, color: '#ffffff', intensity: 70, softness: 'soft', sceneLock: true,
   })
   const [activeLightingStyle, setActiveLightingStyle] = useState<string | null>(null)
-  const [relightUIOption, setRelightUIOption] = useState<'A' | 'B' | 'C'>('A')
 
   // ── Prompt mode
   const [promptText, setPromptText] = useState('')
@@ -1733,64 +1662,49 @@ export default function EditPage() {
                     </div>
                   </div>
 
-                  {/* Light direction control — 3 UI design options */}
+                  {/* Light direction — 3D wireframe sphere */}
                   <div>
-                    {/* Option selector tabs */}
-                    <div className="flex items-center gap-1 mb-2.5">
-                      <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider mr-1">UI</p>
-                      {(['A', 'B', 'C'] as const).map((opt, i) => (
-                        <button key={opt} onClick={() => setRelightUIOption(opt)}
-                          className={cn('flex-1 py-1 text-[9px] font-black rounded transition-all border uppercase tracking-wider',
-                            relightUIOption === opt
-                              ? 'border-[#555500] bg-[#1a1a00] text-[#FFFF00]'
-                              : 'border-[#1e1e1e] text-gray-600 hover:text-gray-400 hover:border-[#2a2a2a]'
-                          )}>
-                          {['Map', 'Clock', 'Sliders'][i]}
-                        </button>
-                      ))}
-                    </div>
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Light Direction</p>
 
-                    {/* Option A — Overhead Map (top-down drag) */}
-                    {relightUIOption === 'A' && (
-                      <div className="flex flex-col items-center gap-2">
-                        <OverheadMap
-                          azimuth={lightSettings.azimuth} elevation={lightSettings.elevation}
-                          lightColor={lightSettings.color} intensity={lightSettings.intensity}
-                          onAzimuthChange={az => { setLightSettings(p => ({ ...p, azimuth: az })); setActiveLightingStyle(null) }}
-                          onElevationChange={el => { setLightSettings(p => ({ ...p, elevation: el })); setActiveLightingStyle(null) }}
-                        />
-                        <div className="flex gap-5 text-[10px] font-mono">
-                          <span className="text-gray-600">AZ <span className="text-white">{lightSettings.azimuth}°</span></span>
-                          <span className="text-gray-600">EL <span className="text-white">{lightSettings.elevation > 0 ? '+' : ''}{lightSettings.elevation}°</span></span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Option B — Compass Clock (8-direction ring + elevation presets) */}
-                    {relightUIOption === 'B' && (
-                      <div className="flex flex-col items-center gap-2">
-                        <CompassClock
-                          azimuth={lightSettings.azimuth} elevation={lightSettings.elevation}
-                          lightColor={lightSettings.color}
-                          onAzimuthChange={az => { setLightSettings(p => ({ ...p, azimuth: az })); setActiveLightingStyle(null) }}
-                          onElevationChange={el => { setLightSettings(p => ({ ...p, elevation: el })); setActiveLightingStyle(null) }}
-                        />
-                        <div className="flex gap-5 text-[10px] font-mono">
-                          <span className="text-gray-600">AZ <span className="text-white">{lightSettings.azimuth}°</span></span>
-                          <span className="text-gray-600">EL <span className="text-white">{lightSettings.elevation > 0 ? '+' : ''}{lightSettings.elevation}°</span></span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Option C — Dual Sliders (precision azimuth + elevation) */}
-                    {relightUIOption === 'C' && (
-                      <DualSliders
+                    {/* Globe — centered */}
+                    <div className="flex justify-center">
+                      <WireframeSphere
                         azimuth={lightSettings.azimuth} elevation={lightSettings.elevation}
-                        lightColor={lightSettings.color}
+                        lightColor={lightSettings.color} intensity={lightSettings.intensity}
+                        size={180}
                         onAzimuthChange={az => { setLightSettings(p => ({ ...p, azimuth: az })); setActiveLightingStyle(null) }}
                         onElevationChange={el => { setLightSettings(p => ({ ...p, elevation: el })); setActiveLightingStyle(null) }}
                       />
-                    )}
+                    </div>
+
+                    {/* Numeric readout */}
+                    <div className="flex justify-center gap-5 mt-1 mb-2.5">
+                      <span className="text-[10px] text-gray-500 font-mono">AZ <span className="text-white font-bold">{lightSettings.azimuth}°</span></span>
+                      <span className="text-[10px] text-gray-500 font-mono">EL <span className="text-white font-bold">{lightSettings.elevation > 0 ? '+' : ''}{lightSettings.elevation}°</span></span>
+                    </div>
+
+                    {/* Presets — 3-column grid below the globe */}
+                    <div>
+                      <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider mb-1.5">Quick Presets</p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {WIREFRAME_PRESETS.map(p => {
+                          const isActive = lightSettings.azimuth === p.az && lightSettings.elevation === p.el
+                          return (
+                            <button key={p.name}
+                              onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
+                              className={cn('py-2 text-[10px] font-black rounded-lg border transition-all uppercase tracking-wider',
+                                isActive
+                                  ? 'border-[#555500] bg-[#1a1a00] text-[#FFFF00]'
+                                  : 'border-[#222222] text-gray-500 hover:text-white hover:border-[#333333] hover:bg-[#141414]'
+                              )}>
+                              {p.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <p className="text-[8px] text-gray-600 mt-2 text-center">Click or drag on globe · dot = light source</p>
                   </div>
 
                   {/* Intensity + Falloff side by side */}
