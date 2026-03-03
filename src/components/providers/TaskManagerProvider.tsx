@@ -112,10 +112,10 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
           if (item.status === 'completed' && !task.notified) {
             next.set(item.id, { ...task, status: 'completed', notified: true })
             playSuccessSound()
-            // auto-dismiss after 6s
+            // auto-dismiss after 2s
             const timer = setTimeout(() => {
               setTasks(p => { const m = new Map(p); m.delete(item.id); return m })
-            }, 6000)
+            }, 2000)
             dismissTimers.current.set(item.id, timer)
           } else {
             next.set(item.id, { ...task, status: newStatus })
@@ -172,7 +172,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
       playSuccessSound()
       const timer = setTimeout(() => {
         setTasks(p => { const m = new Map(p); m.delete(historyId); return m })
-      }, 6000)
+      }, 2000)
       dismissTimers.current.set(historyId, timer)
       return next
     })

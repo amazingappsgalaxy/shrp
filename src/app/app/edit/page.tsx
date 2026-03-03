@@ -104,7 +104,7 @@ const LIGHTING_STYLES = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
+function uid() { return crypto.randomUUID() }
 
 function computeDisplaySize(nw: number, nh: number): { w: number; h: number } {
   const maxW = Math.min(window.innerWidth - 400, 860)  // reserve for inline left panel (280px) + gaps

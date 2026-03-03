@@ -21,72 +21,105 @@ interface MyLoadingProcessIndicatorProps {
   mode?: 'center' | 'bottom-right'
 }
 
-const playSuccessSound = () => {
-  if (typeof window === 'undefined') return
-  try {
-    // @ts-ignore
-    const AudioContext = window.AudioContext || window.webkitAudioContext
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(700, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.08)
-    gain.gain.setValueAtTime(0.12, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.002, ctx.currentTime + 0.08)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.1)
-  } catch (e) {}
-}
-
-// ─── Square Tile (bottom-right mode only) ─────────────────────────────────────
-// Minimal 48×48 square — spinner only, no text.
+// ─── Square Tile (bottom-right mode) ──────────────────────────────────────────
+// 48×48 — clean circular ring spinner, animated checkmark, shake-X for error
 
 function SquareTile({ task, onClose }: { task: TaskItem; onClose: () => void }) {
   const isLoading = task.status === 'loading'
   const isSuccess = task.status === 'success'
   const isError   = task.status === 'error'
 
+  // Spinner ring constants
+  const R = 9
+  const circ = 2 * Math.PI * R  // ~56.5
+
   return (
     <motion.div
-      key={task.id}
-      initial={{ opacity: 0, scale: 0.85 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      className="flex items-center justify-center rounded-xl border"
+      layout
+      initial={{ opacity: 0, scale: 0.7, y: 8 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.7, y: 8 }}
+      transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
+      className="relative flex items-center justify-center rounded-2xl overflow-hidden"
       style={{
         width: 48,
         height: 48,
-        background: '#0e0e0e',
-        borderColor: isError ? '#5a1a1a' : isSuccess ? '#3a3a00' : '#2a2a2a',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.8)',
-        backdropFilter: 'blur(12px)',
+        background: isSuccess
+          ? 'radial-gradient(circle at 50% 50%, #1a1a00 0%, #0c0c0c 100%)'
+          : isError
+          ? 'radial-gradient(circle at 50% 50%, #1a0505 0%, #0c0c0c 100%)'
+          : '#0d0d0d',
+        border: `1px solid ${isError ? '#4a1515' : isSuccess ? '#2e2e00' : '#222222'}`,
+        boxShadow: isSuccess
+          ? '0 0 16px rgba(255,255,0,0.18), 0 4px 24px rgba(0,0,0,0.9)'
+          : '0 4px 24px rgba(0,0,0,0.9)',
         cursor: (isError || isSuccess) ? 'pointer' : 'default',
       }}
       onClick={(isError || isSuccess) ? onClose : undefined}
+      title={isError ? 'Dismiss' : isSuccess ? 'Dismiss' : undefined}
     >
+      {/* Loading ring */}
       {isLoading && (
-        <svg className="w-6 h-6" viewBox="0 0 28 28"
-          style={{ animation: 'mlpi-spin 0.85s linear infinite' }}>
-          <circle cx="14" cy="14" r="10" fill="none" stroke="#252525" strokeWidth="2.5" />
-          <circle cx="14" cy="14" r="10" fill="none" stroke="#FFFF00" strokeWidth="2.5"
-            strokeLinecap="round" strokeDasharray="22 42" />
+        <svg width="28" height="28" viewBox="0 0 28 28" style={{ overflow: 'visible' }}>
+          {/* Track */}
+          <circle cx="14" cy="14" r={R} fill="none" stroke="#1e1e1e" strokeWidth="2" />
+          {/* Animated arc */}
+          <circle
+            cx="14" cy="14" r={R}
+            fill="none"
+            stroke="#FFFF00"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray={`${circ * 0.25} ${circ * 0.75}`}
+            style={{
+              transformOrigin: '14px 14px',
+              animation: 'mlpi-spin 0.9s linear infinite',
+              filter: 'drop-shadow(0 0 3px rgba(255,255,0,0.5))',
+            }}
+          />
         </svg>
       )}
+
+      {/* Success: animated checkmark ring */}
       {isSuccess && (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none"
-          stroke="#FFFF00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 13l4 4L19 7" />
-        </svg>
+        <motion.svg
+          width="28" height="28" viewBox="0 0 28 28"
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
+        >
+          {/* Filled ring */}
+          <circle cx="14" cy="14" r={R} fill="none" stroke="#FFFF00" strokeWidth="2"
+            style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,0,0.4))' }} />
+          {/* Checkmark */}
+          <motion.path
+            d="M9 14.5l3.5 3.5 6.5-7"
+            fill="none"
+            stroke="#FFFF00"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.3, delay: 0.05, ease: 'easeOut' }}
+            style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,0,0.6))' }}
+          />
+        </motion.svg>
       )}
+
+      {/* Error: X with shake */}
       {isError && (
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none"
-          stroke="#ff5555" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <motion.svg
+          width="24" height="24" viewBox="0 0 24 24"
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1, x: [0, -3, 3, -2, 2, 0] }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
+          <circle cx="12" cy="12" r="9" fill="none" stroke="#ff4444" strokeWidth="1.5"
+            opacity={0.5} />
+          <path d="M9 9l6 6M15 9l-6 6" stroke="#ff4444" strokeWidth="2"
+            strokeLinecap="round" />
+        </motion.svg>
       )}
     </motion.div>
   )
@@ -98,6 +131,9 @@ function PillTile({ task, onClose }: { task: TaskItem; onClose: () => void }) {
   const isLoading = task.status === 'loading'
   const isSuccess = task.status === 'success'
   const isError   = task.status === 'error'
+
+  const R = 9
+  const circ = 2 * Math.PI * R
 
   return (
     <motion.div
@@ -123,23 +159,29 @@ function PillTile({ task, onClose }: { task: TaskItem; onClose: () => void }) {
       {/* Status icon */}
       <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
         {isLoading && (
-          <svg className="w-5 h-5" viewBox="0 0 28 28"
-            style={{ animation: 'mlpi-spin 0.85s linear infinite' }}>
-            <circle cx="14" cy="14" r="10" fill="none" stroke="#252525" strokeWidth="2.5" />
-            <circle cx="14" cy="14" r="10" fill="none" stroke="#FFFF00" strokeWidth="2.5"
-              strokeLinecap="round" strokeDasharray="22 42" />
+          <svg width="20" height="20" viewBox="0 0 28 28">
+            <circle cx="14" cy="14" r={R} fill="none" stroke="#1e1e1e" strokeWidth="2.5" />
+            <circle cx="14" cy="14" r={R} fill="none" stroke="#FFFF00" strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray={`${circ * 0.25} ${circ * 0.75}`}
+              style={{ transformOrigin: '14px 14px', animation: 'mlpi-spin 0.9s linear infinite' }}
+            />
           </svg>
         )}
         {isSuccess && (
-          <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none"
-            stroke="#FFFF00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 13l4 4L19 7" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <motion.path
+              d="M5 13l4 4L19 7"
+              stroke="#FFFF00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            />
           </svg>
         )}
         {isError && (
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"
-            stroke="#ff5555" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M18 6L6 18M6 6l12 12" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="#ff5555" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
         )}
       </div>
@@ -183,6 +225,26 @@ function PillTile({ task, onClose }: { task: TaskItem; onClose: () => void }) {
   )
 }
 
+function playSuccessSound() {
+  if (typeof window === 'undefined') return
+  try {
+    // @ts-ignore
+    const AudioContext = window.AudioContext || window.webkitAudioContext
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(700, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.002, ctx.currentTime + 0.08)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.1)
+  } catch {}
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function MyLoadingProcessIndicator({
@@ -191,13 +253,13 @@ export default function MyLoadingProcessIndicator({
   onCloseTask,
   mode = 'bottom-right',
 }: MyLoadingProcessIndicatorProps) {
-  const processedTaskIds = useRef<Set<string>>(new Set())
+  const notifiedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    ;(tasks || []).forEach(task => {
-      if (task.status === 'success' && !processedTaskIds.current.has(task.id)) {
+    tasks.forEach(task => {
+      if (task.status === 'success' && !notifiedRef.current.has(task.id)) {
+        notifiedRef.current.add(task.id)
         playSuccessSound()
-        processedTaskIds.current.add(task.id)
       }
     })
   }, [tasks])
@@ -211,36 +273,30 @@ export default function MyLoadingProcessIndicator({
   return (
     <>
       <style>{`@keyframes mlpi-spin { to { transform: rotate(360deg); } }`}</style>
-      <AnimatePresence>
-        {activeTasks.length > 0 && (
-          <div className="fixed z-[9990] pointer-events-none" style={positionStyle}>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              style={{ pointerEvents: 'auto' }}
-              className={`flex gap-2 ${mode === 'bottom-right' ? 'flex-col items-end' : 'flex-col items-center'}`}
-            >
-              {activeTasks.map(task =>
-                mode === 'bottom-right' ? (
-                  <SquareTile
-                    key={task.id}
-                    task={task}
-                    onClose={() => onCloseTask?.(task.id)}
-                  />
-                ) : (
-                  <PillTile
-                    key={task.id}
-                    task={task}
-                    onClose={() => onCloseTask?.(task.id)}
-                  />
-                )
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <div className="fixed z-[9990] pointer-events-none" style={positionStyle}>
+        <motion.div
+          style={{ pointerEvents: 'auto' }}
+          className={`flex gap-2 ${mode === 'bottom-right' ? 'flex-col items-end' : 'flex-col items-center'}`}
+        >
+          <AnimatePresence mode="popLayout">
+            {activeTasks.map(task =>
+              mode === 'bottom-right' ? (
+                <SquareTile
+                  key={task.id}
+                  task={task}
+                  onClose={() => onCloseTask?.(task.id)}
+                />
+              ) : (
+                <PillTile
+                  key={task.id}
+                  task={task}
+                  onClose={() => onCloseTask?.(task.id)}
+                />
+              )
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
     </>
   )
 }

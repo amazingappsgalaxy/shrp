@@ -10,7 +10,6 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
-import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
 import { useTaskManager } from "@/components/providers/TaskManagerProvider"
 import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
@@ -108,10 +107,6 @@ function UpscalerContent() {
   const taskIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
   const pollIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
 
-  const visibleTasks = React.useMemo(() => {
-    const items = Array.from(activeTasks.values()).filter(task => !dismissedTaskIds.has(task.id))
-    return items.sort((a, b) => b.createdAt - a.createdAt)
-  }, [activeTasks, dismissedTaskIds])
 
   // Clear all intervals on unmount to prevent memory leaks
   useEffect(() => {
@@ -734,15 +729,6 @@ function UpscalerContent() {
           ))}
         </div>
       )}
-
-      {/* Task Status Indicator */}
-      <MyLoadingProcessIndicator
-        isVisible={visibleTasks.length > 0}
-        tasks={visibleTasks}
-        onCloseTask={(taskId) => {
-          setDismissedTaskIds(prev => { const next = new Set(prev); next.add(taskId); return next })
-        }}
-      />
 
       {/* Expand View Modal */}
       {upscaledImage && uploadedImage && (
