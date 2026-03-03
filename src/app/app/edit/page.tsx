@@ -9,9 +9,10 @@ import {
   IconUpload, IconTrash, IconPlus, IconWand, IconEraser,
   IconBrush, IconLoader2, IconDownload, IconX, IconPhoto,
   IconTypography, IconSquare, IconSparkles, IconRefresh,
-  IconChevronDown, IconChevronUp, IconPencil, IconBulb, IconStars,
-  IconCloudUpload,
+  IconChevronDown, IconChevronUp, IconPencil, IconBulb, IconAi,
+  IconCloudUpload, IconArrowBackUp, IconArrowForwardUp,
 } from '@tabler/icons-react'
+import { MechanicalSlider } from '@/components/ui/mechanical-slider'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -236,7 +237,7 @@ function RelightSphere({
       {/* Base sphere – deep dark globe */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%',
-        background: 'radial-gradient(circle at 42% 38%, #1e1e2a 0%, #080810 70%)',
+        background: 'radial-gradient(circle at 42% 38%, #1e1e1e 0%, #080808 70%)',
         boxShadow: 'inset 0 0 40px rgba(0,0,0,0.95)',
       }} />
 
@@ -294,7 +295,7 @@ function RelightSphere({
           right: undefined,
           transform: typeof x === 'string' ? 'translateX(-50%)' : typeof y === 'string' ? 'translateY(-50%)' : undefined,
           fontSize: 10, fontWeight: 900,
-          color: 'rgba(255,255,255,0.22)',
+          color: '#686868',
           pointerEvents: 'none',
           lineHeight: 1,
         }}>{l}</span>
@@ -303,7 +304,7 @@ function RelightSphere({
       {/* Drag hint text */}
       <div style={{
         position: 'absolute', bottom: '14%', left: 0, right: 0,
-        textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)',
+        textAlign: 'center', fontSize: 10, color: '#606060',
         pointerEvents: 'none', fontWeight: 700, letterSpacing: 1,
       }}>DRAG TO MOVE LIGHT</div>
     </div>
@@ -320,7 +321,7 @@ function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onS
     <div className="relative">
       <button
         onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-lg hover:border-white/12 transition-all"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0c] border border-[#252525] shadow-lg hover:border-[#303030] transition-all"
       >
         <IconSparkles className="w-3.5 h-3.5 text-gray-400" />
         <span className="text-xs font-black text-gray-300 uppercase tracking-wide">
@@ -330,7 +331,7 @@ function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onS
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 w-[220px] bg-[#0c0c0e] border border-white/[0.06] rounded-xl shadow-2xl overflow-hidden z-50">
+        <div className="absolute bottom-full mb-2 left-0 w-[220px] bg-[#0c0c0c] border border-[#252525] rounded-xl shadow-2xl overflow-hidden z-50">
           {EDIT_MODELS.map(id => {
             const mod = MODEL_REGISTRY[id]
             if (!mod) return null
@@ -341,8 +342,8 @@ function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onS
                 className={cn(
                   'w-full flex items-center justify-between px-4 py-3 text-xs font-bold transition-all',
                   selectedModel === id
-                    ? 'bg-white/[0.06] text-[#FFFF00]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                    ? 'bg-[#181818] text-[#FFFF00]'
+                    : 'text-gray-400 hover:text-white hover:bg-[#141414]'
                 )}
               >
                 <span>{mod.label}{mod.qualityTier ? ` · ${mod.qualityTier}` : ''}</span>
@@ -362,9 +363,11 @@ function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onS
 // ─── FloatingMaskCard ─────────────────────────────────────────────────────────
 // Contextual card that floats near the drawn mask centroid
 
+const CARD_H = 140  // approximate card height for Y clamping
+
 function FloatingMaskCard({
   layer, scaleX, scaleY, canvasW, canvasH, isActive,
-  onSelect, onUpdatePrompt, onAttachRef, onClearStrokes, onDelete, onCardDrag,
+  onSelect, onUpdatePrompt, onAttachRef, onDelete, onCardDrag,
 }: {
   layer: MaskLayer
   scaleX: number; scaleY: number
@@ -373,11 +376,9 @@ function FloatingMaskCard({
   onSelect: () => void
   onUpdatePrompt: (p: string) => void
   onAttachRef: (url: string) => void
-  onClearStrokes: () => void
   onDelete: () => void
   onCardDrag: (dx: number, dy: number) => void
 }) {
-  // Use ref for DOM manipulation during drag — zero re-renders while dragging
   const cardRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef({ startX: 0, startY: 0, active: false })
 
@@ -385,9 +386,11 @@ function FloatingMaskCard({
     ? { x: layer.centroid.x * scaleX, y: layer.centroid.y * scaleY }
     : { x: canvasW * 0.5, y: canvasH * 0.5 }
 
-  // Push card to the right side so it doesn't cover the painted area
-  const cardX = Math.min(baseCentroidCss.x + 90, canvasW - 20) + layer.cardOffset.x
-  const cardY = baseCentroidCss.y - 60 + layer.cardOffset.y
+  // Clamp card within canvas bounds (don't clip into header or bottom bar)
+  const rawX = Math.min(baseCentroidCss.x + 80, canvasW - 210) + layer.cardOffset.x
+  const rawY = baseCentroidCss.y - 50 + layer.cardOffset.y
+  const cardX = Math.max(4, Math.min(canvasW - 210, rawX))
+  const cardY = Math.max(8, Math.min(canvasH - CARD_H - 8, rawY))
 
   return (
     <>
@@ -399,34 +402,34 @@ function FloatingMaskCard({
       >
         <line
           x1={baseCentroidCss.x} y1={baseCentroidCss.y}
-          x2={cardX + 6} y2={cardY + 24}
+          x2={cardX + 8} y2={cardY + 20}
           stroke={layer.color}
           strokeWidth={1.5}
-          strokeDasharray="5 4"
-          opacity={0.45}
+          strokeDasharray="4 3"
+          opacity={0.5}
         />
-        <circle cx={baseCentroidCss.x} cy={baseCentroidCss.y} r={5} fill={layer.color} opacity={0.5} />
+        <circle cx={baseCentroidCss.x} cy={baseCentroidCss.y} r={4} fill={layer.color} opacity={0.6} />
       </svg>
 
       {/* The card */}
       <div
         ref={cardRef}
         className={cn(
-          'absolute w-[220px] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.6)] border',
-          isActive ? 'border-[#FFFF00]/30' : 'border-white/[0.08]'
+          'absolute w-[200px] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] border',
+          isActive ? 'border-[#4a4a00]' : 'border-[#282828]'
         )}
         style={{
           left: cardX,
           top: cardY,
-          background: '#0d0d10',
+          background: '#0d0d0d',
           zIndex: isActive ? 20 : 10,
           willChange: 'transform',
         }}
         onClick={onSelect}
       >
-        {/* Drag handle / header */}
+        {/* Header — draggable */}
         <div
-          className="flex items-center justify-between px-3 pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing select-none"
+          className="flex items-center justify-between px-2.5 pt-2 pb-1.5 cursor-grab active:cursor-grabbing select-none border-b border-[#222222]"
           onPointerDown={e => {
             dragRef.current = { startX: e.clientX, startY: e.clientY, active: true }
             e.currentTarget.setPointerCapture(e.pointerId)
@@ -434,7 +437,6 @@ function FloatingMaskCard({
           }}
           onPointerMove={e => {
             if (!dragRef.current.active) return
-            // Direct DOM transform — no React state update while dragging
             const dx = e.clientX - dragRef.current.startX
             const dy = e.clientY - dragRef.current.startY
             if (cardRef.current) cardRef.current.style.transform = `translate(${dx}px,${dy}px)`
@@ -444,63 +446,58 @@ function FloatingMaskCard({
             dragRef.current.active = false
             const dx = e.clientX - dragRef.current.startX
             const dy = e.clientY - dragRef.current.startY
-            // Remove CSS transform and commit delta to React state once
             if (cardRef.current) cardRef.current.style.transform = ''
             onCardDrag(dx, dy)
           }}
         >
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full ring-1 ring-white/10 flex-shrink-0" style={{ background: layer.color }} />
-            <span className="text-[11px] font-black uppercase tracking-wider text-white capitalize">{layer.colorName}</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: layer.color }} />
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#c0c0c0] capitalize">{layer.colorName}</span>
             {isActive && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider bg-white/[0.09] text-[#FFFF00]">
-                active
+              <span className="text-[8px] px-1 py-px rounded-sm font-black uppercase tracking-wider bg-[#1f1f00] text-[#FFFF00] leading-none">
+                ON
               </span>
             )}
           </div>
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={e => { e.stopPropagation(); onClearStrokes() }}
-              className="px-2 py-0.5 text-[10px] font-bold text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
-            >clear</button>
-            <button
-              onClick={e => { e.stopPropagation(); onDelete() }}
-              className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded hover:bg-red-500/10"
-            >
-              <IconX className="w-3 h-3" />
-            </button>
-          </div>
+          {/* X = delete layer */}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            className="p-0.5 text-[#505050] hover:text-red-400 transition-colors rounded hover:bg-[#2a1010]"
+          >
+            <IconX className="w-3 h-3" />
+          </button>
         </div>
 
         {/* Prompt textarea */}
-        <div className="px-3 pb-2">
+        <div className="px-2.5 py-2">
           <textarea
             value={layer.prompt}
             onChange={e => onUpdatePrompt(e.target.value)}
             onClick={e => e.stopPropagation()}
-            placeholder={`Describe what to change here…`}
-            className="w-full bg-white/[0.03] border border-white/5 rounded-lg px-2.5 py-2 text-[12px] text-white placeholder:text-white/30 resize-none outline-none leading-relaxed focus:border-white/15 transition-colors"
-            style={{ minHeight: 52 }}
+            placeholder="Describe the change…"
+            className="w-full bg-[#111111] border border-[#252525] rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-[#585858] resize-none outline-none leading-relaxed focus:border-[#333333] transition-colors"
+            style={{ minHeight: 48 }}
             rows={2}
           />
         </div>
 
-        {/* Reference image — icon button style (consistent with image page) */}
-        <div className="px-3 pb-2.5 flex items-center gap-2">
+        {/* Reference image — icon only */}
+        <div className="px-2.5 pb-2.5">
           {layer.referenceImageUrl ? (
-            <>
-              <img src={layer.referenceImageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-white/10 flex-shrink-0" />
-              <span className="text-[10px] text-gray-400 flex-1 truncate">Ref attached</span>
-              <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="p-1 text-gray-500 hover:text-red-400 transition-colors rounded hover:bg-red-500/10">
+            <div className="flex items-center gap-1.5">
+              <img src={layer.referenceImageUrl} alt="" className="w-7 h-7 rounded-md object-cover border border-[#2e2e2e] flex-shrink-0" />
+              <span className="text-[9px] text-[#606060] flex-1 truncate">ref image</span>
+              <button onClick={e => { e.stopPropagation(); onAttachRef('') }} className="p-0.5 text-[#505050] hover:text-red-400 transition-colors rounded">
                 <IconX className="w-3 h-3" />
               </button>
-            </>
+            </div>
           ) : (
-            <label className="flex items-center gap-1.5 cursor-pointer" onClick={e => e.stopPropagation()}>
-              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 transition-all text-gray-500 hover:text-white flex-shrink-0">
-                <IconPhoto className="w-4 h-4" />
+            <label className="cursor-pointer" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[#252525] bg-[#111111] hover:bg-[#161616] hover:border-[#2e2e2e] transition-all">
+                <IconPlus className="w-3 h-3 text-[#606060]" />
+                <IconPhoto className="w-3 h-3 text-[#606060]" />
+                <span className="text-[9px] font-bold text-[#606060] uppercase tracking-wide">Add image</span>
               </div>
-              <span className="text-[10px] text-gray-500">Add reference</span>
               <input type="file" accept="image/*" className="hidden" onChange={async e => {
                 const file = e.target.files?.[0]; if (!file) return
                 const fd = new FormData(); fd.append('file', file)
@@ -522,7 +519,7 @@ function FloatingMaskCard({
 
 function MovableTextAnnotation({
   ann, scaleX, scaleY, isSelected, isEditing, editValue,
-  onSelect, onMove, onDelete, onStartEdit, onCommitEdit, onEditChange,
+  onSelect, onMove, onDelete, onStartEdit, onCommitEdit, onEditChange, onScale,
 }: {
   ann: TextAnnotation
   scaleX: number; scaleY: number
@@ -535,8 +532,10 @@ function MovableTextAnnotation({
   onStartEdit: () => void
   onCommitEdit: (text: string) => void
   onEditChange: (v: string) => void
+  onScale: (newFontSize: number) => void
 }) {
   const dragRef = useRef({ x: 0, y: 0, active: false })
+  const scaleDragRef = useRef({ x: 0, y: 0, active: false, startFontSize: 0 })
   const fs = ann.fontSize * scaleY
 
   return (
@@ -609,6 +608,31 @@ function MovableTextAnnotation({
         }}>
           {ann.text}
         </span>
+      )}
+
+      {/* Scale handle — bottom-right corner, drag to resize */}
+      {isSelected && !isEditing && (
+        <div
+          style={{
+            position: 'absolute', bottom: -6, right: -6,
+            width: 12, height: 12, borderRadius: 3,
+            background: '#FFFF00', border: '1.5px solid rgba(0,0,0,0.6)',
+            cursor: 'se-resize', zIndex: 2, pointerEvents: 'auto',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+          }}
+          onPointerDown={e => {
+            e.stopPropagation()
+            scaleDragRef.current = { x: e.clientX, y: e.clientY, active: true, startFontSize: ann.fontSize }
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }}
+          onPointerMove={e => {
+            if (!scaleDragRef.current.active) return
+            const delta = (e.clientX - scaleDragRef.current.x + e.clientY - scaleDragRef.current.y) / scaleY
+            const newSize = Math.max(8, Math.min(120, scaleDragRef.current.startFontSize + delta))
+            onScale(Math.round(newSize))
+          }}
+          onPointerUp={() => { scaleDragRef.current.active = false }}
+        />
       )}
 
       {/* Controls when selected */}
@@ -778,6 +802,70 @@ export default function EditPage() {
   const layerCanvasesRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
   const nextColorIdx = useRef(0)
 
+  // ── Undo / Redo  (snapshots of all layer canvas data URLs + layer meta)
+  type HistoryEntry = { layers: MaskLayer[]; snapshots: Map<string, string> }
+  const undoStack = useRef<HistoryEntry[]>([])
+  const redoStack = useRef<HistoryEntry[]>([])
+  // Use a ref so applyHistory doesn't depend on renderCanvas (which is defined later)
+  const renderCanvasRef = useRef<(() => void) | null>(null)
+
+  const captureHistory = useCallback(() => {
+    const snapshots = new Map<string, string>()
+    layerCanvasesRef.current.forEach((lc, id) => snapshots.set(id, lc.toDataURL()))
+    setLayers(current => {
+      undoStack.current.push({ layers: current, snapshots })
+      if (undoStack.current.length > 20) undoStack.current.shift()
+      redoStack.current = []
+      return current
+    })
+  }, [])
+
+  const applyHistory = useCallback((entry: HistoryEntry) => {
+    const newMap = new Map<string, HTMLCanvasElement>()
+    for (const layer of entry.layers) {
+      const lc = document.createElement('canvas')
+      const imgEl = new Image()
+      const dataUrl = entry.snapshots.get(layer.id)
+      if (dataUrl) {
+        imgEl.onload = () => {
+          lc.width = imgEl.width; lc.height = imgEl.height
+          const ctx = lc.getContext('2d')
+          ctx?.drawImage(imgEl, 0, 0)
+          setTimeout(() => renderCanvasRef.current?.(), 0)
+        }
+        imgEl.src = dataUrl
+      }
+      newMap.set(layer.id, lc)
+    }
+    layerCanvasesRef.current = newMap
+    setLayers(entry.layers)
+  }, [])
+
+  const undo = useCallback(() => {
+    const entry = undoStack.current.pop()
+    if (!entry) return
+    // Save current state to redo
+    const snapshots = new Map<string, string>()
+    layerCanvasesRef.current.forEach((lc, id) => snapshots.set(id, lc.toDataURL()))
+    setLayers(current => {
+      redoStack.current.push({ layers: current, snapshots })
+      return current
+    })
+    applyHistory(entry)
+  }, [applyHistory])
+
+  const redo = useCallback(() => {
+    const entry = redoStack.current.pop()
+    if (!entry) return
+    const snapshots = new Map<string, string>()
+    layerCanvasesRef.current.forEach((lc, id) => snapshots.set(id, lc.toDataURL()))
+    setLayers(current => {
+      undoStack.current.push({ layers: current, snapshots })
+      return current
+    })
+    applyHistory(entry)
+  }, [applyHistory])
+
   // ── Annotations
   const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([])
   const [rectAnnotations, setRectAnnotations] = useState<RectAnnotation[]>([])
@@ -840,6 +928,26 @@ export default function EditPage() {
   }, [layers])
 
   useEffect(() => { renderCanvas() }, [renderCanvas])
+  // Keep renderCanvasRef in sync so applyHistory can call it without dep issues
+  useEffect(() => { renderCanvasRef.current = renderCanvas }, [renderCanvas])
+
+  // ── Clear floating text input whenever mode changes
+  useEffect(() => {
+    setTextInput({ visible: false, screenX: 0, screenY: 0, canvasX: 0, canvasY: 0 })
+    setTextValue('')
+  }, [mode])
+
+  // ── Keyboard shortcuts: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey
+      if (!ctrl) return
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+      if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [undo, redo])
 
   // ── Flatten annotations onto canvas for export
   const flattenForExport = useCallback((): string => {
@@ -952,15 +1060,20 @@ export default function EditPage() {
     if (!imageNaturalSize) return
     const colorData = LAYER_COLORS[nextColorIdx.current % LAYER_COLORS.length]!
     nextColorIdx.current++
-    const layer: MaskLayer = {
-      id: uid(), color: colorData.hex, colorName: colorData.name,
-      prompt: '', referenceImageUrl: null, centroid: null, cardOffset: { x: 0, y: 0 },
-    }
-    const lc = document.createElement('canvas')
-    lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
-    layerCanvasesRef.current.set(layer.id, lc)
-    setLayers(prev => [...prev, layer])
-    setActiveLayerId(layer.id)
+    setLayers(prev => {
+      // Stagger new card so it doesn't overlap existing ones
+      const idx = prev.length
+      const layer: MaskLayer = {
+        id: uid(), color: colorData.hex, colorName: colorData.name,
+        prompt: '', referenceImageUrl: null, centroid: null,
+        cardOffset: { x: idx * 12, y: idx * 90 },
+      }
+      const lc = document.createElement('canvas')
+      lc.width = imageNaturalSize.w; lc.height = imageNaturalSize.h
+      layerCanvasesRef.current.set(layer.id, lc)
+      setActiveLayerId(layer.id)
+      return [...prev, layer]
+    })
   }, [imageNaturalSize])
 
   const removeLayer = useCallback((id: string) => {
@@ -1109,9 +1222,10 @@ export default function EditPage() {
     }
 
     if (activeTool === 'brush' && activeLayerId) {
+      captureHistory()
       updateLayerCentroid(activeLayerId)
     }
-  }, [activeTool, activeLayerId, layers, getCanvasPoint, renderCanvas, updateLayerCentroid])
+  }, [activeTool, activeLayerId, layers, getCanvasPoint, renderCanvas, updateLayerCentroid, captureHistory])
 
   const commitText = useCallback(() => {
     if (!textValue.trim()) return
@@ -1186,7 +1300,7 @@ export default function EditPage() {
 
   // ── Render
   return (
-    <div className="fixed inset-0 pt-16 bg-[#07070a] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.22) 1.5px, transparent 1.5px)', backgroundSize: '22px 22px' }}>
+    <div className="fixed inset-0 pt-16 bg-[#070707] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 20%) 1.2px, transparent 1.2px)', backgroundSize: '20px 20px' }}>
 
       {/* ── CANVAS WORKSPACE ─────────────────────────────────────────── */}
       <div
@@ -1197,15 +1311,15 @@ export default function EditPage() {
         {!imageUrl ? (
           /* ── REDESIGNED EMPTY STATE ─────────────────────────────────── */
           <label className="group cursor-pointer flex flex-col items-center gap-8 select-none">
-            <div className="relative w-48 h-44 rounded-xl border border-dashed border-white/15 group-hover:border-[#FFFF00]/40 bg-white/[0.02] group-hover:bg-[#FFFF00]/[0.025] flex flex-col items-center justify-center gap-3 transition-all duration-300">
-              <IconCloudUpload className="w-11 h-11 text-white/25 group-hover:text-[#FFFF00]/60 transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
-              <span className="text-[11px] font-black uppercase tracking-widest text-white/25 group-hover:text-[#FFFF00]/50 transition-colors">Upload Image</span>
+            <div className="relative w-48 h-44 rounded-xl border border-dashed border-[#333333] group-hover:border-[#686800] bg-[#111111] group-hover:bg-[#151500] flex flex-col items-center justify-center gap-3 transition-all duration-300">
+              <IconCloudUpload className="w-11 h-11 text-[#585858] group-hover:text-[#aaaa00] transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
+              <span className="text-[11px] font-black uppercase tracking-widest text-[#585858] group-hover:text-[#999900] transition-colors">Upload Image</span>
             </div>
             <div className="text-center space-y-2.5">
-              <p className="text-sm font-semibold text-white/50 group-hover:text-white/80 transition-colors">Drop an image or click to browse</p>
+              <p className="text-sm font-semibold text-[#787878] group-hover:text-[#c0c0c0] transition-colors">Drop an image or click to browse</p>
               <div className="flex items-center justify-center gap-2">
                 {['PNG', 'JPG', 'WebP'].map(t => (
-                  <span key={t} className="text-[10px] font-bold text-white/25 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] uppercase tracking-wide">{t}</span>
+                  <span key={t} className="text-[10px] font-bold text-[#585858] px-2 py-0.5 rounded bg-[#141414] border border-[#252525] uppercase tracking-wide">{t}</span>
                 ))}
               </div>
             </div>
@@ -1217,7 +1331,21 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: EDIT TOOLS ───────────────────────── */}
             {mode === 'edit' && (
-              <div className="flex-shrink-0 self-center flex flex-col items-center gap-1 p-2 rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl">
+              <div className="flex-shrink-0 self-center flex flex-col items-center gap-1 p-2 rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl">
+                {/* Undo / Redo */}
+                <div className="flex gap-0.5 mb-0.5">
+                  <button onClick={undo} title="Undo (Ctrl+Z)"
+                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#606060] hover:text-white hover:bg-[#191919] transition-all">
+                    <IconArrowBackUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={redo} title="Redo (Ctrl+Shift+Z)"
+                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#606060] hover:text-white hover:bg-[#191919] transition-all">
+                    <IconArrowForwardUp className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="w-10 h-px bg-[#191919] mb-0.5" />
+
                 {/* Active layer indicator */}
                 {activeLayerId && (
                   <div className="w-6 h-1.5 rounded-full mb-0.5" style={{ background: layers.find(l => l.id === activeLayerId)?.color ?? '#fff' }} />
@@ -1227,60 +1355,68 @@ export default function EditPage() {
                 {[
                   { id: 'brush' as Tool, Icon: IconBrush, tip: 'Brush — paint mask area' },
                   { id: 'eraser' as Tool, Icon: IconEraser, tip: 'Eraser — remove mask paint' },
-                  { id: 'rect' as Tool, Icon: IconSquare, tip: 'Rectangle annotation' },
-                  { id: 'text' as Tool, Icon: IconTypography, tip: 'Text annotation' },
+                  { id: 'rect' as Tool, Icon: IconSquare, tip: 'Rectangle — mark an area' },
+                  { id: 'text' as Tool, Icon: IconTypography, tip: 'Text — add a label' },
                 ].map(({ id, Icon, tip }) => (
                   <button key={id} onClick={() => setActiveTool(id)} title={tip}
                     className={cn('w-9 h-9 rounded-lg flex items-center justify-center transition-all',
-                      activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-white/55 hover:text-white hover:bg-white/[0.08]'
+                      activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-[#808080] hover:text-white hover:bg-[#1a1a1a]'
                     )}>
                     <Icon className="w-4 h-4" strokeWidth={1.8} />
                   </button>
                 ))}
 
-                {/* Brush size slider (visible) */}
+                {/* Brush size — MechanicalSlider */}
                 {(activeTool === 'brush' || activeTool === 'eraser') && (
                   <>
-                    <div className="w-5 h-px bg-white/10 my-0.5" />
-                    <div className="flex flex-col items-center gap-1.5">
-                      <div className="rounded-full border border-white/20 transition-all" style={{
-                        width: Math.max(6, Math.min(28, brushSize * 0.4)),
-                        height: Math.max(6, Math.min(28, brushSize * 0.4)),
+                    <div className="w-5 h-px bg-[#1e1e1e] my-0.5" />
+                    <div className="flex flex-col items-center gap-1.5 px-0.5 w-full">
+                      {/* Brush preview dot */}
+                      <div className="rounded-full border border-[#383838] transition-all" style={{
+                        width: Math.max(5, Math.min(22, brushSize * 0.33)),
+                        height: Math.max(5, Math.min(22, brushSize * 0.33)),
                         background: activeTool === 'eraser'
-                          ? 'rgba(255,255,255,0.25)'
+                          ? '#4a4a4a'
                           : (layers.find(l => l.id === activeLayerId)?.color ?? '#FFFF00') + '99',
                       }} />
-                      <input
-                        type="range" min={4} max={80} value={brushSize}
-                        onChange={e => setBrushSize(Number(e.target.value))}
-                        style={{
-                          writingMode: 'vertical-lr', direction: 'rtl',
-                          width: 10, height: 58,
-                          accentColor: '#FFFF00',
-                          cursor: 'ns-resize',
-                        }}
-                      />
-                      <span className="text-[9px] text-gray-400 font-mono">{brushSize}</span>
+                      {/* Vertical mechanical slider via rotate */}
+                      <div style={{ width: 10, height: 64, position: 'relative', overflow: 'visible' }}>
+                        <div style={{
+                          position: 'absolute',
+                          top: '50%', left: '50%',
+                          transform: 'translate(-50%, -50%) rotate(-90deg)',
+                          width: 64,
+                          transformOrigin: 'center center',
+                        }}>
+                          <MechanicalSlider
+                            min={4} max={80} step={2}
+                            value={[brushSize]}
+                            onValueChange={([v]) => { if (v !== undefined) setBrushSize(v) }}
+                            visualTicks={true}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[9px] text-[#606060] font-mono leading-none">{brushSize}</span>
                     </div>
                   </>
                 )}
 
-                <div className="w-5 h-px bg-white/10 my-0.5" />
+                <div className="w-5 h-px bg-[#1e1e1e] my-1" />
 
-                {/* Add layer — visible with border */}
+                {/* Add layer — bright CTA button */}
                 <button onClick={addLayer} title="Add new mask layer"
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-white/60 hover:text-[#FFFF00] hover:bg-[#FFFF00]/[0.08] border border-white/[0.09] hover:border-[#FFFF00]/25 transition-all">
-                  <IconPlus className="w-4 h-4" />
+                  className="w-9 h-8 rounded-md flex items-center justify-center bg-[#191919] hover:bg-[#1c1c00] border border-[#323232] hover:border-[#686800] text-[#787878] hover:text-[#FFFF00] transition-all shadow-sm">
+                  <IconPlus className="w-4 h-4" strokeWidth={2} />
                 </button>
 
                 {/* Layer dots */}
                 {layers.length > 0 && (<>
-                  <div className="w-5 h-px bg-white/10" />
+                  <div className="w-5 h-px bg-[#1e1e1e]" />
                   <div className="flex flex-col gap-1.5">
                     {layers.map(l => (
                       <button key={l.id} onClick={() => setActiveLayerId(l.id)}
                         title={`${l.colorName} layer`}
-                        className={cn('w-4 h-4 rounded-full ring-2 ring-offset-1 ring-offset-[#0d0d10] transition-all',
+                        className={cn('w-4 h-4 rounded-full ring-2 ring-offset-1 ring-offset-[#0d0d0d] transition-all',
                           activeLayerId === l.id ? 'ring-[#FFFF00] scale-110' : 'ring-white/25 hover:ring-white/50')}
                         style={{ background: l.color }} />
                     ))}
@@ -1291,7 +1427,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: RELIGHT ──────────────────────────── */}
             {mode === 'relight' && (
-              <div className="flex-shrink-0 w-[280px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl">
+              <div className="flex-shrink-0 w-[280px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl">
                 <div className="p-4 space-y-4">
 
                   {/* Lighting Style grid */}
@@ -1302,10 +1438,10 @@ export default function EditPage() {
                         <button key={s.id} onClick={() => applyLightingStyle(s)}
                           className={cn('py-2 rounded-md border text-center transition-all',
                             activeLightingStyle === s.id
-                              ? 'border-[#FFFF00]/30 bg-[#FFFF00]/[0.08] text-[#FFFF00]'
-                              : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
+                              ? 'border-[#555500] bg-[#1a1a00] text-[#FFFF00]'
+                              : 'border-[#222222] text-gray-500 hover:text-white hover:border-[#2e2e2e]'
                           )}>
-                          <div className="w-3 h-3 rounded-full mx-auto mb-1 border border-white/10" style={{ background: s.color }} />
+                          <div className="w-3 h-3 rounded-full mx-auto mb-1 border border-[#2e2e2e]" style={{ background: s.color }} />
                           <span className="text-[9px] font-black uppercase tracking-wide leading-none">{s.name}</span>
                         </button>
                       ))}
@@ -1336,8 +1472,8 @@ export default function EditPage() {
                           onClick={() => { setLightSettings(prev => ({ ...prev, azimuth: p.az, elevation: p.el })); setActiveLightingStyle(null) }}
                           className={cn('py-1.5 text-[9px] font-black rounded-md transition-all border',
                             lightSettings.azimuth === p.az && lightSettings.elevation === p.el
-                              ? 'border-[#FFFF00]/30 bg-[#FFFF00]/[0.08] text-[#FFFF00]'
-                              : 'border-white/5 text-gray-500 hover:text-white hover:border-white/10'
+                              ? 'border-[#555500] bg-[#1a1a00] text-[#FFFF00]'
+                              : 'border-[#222222] text-gray-500 hover:text-white hover:border-[#2e2e2e]'
                           )}>{p.name}</button>
                       ))}
                     </div>
@@ -1345,22 +1481,18 @@ export default function EditPage() {
 
                   {/* Intensity + Falloff side by side */}
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Intensity */}
+                    {/* Intensity — MechanicalSlider */}
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Intensity</p>
                         <span className="font-mono text-[10px] text-white">{lightSettings.intensity}%</span>
                       </div>
-                      <div className="relative h-1.5 rounded-full bg-white/10">
-                        <div className="absolute left-0 top-0 h-full rounded-full transition-all" style={{
-                          width: `${(lightSettings.intensity - 10) / 90 * 100}%`,
-                          background: `linear-gradient(to right, ${lightSettings.color}55, ${lightSettings.color})`,
-                        }} />
-                        <input type="range" min={10} max={100} step={5} value={lightSettings.intensity}
-                          onChange={e => setLightSettings(p => ({ ...p, intensity: Number(e.target.value) }))}
-                          className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
-                          style={{ accentColor: '#FFFF00' }} />
-                      </div>
+                      <MechanicalSlider
+                        min={10} max={100} step={5}
+                        value={[lightSettings.intensity]}
+                        onValueChange={([v]) => { if (v !== undefined) setLightSettings(p => ({ ...p, intensity: v })) }}
+                        visualTicks={true}
+                      />
                     </div>
                     {/* Falloff */}
                     <div>
@@ -1369,7 +1501,7 @@ export default function EditPage() {
                         {(['soft', 'hard'] as const).map(type => (
                           <button key={type} onClick={() => setLightSettings(p => ({ ...p, softness: type }))}
                             className={cn('flex-1 py-1 text-[10px] font-black rounded-sm transition-all uppercase tracking-wider',
-                              lightSettings.softness === type ? 'bg-white/[0.09] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
+                              lightSettings.softness === type ? 'bg-[#1c1c1c] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
                             )}>{type}</button>
                         ))}
                       </div>
@@ -1380,7 +1512,7 @@ export default function EditPage() {
                   <div>
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Light Color</p>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-white/10 flex-shrink-0">
+                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-[#2e2e2e] flex-shrink-0">
                         <input type="color" value={lightSettings.color}
                           onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
@@ -1388,35 +1520,35 @@ export default function EditPage() {
                       </div>
                       <input type="text" value={lightSettings.color}
                         onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white font-mono uppercase outline-none focus:border-white/25 transition-all" />
+                        className="flex-1 bg-[#141414] border border-[#2e2e2e] rounded-lg px-2 py-1.5 text-[11px] text-white font-mono uppercase outline-none focus:border-[#3c3c3c] transition-all" />
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {LIGHT_COLOR_PRESETS.map(c => (
                         <button key={c}
                           onClick={() => { setLightSettings(p => ({ ...p, color: c })); setActiveLightingStyle(null) }}
-                          className={cn('w-5 h-5 rounded-full border-2 transition-all', lightSettings.color === c ? 'border-white scale-110' : 'border-white/15 hover:border-white/40')}
+                          className={cn('w-5 h-5 rounded-full border-2 transition-all', lightSettings.color === c ? 'border-white scale-110' : 'border-[#333333] hover:border-[#505050]')}
                           style={{ background: c }} />
                       ))}
                     </div>
                   </div>
 
                   {/* Scene Lock */}
-                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all">
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                     <div>
                       <span className="text-xs font-black text-white">Scene Lock</span>
                       <p className="text-[10px] text-gray-500 mt-0.5">Preserve pose & character</p>
                     </div>
                     <button onClick={() => setLightSettings(p => ({ ...p, sceneLock: !p.sceneLock }))}
-                      className={cn('relative w-10 flex-shrink-0 rounded-full transition-colors', lightSettings.sceneLock ? 'bg-[#FFFF00]' : 'bg-white/10')}
+                      className={cn('relative w-10 flex-shrink-0 rounded-full transition-colors', lightSettings.sceneLock ? 'bg-[#FFFF00]' : 'bg-[#1e1e1e]')}
                       style={{ height: 22 }}>
                       <span className={cn('absolute top-[3px] left-[3px] w-4 h-4 rounded-full transition-transform shadow-sm',
                         lightSettings.sceneLock ? 'translate-x-[18px]' : 'translate-x-0')}
-                        style={{ background: lightSettings.sceneLock ? '#000' : 'rgba(255,255,255,0.5)' }} />
+                        style={{ background: lightSettings.sceneLock ? '#000' : '#909090' }} />
                     </button>
                   </div>
 
                   {/* DEBUG: live prompt preview */}
-                  <div className="rounded-lg bg-black/40 border border-white/[0.06] p-2.5">
+                  <div className="rounded-lg bg-[#0a0a0a] border border-[#252525] p-2.5">
                     <p className="text-[9px] font-black text-gray-500 uppercase tracking-wider mb-1.5">Live Prompt Preview</p>
                     <p className="text-[9px] text-gray-400 leading-relaxed font-mono break-words">
                       {generateRelightPrompt(lightSettings)}
@@ -1434,28 +1566,28 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
-              <div className="flex-shrink-0 w-[260px] self-center rounded-xl bg-[#0d0d10] border border-white/[0.09] shadow-xl p-4 space-y-3">
+              <div className="flex-shrink-0 w-[260px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Edit Instruction</p>
                 <textarea
                   value={promptText}
                   onChange={e => setPromptText(e.target.value)}
                   placeholder={"e.g. 'Make the background a sunset beach'"}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/30 resize-none outline-none focus:border-white/25 leading-relaxed transition-all"
+                  className="w-full bg-[#141414] border border-[#2e2e2e] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-[#606060] resize-none outline-none focus:border-[#3c3c3c] leading-relaxed transition-all"
                   rows={5}
                 />
                 {/* Reference image — icon button style (consistent with image page) */}
-                <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                <div className="flex items-center gap-2 pt-1 border-t border-[#222222]">
                   {promptRefUrl ? (
                     <>
-                      <img src={promptRefUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-white/10 flex-shrink-0" />
+                      <img src={promptRefUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-[#2e2e2e] flex-shrink-0" />
                       <span className="text-xs text-gray-400 flex-1">Reference attached</span>
-                      <button onClick={() => setPromptRefUrl(null)} className="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10">
+                      <button onClick={() => setPromptRefUrl(null)} className="p-1.5 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-[#2a1010]">
                         <IconX className="w-3.5 h-3.5" />
                       </button>
                     </>
                   ) : (
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <div className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 transition-all text-gray-500 hover:text-white flex-shrink-0">
+                      <div className="w-9 h-9 flex items-center justify-center rounded-lg border border-[#2e2e2e] bg-[#121212] hover:bg-[#181818] hover:border-[#383838] transition-all text-gray-500 hover:text-white flex-shrink-0">
                         <IconPhoto className="w-4 h-4" />
                       </div>
                       <span className="text-xs text-gray-500 hover:text-white transition-colors">Add reference image</span>
@@ -1488,7 +1620,7 @@ export default function EditPage() {
                 cursor: canvasCursor,
                 touchAction: 'none',
                 borderRadius: 14,
-                boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)',
+                boxShadow: '0 24px 80px rgba(0,0,0,0.7)',
               }}
               onMouseDown={onMouseDown}
               onMouseMove={onMouseMove}
@@ -1517,7 +1649,7 @@ export default function EditPage() {
                   onChange={e => setTextValue(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') { setTextInput(p => ({ ...p, visible: false })); setTextValue('') } }}
                   onBlur={commitText}
-                  className="bg-black/90 border border-[#FFFF00]/40 text-[#FFFF00] text-sm px-3 py-2 rounded-xl outline-none min-w-[170px] shadow-2xl backdrop-blur-xl"
+                  className="bg-[#080808] border border-[#686800] text-[#FFFF00] text-sm px-3 py-2 rounded-xl outline-none min-w-[170px] shadow-2xl backdrop-blur-xl"
                   placeholder="Type & press Enter…"
                 />
               </div>
@@ -1526,21 +1658,21 @@ export default function EditPage() {
             {/* Contextual hints */}
             {mode === 'edit' && (activeTool === 'brush' || activeTool === 'eraser') && !activeLayerId && layers.length === 0 && (
               <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0d0d10]/95 border border-white/[0.08] text-xs text-gray-300 font-semibold shadow-lg">
+                <div className="px-4 py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-xs text-gray-300 font-semibold shadow-lg">
                   Paint anywhere to start masking — layer is created automatically
                 </div>
               </div>
             )}
             {mode === 'edit' && activeTool === 'rect' && (
               <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0d0d10]/95 border border-white/[0.08] text-xs text-gray-300 font-semibold shadow-lg">
+                <div className="px-4 py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-xs text-gray-300 font-semibold shadow-lg">
                   Draw a rectangle, then describe the change in the floating card
                 </div>
               </div>
             )}
             {mode === 'edit' && activeTool === 'text' && (
               <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0d0d10]/95 border border-white/[0.08] text-xs text-gray-300 font-semibold shadow-lg">
+                <div className="px-4 py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-xs text-gray-300 font-semibold shadow-lg">
                   Click anywhere on the image to add a text label
                 </div>
               </div>
@@ -1557,7 +1689,7 @@ export default function EditPage() {
                 onSelect={() => setActiveLayerId(layer.id)}
                 onUpdatePrompt={p => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, prompt: p } : l))}
                 onAttachRef={url => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, referenceImageUrl: url || null } : l))}
-                onClearStrokes={() => clearLayerStrokes(layer.id)}
+
                 onDelete={() => removeLayer(layer.id)}
                 onCardDrag={(dx, dy) => setLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cardOffset: { x: l.cardOffset.x + dx, y: l.cardOffset.y + dy } } : l))}
               />
@@ -1580,6 +1712,7 @@ export default function EditPage() {
                     onStartEdit={() => { setEditingTextId(ann.id); setEditingTextValue(ann.text) }}
                     onCommitEdit={text => handleTextAnnotCommitEdit(ann.id, text)}
                     onEditChange={v => setEditingTextValue(v)}
+                    onScale={newFontSize => setTextAnnotations(prev => prev.map(a => a.id === ann.id ? { ...a, fontSize: newFontSize } : a))}
                   />
                 ))}
                 {rectAnnotations.map(ann => (
@@ -1603,11 +1736,11 @@ export default function EditPage() {
 
       {/* ── MODE SWITCHER (floating top center) ──────────────────────── */}
       <div className="fixed top-[4.6rem] left-1/2 -translate-x-1/2 z-40">
-        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] rounded-xl p-1 shadow-xl gap-0.5">
+        <div className="flex bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl p-1 shadow-xl gap-0.5">
           {([
             { id: 'edit',    label: 'Edit',    Icon: IconPencil  },
             { id: 'relight', label: 'Relight', Icon: IconBulb    },
-            { id: 'prompt',  label: 'Prompt',  Icon: IconStars   },
+            { id: 'prompt',  label: 'Prompt',  Icon: IconAi      },
           ] as { id: Mode; label: string; Icon: React.ComponentType<{ className?: string }> }[]).map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -1632,7 +1765,7 @@ export default function EditPage() {
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
 
           {/* Replace image */}
-          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0e] border border-white/[0.06] shadow-lg cursor-pointer hover:border-white/12 transition-all">
+          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0c] border border-[#252525] shadow-lg cursor-pointer hover:border-[#303030] transition-all">
             <IconCloudUpload className="w-4 h-4 text-gray-400" strokeWidth={1.6} />
             <span className="text-xs font-black text-gray-400 uppercase tracking-wide">Replace</span>
             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
@@ -1649,7 +1782,7 @@ export default function EditPage() {
               'flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider transition-all duration-200',
               canGenerate
                 ? 'bg-[#FFFF00] text-black hover:bg-[#e6e600] shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)]'
-                : 'bg-white/[0.04] text-gray-600 cursor-not-allowed border border-white/5'
+                : 'bg-[#141414] text-gray-600 cursor-not-allowed border border-[#222222]'
             )}
           >
             {isGenerating ? (
@@ -1664,8 +1797,8 @@ export default function EditPage() {
       {/* ── RESULTS DOCK (floating bottom-right) ─────────────────────── */}
       {results.length > 0 && (
         <div className="fixed right-5 bottom-6 z-40">
-          <div className="bg-[#0c0c0e] border border-white/[0.06] rounded-xl shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+          <div className="bg-[#0c0c0c] border border-[#252525] rounded-xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-[#222222]">
               <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Results ({results.length})</span>
               <button onClick={() => setResultsDockOpen(p => !p)} className="text-gray-500 hover:text-white transition-colors">
                 {resultsDockOpen ? <IconChevronDown className="w-4 h-4" /> : <IconChevronUp className="w-4 h-4" />}
@@ -1676,7 +1809,7 @@ export default function EditPage() {
                 {results.slice(0, 5).map(r => (
                   <button
                     key={r.id} onClick={() => setModalResult(r)}
-                    className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-white/8 hover:border-[#FFFF00]/40 transition-all duration-150 hover:scale-105"
+                    className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-[#282828] hover:border-[#686800] transition-all duration-150 hover:scale-105"
                   >
                     <img src={r.url} alt="" className="w-full h-full object-cover" />
                   </button>
@@ -1689,7 +1822,7 @@ export default function EditPage() {
 
       {/* ── RESULT MODAL ─────────────────────────────────────────────── */}
       {modalResult && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center" onClick={() => setModalResult(null)}>
+        <div className="fixed inset-0 z-50 bg-[#080808] backdrop-blur-2xl flex items-center justify-center" onClick={() => setModalResult(null)}>
           <div className="flex flex-col gap-4 max-w-4xl max-h-[90vh] items-center" onClick={e => e.stopPropagation()}>
             <img src={modalResult.url} alt="" className="rounded-2xl max-h-[74vh] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.8)]" />
             <div className="flex items-center gap-3">
@@ -1711,6 +1844,7 @@ export default function EditPage() {
                       ctx?.drawImage(img, 0, 0)
                     }
                     setLayers([])
+                    setActiveLayerId(null)
                     layerCanvasesRef.current.clear()
                     nextColorIdx.current = 0
                     setTextAnnotations([])
@@ -1725,10 +1859,10 @@ export default function EditPage() {
               >
                 <IconPencil className="w-4 h-4" /> Edit this
               </button>
-              <a href={modalResult.url} download="result.png" className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/10 text-white font-bold text-sm hover:bg-white/14 transition-colors">
+              <a href={modalResult.url} download="result.png" className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#1e1e1e] text-white font-bold text-sm hover:bg-[#202020] transition-colors">
                 <IconDownload className="w-4 h-4" /> Download
               </a>
-              <button onClick={() => setModalResult(null)} className="px-6 py-2.5 rounded-xl bg-white/5 text-white/40 font-bold text-sm hover:bg-white/8 transition-colors">
+              <button onClick={() => setModalResult(null)} className="px-6 py-2.5 rounded-xl bg-[#141414] text-[#686868] font-bold text-sm hover:bg-[#1a1a1a] transition-colors">
                 Close
               </button>
             </div>
