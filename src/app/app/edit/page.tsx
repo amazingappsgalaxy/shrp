@@ -163,31 +163,52 @@ function hexToRgbDesc(hex: string): string {
 
 function generateRelightPrompt(s: LightSettings) {
   const colorDesc = hexToRgbDesc(s.color)
-  const bright = s.intensity > 85 ? 'extremely powerful'
-    : s.intensity > 65 ? 'strong'
+  const bright = s.intensity > 85 ? 'blazing, overwhelmingly powerful'
+    : s.intensity > 65 ? 'strong, dominant'
     : s.intensity > 40 ? 'moderate'
-    : 'dim and subtle'
+    : 'dim, subtle'
   const dirDesc = azToDesc(s.azimuth)
   const elDesc = elToDesc(s.elevation)
-  const falloff = s.softness === 'soft'
-    ? 'large area source with soft diffuse falloff, smooth penumbra shadows, gentle gradients'
-    : 'point source with hard sharp shadow terminator, crisp specular highlights, strong contrast'
   const lock = s.sceneLock
-    ? 'Keep the exact subject pose, face, clothing, and all scene objects identical — only change the lighting. '
-    : 'You may slightly alter scene elements to make the lighting more convincing. '
+    ? 'Do NOT change the subject\'s pose, face, or clothing. '
+    : ''
+
+  // Direction-aware shadow hint
+  const shadowDir = s.azimuth < 45 || s.azimuth > 315 ? 'behind the subject, pointing away from the camera'
+    : s.azimuth < 135 ? 'to the left of the subject, stretching toward the left side of the frame'
+    : s.azimuth < 225 ? 'in front of the subject, pointing toward the camera'
+    : 'to the right of the subject, stretching toward the right side of the frame'
+
+  // Atmosphere hints per color type
+  const isWarm = colorDesc.includes('golden') || colorDesc.includes('warm') || colorDesc.includes('red') || colorDesc.includes('amber') || colorDesc.includes('yellow')
+  const isCool = colorDesc.includes('blue') || colorDesc.includes('cyan') || colorDesc.includes('moonlight')
+  const isNeon = colorDesc.includes('neon') || colorDesc.includes('magenta') || colorDesc.includes('lime')
+
+  const atmos = isWarm
+    ? `Add warm orange-amber bokeh orbs and glowing haze in the background. Lens flare or sun streak from the light direction. The entire sky and environment should glow warm. `
+    : isCool
+    ? `Add cool blue-silver fill on shadow sides. The background should feel dark and cold. Silver rim highlights on edges. `
+    : isNeon
+    ? `Add vivid colored glow blooms and light bleeds on nearby surfaces. Background should show deep shadows with colored neon reflections. `
+    : ''
+
+  const quality = s.softness === 'soft'
+    ? 'soft-box quality: smooth gradients, wide penumbra, gentle falloff across surfaces'
+    : 'hard point-source quality: razor-sharp shadow edges, crisp specular hotspots, high contrast terminator line'
 
   return (
-    `Cinematic full-scene relighting. ${lock}` +
-    `Replace ALL existing lighting in this image with a ${bright} ${colorDesc} light coming from ${dirDesc}, ${elDesc}. ` +
-    `This is a COMPLETE lighting transformation — not a filter: ` +
-    `(1) The entire scene's ambient light, color temperature, and mood must shift to match ${colorDesc}. ` +
-    `(2) Directional shadows cast by the light source must fall realistically across ALL surfaces — face, body, clothing, background, ground. ` +
-    `(3) Specular highlights in ${colorDesc} must appear on skin, hair, eyes, fabric, and any shiny surfaces facing the source. ` +
-    `(4) Subsurface scattering on skin where the light hits. Ambient occlusion darkens crevices and corners. ` +
-    `(5) Rim lighting in ${colorDesc} on edges of the subject perpendicular to the light direction. ` +
-    `(6) The shadow side should be dark and moody — lit only by very dim complementary fill, NOT pure black. ` +
-    `(7) ${falloff}. ` +
-    `The result must look like this scene was physically photographed under ${colorDesc} lighting from ${dirDesc}, as if the entire environment changed — not like a color grade was applied on top.`
+    `COMPLETE LIGHTING OVERHAUL — this is NOT a color grade or filter. ${lock}` +
+    `Erase all existing lighting, shadows, and light-source artifacts from the scene entirely. ` +
+    `Then re-render the scene from scratch lit ONLY by a single ${bright} ${colorDesc} light source coming from ${dirDesc}, ${elDesc}. ` +
+    `MANDATORY changes: ` +
+    `(1) SHADOWS: cast new hard directional shadows ${shadowDir}. Every object, person, and surface must show a new shadow matching this light direction. The existing shadows must be completely gone. ` +
+    `(2) SHADOW SIDE: the side of the subject and scene facing away from the light must be significantly darker — deep shadow with only a faint ${isCool ? 'warm' : 'cool'} fill bounce. ` +
+    `(3) HIGHLIGHTS: bright ${colorDesc} specular hits on skin, hair, eyes, clothing, and any reflective surface directly facing the light. ` +
+    `(4) AMBIENT SHIFT: the entire scene's ambient color, walls, floor, and background must shift to ${colorDesc} tone — no surfaces should remain neutrally lit. ` +
+    `(5) RIM LIGHT: a rim or halo of ${colorDesc} light on the edges of the subject silhouette where light wraps around. ` +
+    `${atmos}` +
+    `Light quality: ${quality}. ` +
+    `Final result must look like this exact scene was physically photographed under only this light source — the viewer must immediately believe the lighting is real, not composited.`
   )
 }
 
@@ -925,12 +946,7 @@ export default function EditPage() {
     for (const layer of layers) {
       const lc = layerCanvasesRef.current.get(layer.id)
       if (lc) {
-        // Draw with a soft glow matching the layer color for a premium feel
-        ctx.save()
-        ctx.shadowColor = layer.color
-        ctx.shadowBlur = 18
         ctx.drawImage(lc, 0, 0)
-        ctx.restore()
       }
     }
     // Text and rect annotations rendered as HTML overlays (moveable)
@@ -1086,19 +1102,54 @@ export default function EditPage() {
     if (erase) {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.fillStyle = 'rgba(0,0,0,1)'
-      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(x, y, radius * 1.4, 0, Math.PI * 2); ctx.fill()
+      ctx.globalCompositeOperation = 'source-over'
       return
     }
-    // Radial gradient — bright core fading to transparent edge (soft, premium feel)
     ctx.globalCompositeOperation = 'source-over'
-    const r = radius * 1.15
-    const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
-    grad.addColorStop(0,   `rgba(${colorRgb}, 0.92)`)  // bright center
-    grad.addColorStop(0.38,`rgba(${colorRgb}, 0.72)`)
-    grad.addColorStop(0.72,`rgba(${colorRgb}, 0.38)`)
-    grad.addColorStop(1,   `rgba(${colorRgb}, 0)`)     // feathered edge
-    ctx.fillStyle = grad
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill()
+
+    // ── Core solid circle — clean, no fading edges
+    ctx.fillStyle = `rgba(${colorRgb}, 0.85)`
+    ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill()
+
+    // ── Sparkle star-burst rays radiating outward from center
+    const numRays = 3 + Math.floor(Math.random() * 3)  // 3–5 rays per dot
+    for (let i = 0; i < numRays; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const len = radius * (1.6 + Math.random() * 1.8)
+      const alpha = 0.35 + Math.random() * 0.45
+      // Alternate between white sparkle and layer color sparkle
+      const useWhite = Math.random() > 0.45
+      ctx.strokeStyle = useWhite
+        ? `rgba(255,255,255,${alpha})`
+        : `rgba(${colorRgb},${alpha})`
+      ctx.lineWidth = radius * (0.06 + Math.random() * 0.1)
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(x + Math.cos(angle) * radius * 0.5, y + Math.sin(angle) * radius * 0.5)
+      ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len)
+      ctx.stroke()
+    }
+
+    // ── Scattered micro-sparkle dots around the stroke
+    const numDots = Math.max(4, Math.floor(radius * 0.55))
+    for (let i = 0; i < numDots; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const dist = radius * (1.0 + Math.random() * 1.6)
+      const sx = x + Math.cos(angle) * dist
+      const sy = y + Math.sin(angle) * dist
+      const sr = radius * (0.045 + Math.random() * 0.09)
+      const useWhite = Math.random() > 0.35
+      ctx.fillStyle = useWhite
+        ? `rgba(255,255,255,${0.55 + Math.random() * 0.4})`
+        : `rgba(${colorRgb},${0.5 + Math.random() * 0.45})`
+      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill()
+    }
+
+    // ── Bright center glint (white hot spot at the very center)
+    const glintR = radius * 0.22
+    ctx.fillStyle = `rgba(255,255,255,0.7)`
+    ctx.beginPath(); ctx.arc(x, y, glintR, 0, Math.PI * 2); ctx.fill()
   }, [])
 
   const paintLine = useCallback((ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, radius: number, colorRgb: string, erase: boolean) => {
@@ -1461,7 +1512,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: RELIGHT ──────────────────────────── */}
             {mode === 'relight' && (
-              <div className="flex-shrink-0 w-[280px] self-center max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl">
+              <div className="flex-shrink-0 w-[280px] self-center overflow-y-auto rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
                 <div className="p-4 space-y-4">
 
                   {/* Lighting Style grid */}
@@ -1808,7 +1859,7 @@ export default function EditPage() {
           {([
             { id: 'edit',    label: 'Edit',    Icon: IconPencil  },
             { id: 'relight', label: 'Relight', Icon: IconBulb    },
-            { id: 'prompt',  label: 'Prompt',  Icon: IconAi      },
+            { id: 'prompt',  label: 'Prompt',  Icon: IconSparkles },
           ] as { id: Mode; label: string; Icon: React.ComponentType<{ className?: string }> }[]).map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -1846,7 +1897,7 @@ export default function EditPage() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2.5 px-7 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200"
           >
             <IconWand className="w-4 h-4" />
             Generate
@@ -1935,6 +1986,7 @@ export default function EditPage() {
         isVisible={genTasks.length > 0}
         tasks={genTasks}
         onCloseTask={id => setGenTasks(prev => prev.filter(t => t.id !== id))}
+        mode="bottom-right"
       />
     </div>
   )
