@@ -207,9 +207,11 @@ export async function POST(request: NextRequest) {
     if (primaryProvider === 'evolink') {
       const provider = getEvolinkProvider()
       // Build model_params: merge client-provided (mode, cfg_scale) with multi-shot
-      const resolvedShotType = shot_type ?? 'customize'
+      // kling-o3 only supports 'customize', not 'intelligence'
+      const resolvedShotType = (modelId === 'kling-o3') ? 'customize' : (shot_type ?? 'customize')
       const evolinkModelParams = {
         ...(model_params || {}),
+        watermark_info: { enabled: false },
         ...(multi_shot ? {
           multi_shot: true,
           shot_type: resolvedShotType,
@@ -221,7 +223,8 @@ export async function POST(request: NextRequest) {
             })),
           } : {}),
         } : {}),
-        ...(element_list?.length ? { element_list: element_list.map(id => ({ element_id: id })) } : {}),
+        // element_list only supported by kling-o3 (not kling-v3)
+        ...(element_list?.length && modelId === 'kling-o3' ? { element_list: element_list.map(id => ({ element_id: id })) } : {}),
       }
 
       const req: EvolinkVideoRequest = {

@@ -13,6 +13,7 @@ import {
   IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
   IconPlayerPlay, IconVolume, IconMaximize, IconDownload,
+  IconPlus, IconClock,
 } from "@tabler/icons-react"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
 
@@ -76,19 +77,33 @@ const TAG_COLORS: Record<string, string> = {
   Motion: 'bg-teal-500/15 text-teal-400',
 }
 
-// ─── Tick sound (Web Audio API) ────────────────────────────────────────────────
+// ─── Tick sound (Web Audio API — matches MechanicalSlider) ────────────────────
+
+let _audioCtx: AudioContext | null = null
+function getSharedAudioCtx(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  if (!_audioCtx) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const AC = window.AudioContext || (window as any).webkitAudioContext
+    if (!AC) return null
+    _audioCtx = new AC()
+  }
+  if (_audioCtx.state === 'suspended') _audioCtx.resume()
+  return _audioCtx
+}
 
 function playTick() {
   try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const ctx = getSharedAudioCtx(); if (!ctx) return
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(600, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.03)
+    gain.gain.setValueAtTime(0.14, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.009, ctx.currentTime + 0.03)
     osc.connect(gain); gain.connect(ctx.destination)
-    osc.type = 'sine'; osc.frequency.value = 1200
-    gain.gain.setValueAtTime(0.04, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04)
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04)
-    setTimeout(() => ctx.close(), 200)
+    osc.start(); osc.stop(ctx.currentTime + 0.04)
   } catch { /* ignore */ }
 }
 
@@ -205,7 +220,7 @@ function AspectPicker({ ratios, selected, onSelect }: {
         >
           <AspectShape ratio={r} active={selected === r} />
           <span className={cn("text-[9px] font-black", selected === r ? "text-[#FFFF00]" : "text-white/40")}>{r}</span>
-          <span className={cn("text-[8px]", selected === r ? "text-[#FFFF00]/50" : "text-gray-600")}>
+          <span className={cn("text-[8px]", selected === r ? "text-[#FFFF00]/50" : "text-white/30")}>
             {VIDEO_ASPECT_LABELS[r] ?? r}
           </span>
         </button>
@@ -256,14 +271,14 @@ function ModelDropdown({
               </span>
             )}
           </div>
-          <span className="text-[10px] text-[#555] truncate block">{selectedModel?.description}</span>
+          <span className="text-[10px] text-white/40 truncate block">{selectedModel?.description}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
             <CreditIcon className="w-3.5 h-3.5" iconClassName="w-2.5 h-2.5" />
             {selectedModel?.credits ?? 0}
           </div>
-          <IconChevronDown className={cn("w-4 h-4 text-[#555] transition-transform", open && "rotate-180")} />
+          <IconChevronDown className={cn("w-4 h-4 text-white/35 transition-transform", open && "rotate-180")} />
         </div>
       </button>
 
@@ -271,7 +286,7 @@ function ModelDropdown({
         <div className="absolute top-full left-0 right-0 mt-1 bg-[#0c0c0c] border border-[#222222] rounded-lg overflow-hidden z-30 shadow-2xl max-h-72 overflow-y-auto">
           {groups.map(group => (
             <div key={group.label}>
-              <div className="px-3 py-1.5 text-[8px] font-black text-[#444] uppercase tracking-widest border-b border-[#1a1a1a] bg-[#080808]">
+              <div className="px-3 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest border-b border-[#1a1a1a] bg-[#080808]">
                 {group.label}
               </div>
               {group.models.map(model => (
@@ -287,7 +302,7 @@ function ModelDropdown({
                 >
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold leading-tight">{model.label}</div>
-                    <div className="text-[9px] text-[#444] truncate mt-0.5 leading-tight">{model.description}</div>
+                    <div className="text-[9px] text-white/30 truncate mt-0.5 leading-tight">{model.description}</div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {model.tag && (
@@ -298,7 +313,7 @@ function ModelDropdown({
                         {model.tag}
                       </span>
                     )}
-                    <span className="text-[10px] font-mono text-[#444]">{model.credits}cr</span>
+                    <span className="text-[10px] font-mono text-white/30">{model.credits}cr</span>
                     {selected === model.id && (
                       <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00]" />
                     )}
@@ -338,11 +353,11 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{label}</span>
         {preview && (
           <button
             onClick={onClear}
-            className="p-1 text-[#555] hover:text-red-400 transition-colors rounded"
+            className="p-1 text-white/30 hover:text-red-400 transition-colors rounded"
           >
             <IconTrash className="w-3.5 h-3.5" />
           </button>
@@ -366,7 +381,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
         {uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2 z-10">
             <div className="w-6 h-6 border-2 border-[#333] border-t-[#FFFF00] rounded-full animate-spin" />
-            <span className="text-[10px] text-[#888]">Uploading…</span>
+            <span className="text-[10px] text-white/40">Uploading…</span>
           </div>
         )}
         {!uploading && preview ? (
@@ -380,11 +395,11 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-center group-hover:border-[#3a3a3a] transition-colors">
-              <IconVideo className="w-5 h-5 text-[#444]" />
+              <IconVideo className="w-5 h-5 text-white/25" />
             </div>
             <div className="text-center">
-              <p className="text-[11px] text-[#555] font-medium">Click or drag to upload</p>
-              {hint && <p className="text-[9px] text-[#333] mt-0.5">{hint}</p>}
+              <p className="text-[11px] text-white/35 font-medium">Click or drag to upload</p>
+              {hint && <p className="text-[9px] text-white/20 mt-0.5">{hint}</p>}
             </div>
           </div>
         )}
@@ -419,11 +434,11 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">{label}</span>
-          {optional && <span className="text-[9px] text-[#444] italic">(optional)</span>}
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">{label}</span>
+          {optional && <span className="text-[9px] text-white/30 italic">(optional)</span>}
         </div>
         {preview && (
-          <button onClick={onClear} className="p-1 text-[#555] hover:text-red-400 transition-colors rounded">
+          <button onClick={onClear} className="p-1 text-white/30 hover:text-red-400 transition-colors rounded">
             <IconTrash className="w-3.5 h-3.5" />
           </button>
         )}
@@ -440,7 +455,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
         {uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2 z-10">
             <div className="w-5 h-5 border-2 border-[#333] border-t-[#FFFF00] rounded-full animate-spin" />
-            <span className="text-[10px] text-[#888]">Uploading…</span>
+            <span className="text-[10px] text-white/40">Uploading…</span>
           </div>
         )}
         {!uploading && preview ? (
@@ -454,11 +469,11 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-center group-hover:border-[#3a3a3a] transition-colors">
-              <IconCamera className="w-5 h-5 text-[#444]" />
+              <IconCamera className="w-5 h-5 text-white/25" />
             </div>
             <div className="text-center">
-              <p className="text-[11px] text-[#555] font-medium">Click to upload image</p>
-              {hint && <p className="text-[9px] text-[#333] mt-0.5">{hint}</p>}
+              <p className="text-[11px] text-white/35 font-medium">Click to upload image</p>
+              {hint && <p className="text-[9px] text-white/20 mt-0.5">{hint}</p>}
             </div>
           </div>
         )}
@@ -485,7 +500,7 @@ function VideoSkeleton({ aspect }: { aspect: string }) {
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-[#333] border-t-[#FFFF00]/60 rounded-full animate-spin" />
-          <span className="text-[10px] text-[#333] font-mono">Generating video…</span>
+          <span className="text-[10px] text-white/25 font-mono">Generating video…</span>
         </div>
       </div>
     </div>
@@ -668,7 +683,7 @@ function VideoJustifiedGrid({ videos, onExpand }: {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">
+    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-3">
       {children}
     </p>
   )
@@ -778,6 +793,8 @@ function VideoPageContent() {
     const min = durations[0] ?? 5
     const max = durations[durations.length - 1] ?? 15
     setGenDuration(d => Math.max(min, Math.min(max, d)))
+    // kling-o3 doesn't support 'intelligence' shot type
+    if (resolvedGenerateModelId === 'kling-o3') setShotType('customize')
   }, [resolvedGenerateModelId])
 
   useEffect(() => {
@@ -888,6 +905,13 @@ function VideoPageContent() {
       showToast('Please wait for video to finish uploading.')
       return
     }
+    if (multiShot && shotType === 'customize') {
+      const totalShotDur = shotDurations.slice(0, shotCount).reduce((s, d) => s + d, 0)
+      if (totalShotDur > 15) {
+        showToast(`Total shot duration (${totalShotDur}s) exceeds 15s limit.`)
+        return
+      }
+    }
     if (activeTab === 'motion') {
       if (!motionSourceCdnUrl) { showToast('Please upload a motion source video.'); return }
       if (!motionTargetCdnUrl) { showToast('Please upload a target image or video.'); return }
@@ -924,14 +948,14 @@ function VideoPageContent() {
             body.shot_type = shotType
             if (shotType === 'customize') {
               body.multi_prompt = shotPrompts.slice(0, shotCount).map((p, i) => ({
-                index: i, prompt: p.trim(), duration: shotDurations[i] ?? Math.floor(genDuration / shotCount),
+                index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? Math.floor(genDuration / shotCount),
               }))
             }
           }
-          // Element list
-          const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
-          if (isKlingModel && activeElements.length > 0) {
-            body.element_list = activeElements
+          // Element list — only for kling-o3
+          if (isKlingO3) {
+            const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
+            if (activeElements.length > 0) body.element_list = activeElements
           }
         }
         if (isSeedanceModel) body.camera_fixed = cameraFixed
@@ -1032,6 +1056,8 @@ function VideoPageContent() {
   const hasFirstFrame = selectedModel?.controls?.firstFrameImage === true
   const hasEndFrame = selectedModel?.controls?.endFrameImage === true
   const isKlingModel = selectedModelId.startsWith('kling')
+  const isKlingO3 = selectedModelId === 'kling-o3'   // element_list, customize-only, no neg-prompt
+  const isKlingV3 = selectedModelId === 'kling-3'    // intelligence shot type, negative_prompt
   const isEvolinkModel = selectedModel?.providers[0] === 'evolink'
   const isSeedanceModel = selectedModelId.startsWith('doubao')
   const isVeoModel = selectedModelId.startsWith('veo')
@@ -1065,7 +1091,7 @@ function VideoPageContent() {
                   onClick={() => setActiveTab(id)}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
-                    activeTab === id ? "bg-[#FFFF00] text-black shadow-md" : "text-gray-400 hover:text-white"
+                    activeTab === id ? "bg-[#FFFF00] text-black shadow-md" : "text-white/50 hover:text-white"
                   )}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -1096,7 +1122,7 @@ function VideoPageContent() {
                           "flex-1 flex flex-col items-center py-1.5 px-1 rounded-md transition-all",
                           veoVariant === v.variantTier
                             ? "bg-white/[0.09] text-[#FFFF00]"
-                            : "text-gray-500 hover:text-white"
+                            : "text-white/40 hover:text-white"
                         )}
                       >
                         <span className="text-[9px] font-black uppercase tracking-wider">{v.variantTier}</span>
@@ -1121,8 +1147,8 @@ function VideoPageContent() {
                 </div>
                 <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" growing={false} />
                 <div className="flex justify-between mt-1.5 px-0.5">
-                  <span className="text-[9px] font-mono text-[#444]">{durationMin}s</span>
-                  <span className="text-[9px] font-mono text-[#444]">{durationMax}s</span>
+                  <span className="text-[9px] font-mono text-white/35">{durationMin}s</span>
+                  <span className="text-[9px] font-mono text-white/35">{durationMax}s</span>
                 </div>
               </div>
 
@@ -1132,10 +1158,10 @@ function VideoPageContent() {
                   <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                     <div>
                       <div className="flex items-center gap-2">
-                        <IconVolume className="w-3.5 h-3.5 text-[#555]" />
+                        <IconVolume className="w-3.5 h-3.5 text-white/40" />
                         <span className="text-xs font-black text-white">Audio Generation</span>
                       </div>
-                      <p className="text-[10px] text-[#555] mt-0.5 ml-5">Generate ambient audio alongside video</p>
+                      <p className="text-[10px] text-white/40 mt-0.5 ml-5">Generate ambient audio alongside video</p>
                     </div>
                     <Toggle checked={genAudio} onChange={setGenAudio} />
                   </div>
@@ -1152,7 +1178,7 @@ function VideoPageContent() {
                         {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
                           <button key={id} onClick={() => setKlingMode(id)}
                             className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all uppercase tracking-wider",
-                              klingMode === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white")}>
+                              klingMode === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-white/40 hover:text-white")}>
                             {label}
                           </button>
                         ))}
@@ -1164,7 +1190,7 @@ function VideoPageContent() {
                         {([['720p', '720p'], ['1080p', '1080p']] as const).map(([id, label]) => (
                           <button key={id} onClick={() => setVideoQuality(id)}
                             className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all uppercase tracking-wider",
-                              videoQuality === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white")}>
+                              videoQuality === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-white/40 hover:text-white")}>
                             {label}
                           </button>
                         ))}
@@ -1183,8 +1209,8 @@ function VideoPageContent() {
                   </div>
                   <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" growing={false} />
                   <div className="flex justify-between mt-1.5 px-0.5">
-                    <span className="text-[9px] font-mono text-[#444]">Creative</span>
-                    <span className="text-[9px] font-mono text-[#444]">Strict</span>
+                    <span className="text-[9px] font-mono text-white/35">Creative</span>
+                    <span className="text-[9px] font-mono text-white/35">Strict</span>
                   </div>
                 </div>
               )}
@@ -1195,7 +1221,7 @@ function VideoPageContent() {
                   <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all mb-3">
                     <div>
                       <span className="text-xs font-black text-white">Multi-Shot Mode</span>
-                      <p className="text-[10px] text-[#555] mt-0.5">Control each scene independently</p>
+                      <p className="text-[10px] text-white/40 mt-0.5">Control each scene independently</p>
                     </div>
                     <Toggle checked={multiShot} onChange={setMultiShot} />
                   </div>
@@ -1205,10 +1231,13 @@ function VideoPageContent() {
                       <div>
                         <SectionLabel>Shot Planning</SectionLabel>
                         <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
-                          {([['customize', 'Manual'], ['intelligence', 'AI Auto']] as const).map(([id, label]) => (
+                          {(isKlingO3
+                            ? [['customize', 'Manual']] as const
+                            : [['customize', 'Manual'], ['intelligence', 'AI Auto']] as const
+                          ).map(([id, label]) => (
                             <button key={id} onClick={() => setShotType(id)}
                               className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all",
-                                shotType === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white")}>
+                                shotType === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-white/40 hover:text-white")}>
                               {label}
                             </button>
                           ))}
@@ -1216,65 +1245,75 @@ function VideoPageContent() {
                       </div>
                       {/* Shot count */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Shots</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Shots</span>
                         <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
                           {[2, 3, 4, 5, 6].map(n => (
                             <button key={n} onClick={() => setShotCount(n)}
                               className={cn("w-7 h-7 text-[10px] font-black rounded-md transition-all",
-                                shotCount === n ? "bg-white/[0.09] text-[#FFFF00]" : "text-gray-500 hover:text-white")}>
+                                shotCount === n ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/40 hover:text-white")}>
                               {n}
                             </button>
                           ))}
                         </div>
                       </div>
                       {/* Per-shot rows (manual mode) */}
-                      {shotType === 'customize' && (
-                        <div className="space-y-1.5">
-                          {Array.from({ length: shotCount }, (_, i) => (
-                            <div key={i} className="flex items-center gap-1.5">
-                              <span className="text-[9px] font-mono text-[#555] w-5 flex-shrink-0">S{i+1}</span>
-                              <input
-                                type="text"
-                                value={shotPrompts[i] ?? ''}
-                                onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
-                                placeholder={`Shot ${i+1} description…`}
-                                className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2.5 py-1.5 text-[11px] text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a]"
-                              />
-                              <div className="flex items-center gap-1 flex-shrink-0">
+                      {shotType === 'customize' && (() => {
+                        const totalShotDur = shotDurations.slice(0, shotCount).reduce((s, d) => s + d, 0)
+                        const overLimit = totalShotDur > 15
+                        return (
+                          <div className="space-y-1.5">
+                            {Array.from({ length: shotCount }, (_, i) => (
+                              <div key={i} className="flex items-center gap-1.5">
+                                <span className="text-[9px] font-mono text-white/35 w-5 flex-shrink-0">S{i+1}</span>
                                 <input
-                                  type="number"
-                                  min={3} max={15}
-                                  value={shotDurations[i] ?? 5}
-                                  onChange={e => setShotDurations(prev => { const n = [...prev]; n[i] = Math.min(15, Math.max(3, parseInt(e.target.value) || 3)); return n })}
-                                  className="w-10 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md py-1.5 text-[11px] text-[#FFFF00] focus:outline-none focus:border-[#3a3a3a] text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                                  type="text"
+                                  value={shotPrompts[i] ?? ''}
+                                  onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                  placeholder={`Shot ${i+1} description…`}
+                                  className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2.5 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-[#3a3a3a]"
                                 />
-                                <span className="text-[9px] text-[#555]">s</span>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <input
+                                    type="number"
+                                    min={3} max={15}
+                                    value={shotDurations[i] ?? 5}
+                                    onChange={e => setShotDurations(prev => { const n = [...prev]; n[i] = Math.min(15, Math.max(3, parseInt(e.target.value) || 3)); return n })}
+                                    className="w-10 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md py-1.5 text-[11px] text-[#FFFF00] focus:outline-none focus:border-[#3a3a3a] text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <span className="text-[9px] text-white/35">s</span>
+                                </div>
                               </div>
+                            ))}
+                            <div className={cn("flex items-center justify-between pt-0.5 px-0.5", overLimit ? "text-red-400" : "text-white/30")}>
+                              <span className="text-[9px]">Total duration</span>
+                              <span className="text-[9px] font-mono">{totalShotDur}s / 15s max</span>
                             </div>
-                          ))}
+                          </div>
+                        )
+                      })()}
+                      {/* Subject elements — only for kling-o3 */}
+                      {isKlingO3 && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Subject Elements</span>
+                            <span className="text-[9px] text-white/30 italic">(optional)</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            {[0, 1, 2].map(idx => (
+                              <input
+                                key={idx}
+                                type="number"
+                                min={1}
+                                value={elementIds[idx] ?? ''}
+                                onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
+                                placeholder={`ID ${idx + 1}`}
+                                className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-[#3a3a3a] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                              />
+                            ))}
+                          </div>
+                          <p className="text-[9px] text-white/30 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
                         </div>
                       )}
-                      {/* Subject elements */}
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1.5">
-                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Subject Elements</span>
-                          <span className="text-[9px] text-[#444] italic">(optional)</span>
-                        </div>
-                        <div className="flex gap-1.5">
-                          {[0, 1, 2].map(idx => (
-                            <input
-                              key={idx}
-                              type="number"
-                              min={1}
-                              value={elementIds[idx] ?? ''}
-                              onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
-                              placeholder={`ID ${idx + 1}`}
-                              className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
-                            />
-                          ))}
-                        </div>
-                        <p className="text-[9px] text-[#444] mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1287,7 +1326,7 @@ function VideoPageContent() {
                     <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                       <div>
                         <span className="text-xs font-black text-white">Enhance Prompt</span>
-                        <p className="text-[10px] text-[#555] mt-0.5">Auto-optimize and translate to English</p>
+                        <p className="text-[10px] text-white/40 mt-0.5">Auto-optimize and translate to English</p>
                       </div>
                       <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
                     </div>
@@ -1296,7 +1335,7 @@ function VideoPageContent() {
                     <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                       <div>
                         <span className="text-xs font-black text-white">Upsample to 1080p</span>
-                        <p className="text-[10px] text-[#555] mt-0.5">Enable resolution upsampling</p>
+                        <p className="text-[10px] text-white/40 mt-0.5">Enable resolution upsampling</p>
                       </div>
                       <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
                     </div>
@@ -1310,10 +1349,10 @@ function VideoPageContent() {
                   <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                     <div>
                       <div className="flex items-center gap-2">
-                        <IconCamera className="w-3.5 h-3.5 text-[#555]" />
+                        <IconCamera className="w-3.5 h-3.5 text-white/40" />
                         <span className="text-xs font-black text-white">Lock Camera</span>
                       </div>
-                      <p className="text-[10px] text-[#555] mt-0.5 ml-5">Disable camera movement for static shots</p>
+                      <p className="text-[10px] text-white/40 mt-0.5 ml-5">Disable camera movement for static shots</p>
                     </div>
                     <Toggle checked={cameraFixed} onChange={setCameraFixed} />
                   </div>
@@ -1325,7 +1364,7 @@ function VideoPageContent() {
                 <div className="px-5 py-5 border-b border-white/5">
                   <button
                     onClick={() => setShowAdvanced(p => !p)}
-                    className="flex items-center gap-2 text-[10px] font-black text-[#555] uppercase tracking-wider hover:text-white transition-colors w-full"
+                    className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider hover:text-white transition-colors w-full"
                   >
                     <IconMinus className="w-3.5 h-3.5" />
                     <span>Advanced</span>
@@ -1333,7 +1372,7 @@ function VideoPageContent() {
                   </button>
                   {showAdvanced && (
                     <div className="mt-3 space-y-2">
-                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Seed</label>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Seed</label>
                       <input
                         type="number"
                         value={seed}
@@ -1341,7 +1380,7 @@ function VideoPageContent() {
                         placeholder="Random"
                         className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-3 py-2 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                       />
-                      <p className="text-[9px] text-[#444]">Use the same seed to reproduce identical results</p>
+                      <p className="text-[9px] text-white/30">Use the same seed to reproduce identical results</p>
                     </div>
                   )}
                 </div>
@@ -1353,7 +1392,7 @@ function VideoPageContent() {
                   <div className={cn("grid gap-3", hasEndFrame ? "grid-cols-2" : "grid-cols-1")}>
                     {hasFirstFrame && (
                       <div>
-                        <SectionLabel>First Frame <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <SectionLabel>First Frame <span className="text-white/30 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
                         <ImageUploadBox
                           label="" preview={firstFramePreview} uploading={firstFrameUploading}
                           hint="Opening frame"
@@ -1364,7 +1403,7 @@ function VideoPageContent() {
                     )}
                     {hasEndFrame && (
                       <div>
-                        <SectionLabel>End Frame <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <SectionLabel>End Frame <span className="text-white/30 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
                         <ImageUploadBox
                           label="" preview={endFramePreview} uploading={endFrameUploading}
                           hint="Closing frame"
@@ -1381,7 +1420,7 @@ function VideoPageContent() {
               <div className="px-5 py-5 border-b border-white/5">
                 <button
                   onClick={() => setShowNegPrompt(p => !p)}
-                  className="flex items-center gap-2 text-[10px] font-black text-[#555] uppercase tracking-wider hover:text-white transition-colors w-full"
+                  className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider hover:text-white transition-colors w-full"
                 >
                   <IconMinus className="w-3.5 h-3.5" />
                   <span>Negative Prompt</span>
@@ -1409,7 +1448,7 @@ function VideoPageContent() {
                   <span className="text-xs font-black text-white uppercase tracking-wider">Kling Effects</span>
                   <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Edit'])}>Edit</span>
                 </div>
-                <p className="text-[10px] text-[#555] leading-relaxed mt-1">
+                <p className="text-[10px] text-white/40 leading-relaxed mt-1">
                   Apply AI visual transformations to existing videos. Upload your clip, then describe the effect.
                 </p>
               </div>
@@ -1442,7 +1481,7 @@ function VideoPageContent() {
                   <span className="text-xs font-black text-white uppercase tracking-wider">Motion Control</span>
                   <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Motion'])}>Kling</span>
                 </div>
-                <p className="text-[10px] text-[#555] leading-relaxed mt-1">
+                <p className="text-[10px] text-white/40 leading-relaxed mt-1">
                   Transfer motion from a reference video to your target subject.
                 </p>
               </div>
@@ -1475,7 +1514,7 @@ function VideoPageContent() {
           <div className="px-5 py-5 flex-1">
             <SectionLabel>
               {activeTab === 'generate' ? 'Prompt' : activeTab === 'edit' ? 'Effect Description' : 'Motion Guidance'}
-              {activeTab === 'motion' && <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span>}
+              {activeTab === 'motion' && <span className="text-white/30 normal-case font-normal text-[9px] ml-1">(optional)</span>}
             </SectionLabel>
             <textarea
               value={prompt}
@@ -1496,7 +1535,7 @@ function VideoPageContent() {
           <div className="lg:fixed lg:bottom-0 lg:left-0 lg:w-[420px] relative w-full bg-[#0c0c0e] border-t border-white/5 z-40">
             <div className="px-5 pt-4 pb-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500 font-medium">Estimated Cost</span>
+                <span className="text-gray-300 font-medium">Estimated Cost</span>
                 <div className="flex items-center gap-2">
                   <CreditIcon className="w-6 h-6 rounded-md" iconClassName="w-3 h-3" />
                   <span className="font-mono font-medium text-white/90">{selectedModel?.credits ?? 0}</span>
@@ -1535,7 +1574,7 @@ function VideoPageContent() {
               <h2 className="text-sm font-bold text-white">
                 {activeTab === 'generate' ? 'Generated Videos' : activeTab === 'edit' ? 'Edited Videos' : 'Motion Results'}
               </h2>
-              <p className="text-[10px] text-[#444] mt-0.5 font-mono">
+              <p className="text-[10px] text-white/35 mt-0.5 font-mono">
                 {videos.length === 0
                   ? 'Your videos will appear here'
                   : `${videos.filter(v => !v.loading && v.url).length} video${videos.filter(v => !v.loading && v.url).length !== 1 ? 's' : ''} ready`}
@@ -1544,7 +1583,7 @@ function VideoPageContent() {
             {videos.length > 0 && (
               <button
                 onClick={() => { setVideos([]); localStorage.removeItem('sharpii_videos') }}
-                className="text-[10px] text-[#444] hover:text-white transition-colors font-mono uppercase tracking-wider"
+                className="text-[10px] text-white/35 hover:text-white transition-colors font-mono uppercase tracking-wider"
               >
                 Clear all
               </button>
@@ -1559,7 +1598,7 @@ function VideoPageContent() {
                   <IconVideo className="w-9 h-9 text-[#2a2a2a]" />
                 </div>
                 <h3 className="text-sm font-semibold text-white/60 mb-2">No videos yet</h3>
-                <p className="text-xs text-[#444] leading-relaxed">
+                <p className="text-xs text-white/35 leading-relaxed">
                   {activeTab === 'generate'
                     ? 'Choose a model, write a prompt, and click Generate Video.'
                     : activeTab === 'edit'
