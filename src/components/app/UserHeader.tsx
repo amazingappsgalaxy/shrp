@@ -23,6 +23,7 @@ import {
     ArrowRight,
     Zap,
     CreditCard,
+    Video,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { CreditIcon } from '@/components/ui/CreditIcon'
@@ -117,8 +118,9 @@ export function UserHeader({ className }: UserHeaderProps) {
         { name: 'Skin Editor', href: '/app/skineditor' },
         { name: 'Edit', href: '/app/edit' },
         { name: 'Upscaler', href: '/app/upscaler' },
-        { name: 'History', href: '/app/history' },
         { name: 'Image', href: '/app/image' },
+        { name: 'Video', href: '/app/video' },
+        { name: 'History', href: '/app/history' },
     ]
 
     const mobileNavigationItems = [
@@ -126,8 +128,9 @@ export function UserHeader({ className }: UserHeaderProps) {
         { name: 'Skin Editor', href: '/app/skineditor', icon: Palette },
         { name: 'Edit', href: '/app/edit', icon: Wand2 },
         { name: 'Upscaler', href: '/app/upscaler', icon: Sparkles },
-        { name: 'History', href: '/app/history', icon: BarChart3 },
         { name: 'Image', href: '/app/image', icon: ImageIcon },
+        { name: 'Video', href: '/app/video', icon: Video },
+        { name: 'History', href: '/app/history', icon: BarChart3 },
     ]
 
     const hasActivePlan = currentPlan !== 'free'

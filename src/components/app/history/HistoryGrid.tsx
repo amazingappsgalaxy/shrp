@@ -53,12 +53,21 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
                 <ProcessingGradient />
             ) : primary ? (
                 <div className="absolute inset-0 w-full h-full">
-                    <img
-                        src={primary}
-                        alt="History Item"
-                        className="w-full h-full object-cover transition-transform duration-700"
-                    />
-
+                    {isVideo ? (
+                        <video
+                            src={primary}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            preload="metadata"
+                        />
+                    ) : (
+                        <img
+                            src={primary}
+                            alt="History Item"
+                            className="w-full h-full object-cover transition-transform duration-700"
+                        />
+                    )}
                 </div>
             ) : (
                 <div className="absolute inset-0 bg-white/[0.05] flex items-center justify-center text-white/20">

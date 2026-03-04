@@ -53,7 +53,11 @@ export const config = {
     },
     synvow: {
       apiKey: process.env.SYNVOW_API_KEY || '',
-      baseUrl: process.env.SYNVOW_BASE_URL || 'https://api.gptbest.vip',
+      baseUrl: process.env.SYNVOW_BASE_URL || 'https://api.bltcy.ai',
+    },
+    evolink: {
+      apiKey: process.env.EVOLINK_API_KEY || '',
+      baseUrl: process.env.EVOLINK_BASE_URL || 'https://api.evolink.ai',
     },
   }
 }

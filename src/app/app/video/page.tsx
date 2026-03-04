@@ -1,0 +1,1386 @@
+"use client"
+import React, { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react"
+import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-client-simple"
+import { ElegantLoading } from "@/components/ui/elegant-loading"
+import { useTaskManager } from "@/components/providers/TaskManagerProvider"
+import { useCredits } from "@/lib/hooks/use-credits"
+import { CreditIcon } from "@/components/ui/CreditIcon"
+import { VideoCard, VideoModal } from "@/components/ui/VideoPlayer"
+import { getVideoModels } from "@/services/models"
+import type { ModelConfig } from "@/services/models"
+import {
+  IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
+  IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
+  IconPlayerPlay, IconVolume, IconMaximize, IconDownload,
+} from "@tabler/icons-react"
+import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type VideoTab = 'generate' | 'edit' | 'motion'
+
+interface VideoResult {
+  id: string
+  url: string | null
+  aspect: string
+  loading: boolean
+  prompt?: string
+  model?: string
+  taskId?: string
+  error?: string
+}
+
+// ─── Model groupings ──────────────────────────────────────────────────────────
+
+const ALL_VIDEO_MODELS = getVideoModels()
+const GENERATE_MODELS = ALL_VIDEO_MODELS.filter(
+  m => !['kling-effects', 'kling-video-motion-control'].includes(m.id)
+)
+const EDIT_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-effects')
+const MOTION_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-video-motion-control')
+
+const MODEL_GROUPS: { label: string; models: ModelConfig[] }[] = [
+  { label: 'Kling', models: GENERATE_MODELS.filter(m => m.id.startsWith('kling')) },
+  { label: 'Google Veo', models: GENERATE_MODELS.filter(m => m.id.startsWith('veo')) },
+  { label: 'OpenAI Sora', models: GENERATE_MODELS.filter(m => m.id.startsWith('sora')) },
+  { label: 'ByteDance', models: GENERATE_MODELS.filter(m => m.id.startsWith('doubao')) },
+].filter(g => g.models.length > 0)
+
+const ASPECT_LABELS: Record<string, string> = {
+  '16:9': 'Landscape', '9:16': 'Portrait', '1:1': 'Square',
+}
+
+const VIDEO_TASK_DURATION_SECS = 120
+
+const TAG_COLORS: Record<string, string> = {
+  Fast: 'bg-green-500/15 text-green-400',
+  Google: 'bg-blue-500/15 text-blue-400',
+  OpenAI: 'bg-purple-500/15 text-purple-400',
+  ByteDance: 'bg-orange-500/15 text-orange-400',
+  Latest: 'bg-sky-500/15 text-sky-400',
+  Premium: 'bg-pink-500/15 text-pink-400',
+  Advanced: 'bg-violet-500/15 text-violet-400',
+  Edit: 'bg-amber-500/15 text-amber-400',
+  Motion: 'bg-teal-500/15 text-teal-400',
+}
+
+// ─── PremiumSlider — exact match to edit/page.tsx relight section ─────────────
+
+function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', growing = false, segments = 20 }: {
+  value: number; min: number; max: number; step: number
+  onChange: (v: number) => void; color?: string
+  growing?: boolean; segments?: number
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const pct = max === min ? 1 : (value - min) / (max - min)
+  const filledCount = Math.max(0, Math.round(pct * segments))
+
+  const update = (e: React.PointerEvent) => {
+    const r = trackRef.current!.getBoundingClientRect()
+    const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+    onChange(Math.round((min + p * (max - min)) / step) * step)
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      className="flex items-end gap-px w-full cursor-pointer select-none"
+      style={{ touchAction: 'none', height: growing ? 18 : 10 }}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); update(e) }}
+      onPointerMove={e => { if (e.buttons > 0) update(e) }}
+    >
+      {Array.from({ length: segments }, (_, i) => {
+        const t = i / (segments - 1)
+        const isFilled = i < filledCount
+        const isEdge = isFilled && i === filledCount - 1
+        const h = growing ? 2 + t * 16 : 8
+        return (
+          <div
+            key={i}
+            className="flex-1 rounded-sm"
+            style={{
+              height: h,
+              background: isFilled ? (isEdge ? '#ffffff' : color) : '#282828',
+              opacity: isFilled && !isEdge ? 0.55 + t * 0.45 : 1,
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Toggle switch ─────────────────────────────────────────────────────────────
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none",
+        checked ? "bg-[#FFFF00]" : "bg-[#2a2a2a]"
+      )}
+      style={{ width: 40, height: 22 }}
+    >
+      <span
+        className={cn(
+          "absolute top-[3px] left-[3px] w-4 h-4 rounded-full transition-transform duration-200 shadow-sm",
+          checked ? "translate-x-[18px] bg-black" : "translate-x-0 bg-[#909090]"
+        )}
+      />
+    </button>
+  )
+}
+
+// ─── Aspect ratio card ─────────────────────────────────────────────────────────
+
+function AspectCard({
+  ratio, selected, onSelect,
+}: {
+  ratio: string; selected: boolean; onSelect: () => void
+}) {
+  const shapes: Record<string, React.ReactNode> = {
+    '16:9': <div className={cn("border-2 rounded-sm w-9 h-[20px]", selected ? "border-[#FFFF00]" : "border-[#555]")} />,
+    '9:16': <div className={cn("border-2 rounded-sm w-[20px] h-9", selected ? "border-[#FFFF00]" : "border-[#555]")} />,
+    '1:1':  <div className={cn("border-2 rounded-sm w-[26px] h-[26px]", selected ? "border-[#FFFF00]" : "border-[#555]")} />,
+  }
+  return (
+    <button
+      onClick={onSelect}
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all",
+        selected
+          ? "border-[#FFFF00]/40 bg-[#1a1a00]"
+          : "border-[#222222] hover:border-[#383838] hover:bg-[#111111] bg-[#0d0d0d]"
+      )}
+    >
+      {shapes[ratio] ?? <div className="w-6 h-6 border-2 border-[#555] rounded-sm" />}
+      <span className={cn(
+        "text-[9px] font-black uppercase tracking-wider",
+        selected ? "text-[#FFFF00]" : "text-[#555555]"
+      )}>
+        {ASPECT_LABELS[ratio] ?? ratio}
+      </span>
+    </button>
+  )
+}
+
+// ─── Model dropdown ────────────────────────────────────────────────────────────
+
+function ModelDropdown({
+  groups, selected, onSelect,
+}: {
+  groups: { label: string; models: ModelConfig[] }[]
+  selected: string
+  onSelect: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selectedModel = groups.flatMap(g => g.models).find(m => m.id === selected)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-[#111111] border border-[#222222] hover:border-[#333333] rounded-xl text-left transition-all"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-bold text-white truncate">
+              {selectedModel?.label ?? 'Select Model'}
+            </span>
+            {selectedModel?.tag && (
+              <span className={cn(
+                "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
+                TAG_COLORS[selectedModel.tag] ?? "bg-white/10 text-gray-400"
+              )}>
+                {selectedModel.tag}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] text-[#555] truncate block">{selectedModel?.description}</span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
+            <CreditIcon className="w-3.5 h-3.5" iconClassName="w-2.5 h-2.5" />
+            {selectedModel?.credits ?? 0}
+          </div>
+          <IconChevronDown className={cn("w-4 h-4 text-[#555] transition-transform", open && "rotate-180")} />
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0c0c0c] border border-[#222222] rounded-xl overflow-hidden z-30 shadow-2xl max-h-72 overflow-y-auto">
+          {groups.map(group => (
+            <div key={group.label}>
+              <div className="px-3 py-1.5 text-[8px] font-black text-[#444] uppercase tracking-widest border-b border-[#1a1a1a] bg-[#080808]">
+                {group.label}
+              </div>
+              {group.models.map(model => (
+                <button
+                  key={model.id}
+                  onClick={() => { onSelect(model.id); setOpen(false) }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all",
+                    selected === model.id
+                      ? "bg-[#181818] text-[#FFFF00]"
+                      : "text-gray-400 hover:text-white hover:bg-[#141414]"
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold leading-tight">{model.label}</div>
+                    <div className="text-[9px] text-[#444] truncate mt-0.5 leading-tight">{model.description}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {model.tag && (
+                      <span className={cn(
+                        "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded",
+                        TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
+                      )}>
+                        {model.tag}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-mono text-[#444]">{model.credits}cr</span>
+                    {selected === model.id && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00]" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Video upload area ─────────────────────────────────────────────────────────
+
+interface VideoUploadBoxProps {
+  label: string
+  hint?: string
+  preview: string | null
+  uploading: boolean
+  onFile: (file: File) => Promise<void>
+  onClear: () => void
+}
+
+function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: VideoUploadBoxProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('video/')) onFile(file)
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">{label}</span>
+        {preview && (
+          <button
+            onClick={onClear}
+            className="p-1 text-[#555] hover:text-red-400 transition-colors rounded"
+          >
+            <IconTrash className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "relative rounded-xl border overflow-hidden transition-all cursor-pointer",
+          "aspect-video",
+          dragging ? "border-[#FFFF00]/50 bg-[#1a1a00]" : "",
+          preview
+            ? "border-[#333333] bg-black"
+            : "border-dashed border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#0a0a0a] group"
+        )}
+        onClick={() => !preview && inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+      >
+        {uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2 z-10">
+            <div className="w-6 h-6 border-2 border-[#333] border-t-[#FFFF00] rounded-full animate-spin" />
+            <span className="text-[10px] text-[#888]">Uploading…</span>
+          </div>
+        )}
+        {!uploading && preview ? (
+          <>
+            <video src={preview} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity">
+              <IconUpload className="w-5 h-5 text-white" />
+              <span className="text-xs text-white font-medium">Replace</span>
+            </div>
+          </>
+        ) : !uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-center group-hover:border-[#3a3a3a] transition-colors">
+              <IconVideo className="w-5 h-5 text-[#444]" />
+            </div>
+            <div className="text-center">
+              <p className="text-[11px] text-[#555] font-medium">Click or drag to upload</p>
+              {hint && <p className="text-[9px] text-[#333] mt-0.5">{hint}</p>}
+            </div>
+          </div>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]) }}
+      />
+    </div>
+  )
+}
+
+// ─── Image upload area ─────────────────────────────────────────────────────────
+
+interface ImageUploadBoxProps {
+  label: string
+  optional?: boolean
+  hint?: string
+  preview: string | null
+  uploading: boolean
+  onFile: (file: File) => Promise<void>
+  onClear: () => void
+}
+
+function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onClear }: ImageUploadBoxProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">{label}</span>
+          {optional && <span className="text-[9px] text-[#444] italic">(optional)</span>}
+        </div>
+        {preview && (
+          <button onClick={onClear} className="p-1 text-[#555] hover:text-red-400 transition-colors rounded">
+            <IconTrash className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "relative rounded-xl border overflow-hidden cursor-pointer transition-all group",
+          "aspect-video",
+          preview ? "border-[#333333] bg-black" : "border-dashed border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#0a0a0a]"
+        )}
+        onClick={() => !preview && inputRef.current?.click()}
+      >
+        {uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-2 z-10">
+            <div className="w-5 h-5 border-2 border-[#333] border-t-[#FFFF00] rounded-full animate-spin" />
+            <span className="text-[10px] text-[#888]">Uploading…</span>
+          </div>
+        )}
+        {!uploading && preview ? (
+          <>
+            <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity">
+              <IconCamera className="w-5 h-5 text-white" />
+              <span className="text-xs text-white font-medium">Replace</span>
+            </div>
+          </>
+        ) : !uploading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-center group-hover:border-[#3a3a3a] transition-colors">
+              <IconCamera className="w-5 h-5 text-[#444]" />
+            </div>
+            <div className="text-center">
+              <p className="text-[11px] text-[#555] font-medium">Click to upload image</p>
+              {hint && <p className="text-[9px] text-[#333] mt-0.5">{hint}</p>}
+            </div>
+          </div>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]) }}
+      />
+    </div>
+  )
+}
+
+// ─── Video skeleton ────────────────────────────────────────────────────────────
+
+function VideoSkeleton({ aspect }: { aspect: string }) {
+  const pad: Record<string, string> = {
+    '16:9': '56.25%', '9:16': '177.78%', '1:1': '100%',
+  }
+  return (
+    <div className="relative w-full overflow-hidden rounded-xl bg-[#0d0d0d] border border-[#1e1e1e]" style={{ paddingBottom: pad[aspect] ?? '56.25%' }}>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#333] border-t-[#FFFF00]/60 rounded-full animate-spin" />
+          <span className="text-[10px] text-[#333] font-mono">Generating video…</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Justified masonry grid ────────────────────────────────────────────────────
+
+const VGAP = 9
+const VIDEO_ASPECT_NUM: Record<string, number> = {
+  '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:3': 4 / 3, '3:4': 3 / 4,
+}
+interface VJRow { videos: VideoResult[]; height: number; widths: number[] }
+
+function buildVideoRows(videos: VideoResult[], containerW: number, targetH: number): VJRow[] {
+  if (containerW === 0 || videos.length === 0) return []
+  const rows: VJRow[] = []
+  let rowVids: VideoResult[] = []
+  let rowNatW = 0
+  const asp = (v: VideoResult) => VIDEO_ASPECT_NUM[v.aspect] ?? (16 / 9)
+
+  const flush = (last: boolean) => {
+    if (rowVids.length === 0) return
+    const scale = last ? 1 : (containerW - VGAP * (rowVids.length - 1)) /
+      rowVids.reduce((s, v) => s + targetH * asp(v), 0)
+    const height = Math.round(targetH * scale)
+    const widths = rowVids.map(v => Math.round(targetH * asp(v) * scale))
+    if (!last) {
+      const drift = containerW - widths.reduce((s, w) => s + w, 0) - VGAP * (widths.length - 1)
+      if (Math.abs(drift) <= widths.length) widths[widths.length - 1]! += drift
+    }
+    rows.push({ videos: rowVids, height, widths })
+    rowVids = []; rowNatW = 0
+  }
+
+  for (const v of videos) {
+    const natW = targetH * asp(v)
+    if (rowVids.length > 0 && rowNatW + VGAP + natW > containerW * 1.05) flush(false)
+    rowVids.push(v)
+    rowNatW += (rowVids.length > 1 ? VGAP : 0) + natW
+  }
+  flush(true)
+  return rows
+}
+
+function VideoGridTile({ video, width, height, onExpand }: {
+  video: VideoResult; width: number; height: number; onExpand: () => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [progress, setProgress] = useState(0)
+
+  const handleEnter = () => {
+    setIsHovered(true)
+    if (videoRef.current && isLoaded) videoRef.current.play().catch(() => {})
+  }
+  const handleLeave = () => {
+    setIsHovered(false)
+    if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0 }
+    setProgress(0)
+  }
+  const handleLoaded = () => {
+    setIsLoaded(true)
+    if (isHovered && videoRef.current) videoRef.current.play().catch(() => {})
+  }
+  const handleTimeUpdate = () => {
+    if (!videoRef.current) return
+    const { currentTime, duration } = videoRef.current
+    if (duration > 0) setProgress((currentTime / duration) * 100)
+  }
+
+  return (
+    <div
+      style={{ width, height, flexShrink: 0, overflow: 'hidden', borderRadius: 8, position: 'relative', cursor: 'pointer' }}
+      className="group bg-[#0a0a0a] border border-white/[0.07] hover:border-white/20 transition-all duration-200"
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      onClick={onExpand}
+    >
+      <video
+        ref={videoRef}
+        src={video.url!}
+        muted playsInline loop preload="metadata"
+        onLoadedData={handleLoaded}
+        onTimeUpdate={handleTimeUpdate}
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      {/* Progress bar */}
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 z-10">
+        <div className="h-full bg-[#FFFF00] transition-none" style={{ width: `${progress}%` }} />
+      </div>
+      {/* Play icon on hover */}
+      {isHovered && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <IconPlayerPlay className="w-4 h-4 fill-white text-white ml-0.5" />
+          </div>
+        </div>
+      )}
+      {/* Expand icon */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+        <div className="w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10">
+          <IconMaximize className="w-3.5 h-3.5 text-white" />
+        </div>
+      </div>
+      {/* Download */}
+      <div className="absolute bottom-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+        <a
+          href={video.url!} download target="_blank" rel="noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-all shadow-lg"
+        >
+          <IconDownload className="w-3.5 h-3.5" />
+        </a>
+      </div>
+    </div>
+  )
+}
+
+function VideoJustifiedGrid({ videos, onExpand }: {
+  videos: VideoResult[]; onExpand: (v: VideoResult) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerW, setContainerW] = useState(0)
+
+  useEffect(() => {
+    const el = containerRef.current; if (!el) return
+    const ro = new ResizeObserver(entries => setContainerW(entries[0]!.contentRect.width))
+    ro.observe(el)
+    setContainerW(el.getBoundingClientRect().width)
+    return () => ro.disconnect()
+  }, [])
+
+  const loading = videos.filter(v => v.loading)
+  const done = videos.filter(v => !v.loading)
+  const targetH = containerW < 480 ? 160 : containerW < 768 ? 220 : 300
+  const rows = useMemo(() => buildVideoRows(done, containerW, targetH), [done, containerW, targetH])
+
+  return (
+    <div ref={containerRef} className="w-full">
+      {/* Loading skeletons first */}
+      {loading.map(v => (
+        <div key={v.id} className="mb-[9px]">
+          <VideoSkeleton aspect={v.aspect} />
+        </div>
+      ))}
+      {/* Justified rows */}
+      {rows.map((row) => (
+        <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
+          {row.videos.map((video, ii) => (
+            video.error ? (
+              <div
+                key={video.id}
+                style={{ width: row.widths[ii], height: row.height, flexShrink: 0, overflow: 'hidden', borderRadius: 8 }}
+                className="relative border border-red-900/40 bg-[#100505]"
+              >
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-4">
+                  <div className="text-red-500/80 text-[11px] font-semibold text-center">Generation failed</div>
+                  <div className="text-red-900 text-[9px] text-center font-mono">{video.error}</div>
+                </div>
+              </div>
+            ) : (
+              <VideoGridTile
+                key={video.id}
+                video={video}
+                width={row.widths[ii]!}
+                height={row.height}
+                onExpand={() => onExpand(video)}
+              />
+            )
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Section header helper ─────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">
+      {children}
+    </p>
+  )
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
+
+function VideoPageContent() {
+  const { user, isLoading, isDemo } = useAuth()
+  const { addWatchedTask, resolveTask, failTask } = useTaskManager()
+  const { total: creditBalance, isLoading: creditsLoading } = useCredits()
+
+  const [activeTab, setActiveTab] = useState<VideoTab>('generate')
+  const [generateModel, setGenerateModel] = useState(GENERATE_MODELS[0]?.id ?? '')
+  const editModel = EDIT_MODELS[0]?.id ?? 'kling-effects'
+  const motionModel = MOTION_MODELS[0]?.id ?? 'kling-video-motion-control'
+
+  const selectedModelId = activeTab === 'generate' ? generateModel
+    : activeTab === 'edit' ? editModel : motionModel
+  const selectedModel = ALL_VIDEO_MODELS.find(m => m.id === selectedModelId)
+
+  // Generate settings
+  const [genAspect, setGenAspect] = useState('16:9')
+  const [genDuration, setGenDuration] = useState(5)
+  const [genAudio, setGenAudio] = useState(false)
+  const [klingMode, setKlingMode] = useState<'std' | 'pro'>('std')
+  const [videoQuality, setVideoQuality] = useState<'720p' | '1080p'>('720p')
+  const [cfgScale, setCfgScale] = useState(0.5)
+  const [cameraFixed, setCameraFixed] = useState(false)
+  const [seed, setSeed] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [genNegPrompt, setGenNegPrompt] = useState('')
+  const [showNegPrompt, setShowNegPrompt] = useState(false)
+  const [firstFramePreview, setFirstFramePreview] = useState<string | null>(null)
+  const [firstFrameCdnUrl, setFirstFrameCdnUrl] = useState<string | null>(null)
+  const [firstFrameUploading, setFirstFrameUploading] = useState(false)
+
+  // Edit settings
+  const [editVideoPreview, setEditVideoPreview] = useState<string | null>(null)
+  const [editVideoCdnUrl, setEditVideoCdnUrl] = useState<string | null>(null)
+  const [editVideoUploading, setEditVideoUploading] = useState(false)
+  const [editAspect, setEditAspect] = useState('16:9')
+
+  // Motion settings
+  const [motionSourcePreview, setMotionSourcePreview] = useState<string | null>(null)
+  const [motionSourceCdnUrl, setMotionSourceCdnUrl] = useState<string | null>(null)
+  const [motionSourceUploading, setMotionSourceUploading] = useState(false)
+  const [motionTargetPreview, setMotionTargetPreview] = useState<string | null>(null)
+  const [motionTargetCdnUrl, setMotionTargetCdnUrl] = useState<string | null>(null)
+  const [motionTargetUploading, setMotionTargetUploading] = useState(false)
+
+  const [prompt, setPrompt] = useState('')
+  const [videos, setVideos] = useState<VideoResult[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = localStorage.getItem('sharpii_videos')
+      if (!raw) return []
+      const parsed: VideoResult[] = JSON.parse(raw)
+      // Only restore completed videos, not loading states
+      return parsed.filter(v => v.url && !v.loading).slice(0, 40)
+    } catch { return [] }
+  })
+  const [modalVideo, setModalVideo] = useState<VideoResult | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [toastMsg, setToastMsg] = useState<{ msg: string; type: 'error' | 'info' } | null>(null)
+  const [activeTasks, setActiveTasks] = useState<Map<string, TaskEntry>>(new Map())
+  const taskIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const pollIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+
+  // Persist completed videos to localStorage
+  useEffect(() => {
+    const completed = videos.filter(v => v.url && !v.loading)
+    if (completed.length > 0) {
+      try {
+        localStorage.setItem('sharpii_videos', JSON.stringify(completed.slice(0, 40)))
+      } catch { /* ignore quota errors */ }
+    }
+  }, [videos])
+
+  // Clamp duration when model changes
+  useEffect(() => {
+    const durations = (ALL_VIDEO_MODELS.find(m => m.id === generateModel)?.controls?.durations ?? ['5', '15']).map(Number)
+    const min = durations[0] ?? 5
+    const max = durations[durations.length - 1] ?? 15
+    setGenDuration(d => Math.max(min, Math.min(max, d)))
+  }, [generateModel])
+
+  useEffect(() => {
+    return () => {
+      taskIntervalsRef.current.forEach(clearInterval)
+      pollIntervalsRef.current.forEach(clearInterval)
+    }
+  }, [])
+
+  const openPlansPopup = () => window.dispatchEvent(new CustomEvent('sharpii:open-plans'))
+
+  const showToast = (msg: string, type: 'error' | 'info' = 'error') => {
+    setToastMsg({ msg, type })
+    setTimeout(() => setToastMsg(null), 5000)
+  }
+
+  // Image upload
+  const uploadImage = useCallback(async (
+    file: File,
+    setPreview: (s: string | null) => void,
+    setCdnUrl: (s: string | null) => void,
+    setUploading: (b: boolean) => void
+  ) => {
+    setPreview(URL.createObjectURL(file))
+    setUploading(true)
+    try {
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = (e) => resolve(e.target?.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUri }),
+      })
+      const data = await res.json()
+      if (data.imageUrl) setCdnUrl(data.imageUrl)
+      else throw new Error(data.error || 'Upload failed')
+    } catch {
+      showToast('Image upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }, [])
+
+  // Video upload
+  const uploadVideo = useCallback(async (
+    file: File,
+    setPreview: (s: string | null) => void,
+    setCdnUrl: (s: string | null) => void,
+    setUploading: (b: boolean) => void
+  ) => {
+    setPreview(URL.createObjectURL(file))
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload-video', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.videoUrl) setCdnUrl(data.videoUrl)
+      else throw new Error(data.error || 'Upload failed')
+    } catch {
+      showToast('Video upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }, [])
+
+  const currentAspect = activeTab === 'generate' ? genAspect
+    : activeTab === 'edit' ? editAspect : '16:9'
+
+  const cleanupTask = (id: string) => {
+    const pi = taskIntervalsRef.current.get(id)
+    if (pi) { clearInterval(pi); taskIntervalsRef.current.delete(id) }
+  }
+
+  const removeLoadingCard = (id: string) => {
+    setVideos(prev => prev.filter(v => v.id !== id))
+  }
+
+  const handleGenerate = async () => {
+    if (!prompt.trim() && activeTab !== 'motion') return
+    if (!creditsLoading && creditBalance <= 0) { openPlansPopup(); return }
+    if (!creditsLoading && creditBalance < (selectedModel?.credits ?? 0)) {
+      showToast('Not enough credits. Top up from the dashboard.')
+      return
+    }
+    if (activeTab === 'edit' && !editVideoCdnUrl) {
+      showToast('Please wait for video to finish uploading.')
+      return
+    }
+    if (activeTab === 'motion') {
+      if (!motionSourceCdnUrl) { showToast('Please upload a motion source video.'); return }
+      if (!motionTargetCdnUrl) { showToast('Please upload a target image or video.'); return }
+    }
+
+    setIsSubmitting(true)
+    const localId = `vtask-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+    setVideos(prev => [{ id: localId, url: null, aspect: currentAspect, loading: true, prompt: prompt.trim(), model: selectedModel?.label }, ...prev])
+    const progressInterval = startSmartProgress(localId, VIDEO_TASK_DURATION_SECS, setActiveTasks)
+    taskIntervalsRef.current.set(localId, progressInterval)
+    setTimeout(() => setIsSubmitting(false), 800)
+
+    try {
+      const body: Record<string, unknown> = {
+        model: selectedModelId, prompt: prompt.trim(), tab: activeTab,
+      }
+      if (activeTab === 'generate') {
+        body.aspect_ratio = genAspect
+        body.duration = genDuration
+        body.audio_sync = genAudio
+        if (genNegPrompt.trim()) body.negative_prompt = genNegPrompt.trim()
+        if (firstFrameCdnUrl) body.first_frame_url = firstFrameCdnUrl
+        if (isEvolinkModel) {
+          body.quality = videoQuality
+          const mp: Record<string, unknown> = {}
+          if (isKlingModel) mp.mode = klingMode
+          if (isKlingModel) mp.cfg_scale = cfgScale
+          if (Object.keys(mp).length > 0) body.model_params = mp
+        }
+        if (isSeedanceModel) body.camera_fixed = cameraFixed
+        if (hasSeed && seed.trim()) body.seed = parseInt(seed)
+      } else if (activeTab === 'edit') {
+        body.aspect_ratio = editAspect
+        body.video_url = editVideoCdnUrl
+      } else if (activeTab === 'motion') {
+        body.video_url = motionSourceCdnUrl
+        body.target_url = motionTargetCdnUrl
+      }
+
+      const res = await fetch('/api/generate-video', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+
+      if (res.status === 402) { openPlansPopup(); cleanupTask(localId); removeLoadingCard(localId); return }
+      if (!res.ok) throw new Error(data?.error || 'Generation failed')
+
+      const dbTaskId: string = data.taskId
+      addWatchedTask(dbTaskId, 'Video generating')
+      setVideos(prev => prev.map(v => v.id === localId ? { ...v, taskId: dbTaskId } : v))
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/generate-video/poll?taskId=${dbTaskId}`)
+          const pollData = await pollRes.json()
+
+          if (pollData.status === 'success') {
+            clearInterval(pollInterval)
+            pollIntervalsRef.current.delete(localId)
+            cleanupTask(localId)
+            const videoUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url ? pollData.outputs[0].url : null
+            setVideos(prev => prev.map(v => v.id === localId ? { ...v, url: videoUrl, loading: false } : v))
+            resolveTask(dbTaskId)
+            setActiveTasks(prev => {
+              const m = new Map(prev)
+              const t = m.get(localId)
+              if (t) m.set(localId, { ...t, progress: 100, status: 'success', message: 'Done!' })
+              return m
+            })
+            setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 4000)
+          } else if (pollData.status === 'failed') {
+            clearInterval(pollInterval)
+            pollIntervalsRef.current.delete(localId)
+            cleanupTask(localId)
+            failTask(dbTaskId)
+            setVideos(prev => prev.map(v => v.id === localId ? { ...v, loading: false, error: pollData.error || 'Generation failed' } : v))
+            setActiveTasks(prev => {
+              const m = new Map(prev)
+              const t = m.get(localId)
+              if (t) m.set(localId, { ...t, progress: 100, status: 'error', message: pollData.error || 'Generation failed' })
+              return m
+            })
+            setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 5000)
+          }
+        } catch { /* will retry */ }
+      }, 8000)
+
+      pollIntervalsRef.current.set(localId, pollInterval)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Connection error'
+      cleanupTask(localId)
+      setVideos(prev => prev.map(v => v.id === localId ? { ...v, loading: false, error: msg } : v))
+      setActiveTasks(prev => {
+        const m = new Map(prev)
+        const t = m.get(localId)
+        if (t) m.set(localId, { ...t, progress: 100, status: 'error', message: msg })
+        return m
+      })
+      setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 5000)
+    }
+  }
+
+  const ctaDisabled = isSubmitting
+    || (activeTab !== 'motion' && !prompt.trim())
+    || (activeTab === 'edit' && !editVideoCdnUrl && !editVideoPreview)
+    || (activeTab === 'motion' && (!motionSourcePreview || !motionTargetPreview))
+
+  if (isLoading) return <ElegantLoading message="Initializing Video Studio…" />
+  if (!user && !isDemo) {
+    if (typeof window !== 'undefined') window.location.href = '/app/signin'
+    return <ElegantLoading message="Redirecting…" />
+  }
+
+  const availableAspects = selectedModel?.controls?.aspectRatios ?? ['16:9', '9:16', '1:1']
+  const durationNums = (selectedModel?.controls?.durations ?? ['5', '15']).map(Number)
+  const durationMin = durationNums[0] ?? 5
+  const durationMax = durationNums[durationNums.length - 1] ?? 15
+  const hasAudio = selectedModel?.controls?.audioSync === true
+  const hasFirstFrame = selectedModel?.controls?.firstFrameImage === true
+  const isKlingModel = selectedModelId.startsWith('kling')
+  const isEvolinkModel = selectedModel?.providers[0] === 'evolink'
+  const isSeedanceModel = selectedModelId.startsWith('doubao')
+  const hasSeed = isSeedanceModel || selectedModelId.startsWith('veo')
+
+  const TABS: { id: VideoTab; label: string; Icon: React.ElementType }[] = [
+    { id: 'generate', label: 'Generate', Icon: IconSparkles },
+    { id: 'edit', label: 'Edit', Icon: IconWand },
+    { id: 'motion', label: 'Motion', Icon: IconTransfer },
+  ]
+
+  return (
+    <div className="flex flex-col min-h-screen bg-[#09090b] text-white font-sans">
+      <div className="flex-1 pt-16 w-full grid grid-cols-1 lg:grid-cols-[420px_1fr] items-start">
+
+        {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
+        <div className="flex flex-col border-r border-white/5 bg-[#0c0c0e] z-20 relative min-h-[calc(100vh-4rem)] lg:pb-28 order-2 lg:order-1">
+
+          {/* Mode tabs */}
+          <div className="px-5 pt-5 pb-5 border-b border-white/5">
+            <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-xl border border-[rgb(255_255_255_/_0.04)] gap-0.5">
+              {TABS.map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-black rounded-lg transition-all uppercase tracking-wider",
+                    activeTab === id ? "bg-[#FFFF00] text-black shadow-md" : "text-gray-400 hover:text-white"
+                  )}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── GENERATE TAB ────────────────────────────────────────────────── */}
+          {activeTab === 'generate' && (
+            <>
+              {/* Model */}
+              <div className="px-5 pt-5 pb-5 border-b border-white/5">
+                <SectionLabel>Model</SectionLabel>
+                <ModelDropdown groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
+              </div>
+
+              {/* Aspect ratio */}
+              <div className="px-5 py-5 border-b border-white/5">
+                <SectionLabel>Aspect Ratio</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  {availableAspects.map(ar => (
+                    <AspectCard key={ar} ratio={ar} selected={genAspect === ar} onSelect={() => setGenAspect(ar)} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div className="px-5 py-5 border-b border-white/5">
+                <div className="flex items-center justify-between mb-4">
+                  <SectionLabel>Duration</SectionLabel>
+                  <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">
+                    {genDuration}s
+                  </span>
+                </div>
+                <PremiumSlider
+                  min={durationMin}
+                  max={durationMax}
+                  step={1}
+                  value={genDuration}
+                  onChange={setGenDuration}
+                  color="#FFFF00"
+                  growing={true}
+                />
+                <div className="flex justify-between mt-2 px-0.5">
+                  <span className="text-[9px] font-mono text-[#444]">{durationMin}s</span>
+                  <span className="text-[9px] font-mono text-[#444]">{durationMax}s</span>
+                </div>
+              </div>
+
+              {/* Audio sync */}
+              {hasAudio && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <IconVolume className="w-3.5 h-3.5 text-[#555]" />
+                        <span className="text-xs font-black text-white">Audio Generation</span>
+                      </div>
+                      <p className="text-[10px] text-[#555] mt-0.5 ml-5">Generate ambient audio alongside video</p>
+                    </div>
+                    <Toggle checked={genAudio} onChange={setGenAudio} />
+                  </div>
+                </div>
+              )}
+
+              {/* Kling mode (Standard / Pro) — Tier-2 pill style */}
+              {isKlingModel && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <SectionLabel>Scene Mode</SectionLabel>
+                  <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5 mb-2">
+                    {([['std', 'Standard'], ['pro', 'Pro']] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        onClick={() => setKlingMode(id)}
+                        className={cn(
+                          "flex-1 py-2 text-[10.5px] font-black rounded-md transition-all uppercase tracking-wider",
+                          klingMode === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-[#444] leading-relaxed">
+                    {klingMode === 'pro' ? 'Enhanced motion planning for complex multi-shot scenes' : 'Balanced quality and speed for most prompts'}
+                  </p>
+                </div>
+              )}
+
+              {/* Video quality (Evolink only) — Tier-2 pill style */}
+              {isEvolinkModel && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <SectionLabel>Output Quality</SectionLabel>
+                  <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
+                    {([['720p', '720p HD'], ['1080p', '1080p Full HD']] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        onClick={() => setVideoQuality(id)}
+                        className={cn(
+                          "flex-1 py-2 text-[10.5px] font-black rounded-md transition-all uppercase tracking-wider",
+                          videoQuality === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Prompt adherence / cfg_scale (Kling only) */}
+              {isKlingModel && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <div className="flex items-center justify-between mb-4">
+                    <SectionLabel>Prompt Adherence</SectionLabel>
+                    <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">
+                      {cfgScale.toFixed(2)}
+                    </span>
+                  </div>
+                  <PremiumSlider
+                    min={0} max={1} step={0.05}
+                    value={cfgScale}
+                    onChange={setCfgScale}
+                    color="#FFFF00"
+                    growing={false}
+                  />
+                  <div className="flex justify-between mt-2 px-0.5">
+                    <span className="text-[9px] font-mono text-[#444]">Creative</span>
+                    <span className="text-[9px] font-mono text-[#444]">Strict</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Camera fixed (Seedance) */}
+              {isSeedanceModel && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <IconCamera className="w-3.5 h-3.5 text-[#555]" />
+                        <span className="text-xs font-black text-white">Lock Camera</span>
+                      </div>
+                      <p className="text-[10px] text-[#555] mt-0.5 ml-5">Disable camera movement for static shots</p>
+                    </div>
+                    <Toggle checked={cameraFixed} onChange={setCameraFixed} />
+                  </div>
+                </div>
+              )}
+
+              {/* Seed + Advanced (Veo / Seedance) */}
+              {hasSeed && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <button
+                    onClick={() => setShowAdvanced(p => !p)}
+                    className="flex items-center gap-2 text-[10px] font-black text-[#555] uppercase tracking-wider hover:text-white transition-colors w-full"
+                  >
+                    <IconMinus className="w-3.5 h-3.5" />
+                    <span>Advanced</span>
+                    <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showAdvanced && "rotate-180")} />
+                  </button>
+                  {showAdvanced && (
+                    <div className="mt-3 space-y-2">
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Seed</label>
+                      <input
+                        type="number"
+                        value={seed}
+                        onChange={e => setSeed(e.target.value)}
+                        placeholder="Random"
+                        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-3 py-2 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <p className="text-[9px] text-[#444]">Use the same seed to reproduce identical results</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* First frame */}
+              {hasFirstFrame && (
+                <div className="px-5 py-5 border-b border-white/5">
+                  <SectionLabel>First Frame <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                  <ImageUploadBox
+                    label=""
+                    preview={firstFramePreview}
+                    uploading={firstFrameUploading}
+                    hint="Set the opening frame of your video"
+                    onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
+                    onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
+                  />
+                </div>
+              )}
+
+              {/* Negative prompt */}
+              <div className="px-5 py-5 border-b border-white/5">
+                <button
+                  onClick={() => setShowNegPrompt(p => !p)}
+                  className="flex items-center gap-2 text-[10px] font-black text-[#555] uppercase tracking-wider hover:text-white transition-colors w-full"
+                >
+                  <IconMinus className="w-3.5 h-3.5" />
+                  <span>Negative Prompt</span>
+                  <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showNegPrompt && "rotate-180")} />
+                </button>
+                {showNegPrompt && (
+                  <textarea
+                    value={genNegPrompt}
+                    onChange={e => setGenNegPrompt(e.target.value)}
+                    placeholder="Describe what to avoid…"
+                    rows={2}
+                    className="w-full mt-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all resize-none"
+                  />
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── EDIT TAB ──────────────────────────────────────────────────────── */}
+          {activeTab === 'edit' && (
+            <>
+              <div className="px-5 py-5 border-b border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <IconWand className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Kling Effects</span>
+                  <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Edit'])}>Edit</span>
+                </div>
+                <p className="text-[10px] text-[#555] leading-relaxed mt-1">
+                  Apply AI visual transformations to existing videos. Upload your clip, then describe the effect.
+                </p>
+              </div>
+
+              <div className="px-5 py-5 border-b border-white/5">
+                <SectionLabel>Source Video</SectionLabel>
+                <VideoUploadBox
+                  label=""
+                  preview={editVideoPreview}
+                  uploading={editVideoUploading}
+                  hint="MP4, WebM, MOV — max 200 MB"
+                  onFile={(f) => uploadVideo(f, setEditVideoPreview, setEditVideoCdnUrl, setEditVideoUploading)}
+                  onClear={() => { setEditVideoPreview(null); setEditVideoCdnUrl(null) }}
+                />
+              </div>
+
+              <div className="px-5 py-5 border-b border-white/5">
+                <SectionLabel>Output Aspect</SectionLabel>
+                <div className="grid grid-cols-3 gap-2">
+                  {['16:9', '9:16', '1:1'].map(ar => (
+                    <AspectCard key={ar} ratio={ar} selected={editAspect === ar} onSelect={() => setEditAspect(ar)} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── MOTION TAB ──────────────────────────────────────────────────── */}
+          {activeTab === 'motion' && (
+            <>
+              <div className="px-5 py-5 border-b border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <IconTransfer className="w-4 h-4 text-teal-400" />
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Motion Control</span>
+                  <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Motion'])}>Kling</span>
+                </div>
+                <p className="text-[10px] text-[#555] leading-relaxed mt-1">
+                  Transfer motion from a reference video to your target subject.
+                </p>
+              </div>
+
+              <div className="px-5 py-5 border-b border-white/5">
+                <VideoUploadBox
+                  label="Motion Source"
+                  hint="The motion from this video will be applied to your target"
+                  preview={motionSourcePreview}
+                  uploading={motionSourceUploading}
+                  onFile={(f) => uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)}
+                  onClear={() => { setMotionSourcePreview(null); setMotionSourceCdnUrl(null) }}
+                />
+              </div>
+
+              <div className="px-5 py-5 border-b border-white/5">
+                <ImageUploadBox
+                  label="Target Subject"
+                  hint="This subject will receive the motion pattern"
+                  preview={motionTargetPreview}
+                  uploading={motionTargetUploading}
+                  onFile={(f) => uploadImage(f, setMotionTargetPreview, setMotionTargetCdnUrl, setMotionTargetUploading)}
+                  onClear={() => { setMotionTargetPreview(null); setMotionTargetCdnUrl(null) }}
+                />
+              </div>
+            </>
+          )}
+
+          {/* ── PROMPT (shared) ──────────────────────────────────────────────── */}
+          <div className="px-5 py-5 flex-1">
+            <SectionLabel>
+              {activeTab === 'generate' ? 'Prompt' : activeTab === 'edit' ? 'Effect Description' : 'Motion Guidance'}
+              {activeTab === 'motion' && <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span>}
+            </SectionLabel>
+            <textarea
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              placeholder={
+                activeTab === 'generate'
+                  ? 'A sweeping cinematic shot of mountains at golden hour, camera slowly rising…'
+                  : activeTab === 'edit'
+                  ? 'Apply a dramatic film grain effect with vintage color grading and light leaks…'
+                  : 'A person walking gracefully through a forest…'
+              }
+              rows={5}
+              className="w-full bg-[#0d0d0d] border border-[#222222] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#333] focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* ── FOOTER CTA ───────────────────────────────────────────────────── */}
+          <div className="lg:fixed lg:bottom-0 lg:left-0 lg:w-[420px] relative w-full bg-[#0c0c0e] border-t border-white/5 z-40">
+            <div className="px-5 pt-4 pb-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 font-medium">Estimated Cost</span>
+                <div className="flex items-center gap-2">
+                  <CreditIcon className="w-6 h-6 rounded-md" iconClassName="w-3 h-3" />
+                  <span className="font-mono font-medium text-white/90">{selectedModel?.credits ?? 0}</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-5 pt-0">
+              <button
+                onClick={handleGenerate}
+                disabled={ctaDisabled}
+                className="w-full bg-[#FFFF00] hover:bg-[#e6e600] text-black font-bold h-14 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] text-base uppercase tracking-wider"
+              >
+                {isSubmitting ? (
+                  <><IconLoader2 className="w-5 h-5 animate-spin" /><span>Starting…</span></>
+                ) : (
+                  <>
+                    <IconPlayerPlay className="w-5 h-5 fill-black" />
+                    <span>
+                      {activeTab === 'generate' ? 'Generate Video'
+                        : activeTab === 'edit' ? 'Apply Effect'
+                        : 'Transfer Motion'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
+        <div className="relative flex flex-col px-4 pt-2 pb-8 order-1 lg:order-2 lg:overflow-y-auto lg:h-[calc(100vh-4rem)] custom-scrollbar">
+
+          {/* Panel header */}
+          <div className="flex items-center justify-between py-3 mb-4 border-b border-white/5">
+            <div>
+              <h2 className="text-sm font-bold text-white">
+                {activeTab === 'generate' ? 'Generated Videos' : activeTab === 'edit' ? 'Edited Videos' : 'Motion Results'}
+              </h2>
+              <p className="text-[10px] text-[#444] mt-0.5 font-mono">
+                {videos.length === 0
+                  ? 'Your videos will appear here'
+                  : `${videos.filter(v => !v.loading && v.url).length} video${videos.filter(v => !v.loading && v.url).length !== 1 ? 's' : ''} ready`}
+              </p>
+            </div>
+            {videos.length > 0 && (
+              <button
+                onClick={() => { setVideos([]); localStorage.removeItem('sharpii_videos') }}
+                className="text-[10px] text-[#444] hover:text-white transition-colors font-mono uppercase tracking-wider"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Empty state */}
+          {videos.length === 0 && (
+            <div className="flex-1 flex items-center justify-center min-h-[400px]">
+              <div className="text-center max-w-[280px]">
+                <div className="w-20 h-20 rounded-2xl bg-[#0d0d0d] border border-[#1e1e1e] flex items-center justify-center mx-auto mb-5">
+                  <IconVideo className="w-9 h-9 text-[#2a2a2a]" />
+                </div>
+                <h3 className="text-sm font-semibold text-white/60 mb-2">No videos yet</h3>
+                <p className="text-xs text-[#444] leading-relaxed">
+                  {activeTab === 'generate'
+                    ? 'Choose a model, write a prompt, and click Generate Video.'
+                    : activeTab === 'edit'
+                    ? 'Upload a video, describe the effect you want, then click Apply Effect.'
+                    : 'Upload a motion source and target subject, then click Transfer Motion.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Video grid — justified masonry */}
+          {videos.length > 0 && (
+            <VideoJustifiedGrid
+              videos={videos}
+              onExpand={(video) => { setModalVideo(video); setIsModalOpen(true) }}
+            />
+          )}
+
+          <div className="mt-8 flex justify-end text-[9px] text-[#1e1e1e] font-mono uppercase tracking-widest">
+            Sharpii Video Engine v1.0
+          </div>
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toastMsg && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10003] pointer-events-none">
+          <div className={cn(
+            "px-5 py-3 rounded-xl text-sm font-medium shadow-2xl border backdrop-blur-xl",
+            toastMsg.type === 'error'
+              ? "bg-[#1a0505] border-red-900/40 text-red-300"
+              : "bg-[#111] border-[#222] text-white"
+          )}>
+            {toastMsg.msg}
+          </div>
+        </div>
+      )}
+
+      {/* Video Modal */}
+      <VideoModal
+        url={modalVideo?.url ?? ''}
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setModalVideo(null) }}
+      />
+    </div>
+  )
+}
+
+export default function VideoPage() {
+  return (
+    <Suspense fallback={<ElegantLoading message="Initializing Video Studio…" />}>
+      <VideoPageContent />
+    </Suspense>
+  )
+}

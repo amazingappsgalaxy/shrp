@@ -397,6 +397,14 @@ export class SynvowProvider {
     if (req.aspect_ratio) body.aspect_ratio = req.aspect_ratio
     if (req.duration !== undefined) body.duration = req.duration
     if (req.audio_sync !== undefined) body.audio_sync = req.audio_sync
+    if (req.negative_prompt) body.negative_prompt = req.negative_prompt
+    if (req.camera_fixed !== undefined) body.camera_fixed = req.camera_fixed
+    if (req.seed !== undefined) body.seed = req.seed
+
+    // Video input (for kling-effects, kling-video-motion-control)
+    if (req.video_url) body.video_url = req.video_url
+    if (req.target_url) body.target_url = req.target_url
+
     if (req.images?.length) {
       body.images = req.images.map((img) =>
         img.type === 'url' ? img.data : `data:image/jpeg;base64,${img.data}`

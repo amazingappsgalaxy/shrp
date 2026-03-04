@@ -41,6 +41,16 @@ export interface SynvowGenerateRequest {
   reference_image?: string
   /** CDN URL or base64 string for first-frame video seeding */
   first_frame?: string
+  /** CDN URL of an existing video (for editing/effects/motion-control models) */
+  video_url?: string
+  /** CDN URL of a target image/video (for motion-control — the subject to apply motion to) */
+  target_url?: string
+  /** Negative prompt to guide the model away from undesired content */
+  negative_prompt?: string
+  /** Lock camera movement (Seedance models) */
+  camera_fixed?: boolean
+  /** Seed for reproducible results */
+  seed?: number
 }
 
 export type SynvowTaskStatus =
