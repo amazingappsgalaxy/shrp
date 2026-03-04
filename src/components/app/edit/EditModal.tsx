@@ -1634,6 +1634,11 @@ export function EditModal({
       const combinedPrompt = basePrompt + suffix
 
       try {
+        // Determine page_name based on source context for proper history loading
+        const pageName = sourceContext === 'image-page' ? 'app/image'
+          : sourceContext === 'history-page' ? 'app/history'
+          : 'app/edit'
+
         const body: Record<string, unknown> = {
           mode, model: selectedModel,
           historyId,
@@ -1641,6 +1646,7 @@ export function EditModal({
           cleanOriginalDataUrl,
           combinedPrompt, referenceImages,
           compositeDataUrl,
+          pageName, // Send page_name so edits appear in correct history
         }
         const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }

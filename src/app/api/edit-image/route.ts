@@ -73,13 +73,16 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
 
     // ── Insert a 'processing' record immediately so history page sees it ───────
+    // Use pageName from request (based on source context) or default to 'app/edit'
+    const pageName = typeof req.pageName === 'string' ? req.pageName : 'app/edit'
+
     await supabase.from('history_items').insert({
       id: historyId,
       user_id: userId,
       task_id: taskId,
       output_urls: [],
       model_name: model,
-      page_name: 'app/edit',
+      page_name: pageName,
       status: 'processing',
       generation_time_ms: null,
       settings: { model, creditCost, mode },
