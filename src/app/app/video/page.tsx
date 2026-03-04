@@ -201,8 +201,8 @@ function AspectShape({ ratio, active }: { ratio: string; active: boolean }) {
   )
 }
 
-function AspectDropdown({ ratios, selected, onSelect }: {
-  ratios: string[]; selected: string; onSelect: (r: string) => void
+function AspectDropdown({ ratios, selected, onSelect, compact = false }: {
+  ratios: string[]; selected: string; onSelect: (r: string) => void; compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -220,12 +220,12 @@ function AspectDropdown({ ratios, selected, onSelect }: {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] rounded-lg text-left transition-colors"
+        className="w-full flex items-center gap-2 px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] rounded-lg text-left transition-colors"
       >
         <AspectShape ratio={selected} active={true} />
         <span className="text-sm font-bold text-white">{selected}</span>
-        <span className="text-[10px] text-white/40 flex-1">{VIDEO_ASPECT_LABELS[selected] ?? ''}</span>
-        <IconChevronDown className={cn("w-3.5 h-3.5 text-white/35 transition-transform shrink-0", open && "rotate-180")} />
+        {!compact && <span className="text-[10px] text-white/50 flex-1">{VIDEO_ASPECT_LABELS[selected] ?? ''}</span>}
+        <IconChevronDown className={cn("w-3 h-3 text-white/40 transition-transform shrink-0 ml-auto", open && "rotate-180")} />
       </button>
 
       {open && (
@@ -243,6 +243,48 @@ function AspectDropdown({ ratios, selected, onSelect }: {
               <span className={cn("text-sm font-semibold", r === selected ? "text-[#FFFF00]" : "text-white/70")}>{r}</span>
               <span className="text-[10px] text-white/35">{VIDEO_ASPECT_LABELS[r] ?? ''}</span>
               {r === selected && <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00] ml-auto" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Compact dropdown (for quality, etc.) ──────────────────────────────────────
+
+function CompactDropdown({ value, options, onChange }: {
+  value: string; options: string[]; onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-1.5 px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] rounded-lg text-sm font-bold text-white transition-colors"
+      >
+        <span>{value}</span>
+        <IconChevronDown className={cn("w-3 h-3 text-white/40 transition-transform shrink-0", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0c0c0c] border border-[#1e1e1e] rounded-lg overflow-hidden z-30 shadow-xl">
+          {options.map(o => (
+            <button
+              key={o}
+              onClick={() => { onChange(o); setOpen(false) }}
+              className={cn(
+                "w-full px-2.5 py-2 text-sm font-semibold text-left transition-colors",
+                o === value ? "bg-[#161616] text-[#FFFF00]" : "text-white/70 hover:bg-[#111111] hover:text-white"
+              )}
+            >
+              {o}
             </button>
           ))}
         </div>
@@ -372,7 +414,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
     <div className="flex flex-col gap-1.5">
       {(label || preview) && (
         <div className="flex items-center justify-between">
-          {label && <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>}
+          {label && <span className="text-[10px] font-black text-white uppercase tracking-wider">{label}</span>}
           {preview && (
             <button onClick={onClear} className="p-1 text-white/40 hover:text-red-400 transition-colors rounded ml-auto">
               <IconTrash className="w-3.5 h-3.5" />
@@ -411,8 +453,8 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <IconVideo className="w-5 h-5 text-white/25 group-hover:text-white/45 transition-colors" />
-            {hint && <p className="text-[9px] text-white/30">{hint}</p>}
+            <IconVideo className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
+            {hint && <p className="text-[9px] text-white/45">{hint}</p>}
           </div>
         )}
       </div>
@@ -484,8 +526,8 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <IconCamera className="w-5 h-5 text-white/25 group-hover:text-white/45 transition-colors" />
-            {hint && <p className="text-[9px] text-white/30">{hint}</p>}
+            <IconCamera className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
+            {hint && <p className="text-[9px] text-white/45">{hint}</p>}
           </div>
         )}
       </div>
@@ -694,7 +736,7 @@ function VideoJustifiedGrid({ videos, onExpand }: {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-black text-white/65 uppercase tracking-wider mb-3">
+    <p className="text-[10px] font-black text-white uppercase tracking-wider mb-3">
       {children}
     </p>
   )
@@ -1193,36 +1235,36 @@ function VideoPageContent() {
                 />
               </div>
 
-              {/* Aspect ratio */}
-              <div className="px-5 py-4 border-b border-white/[0.05]">
-                <SectionLabel>Aspect Ratio</SectionLabel>
-                <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
-              </div>
+              {/* Aspect ratio — non-Kling only (Kling has it in the compact 3-col row) */}
+              {!isKlingModel && (
+                <div className="px-5 py-4 border-b border-white/[0.05]">
+                  <SectionLabel>Aspect Ratio</SectionLabel>
+                  <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
+                </div>
+              )}
 
-              {/* Kling: Duration + Quality in 2-col */}
+              {/* Kling: Duration + Scene Mode in 2-col */}
               {isKlingModel && (
                 <div className="px-5 py-4 border-b border-white/[0.05]">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Left: Duration */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Duration</span>
-                        <span className="font-mono text-[11px] font-bold text-[#FFFF00]">{genDuration}s</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                        <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
                       </div>
                       <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" />
-                      <div className="flex justify-between mt-2">
+                      <div className="flex justify-between mt-1.5">
                         <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
                         <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
                       </div>
                     </div>
-                    {/* Right: Quality */}
                     <div>
-                      <span className="text-[10px] font-black text-white/65 uppercase tracking-wider block mb-2">Quality</span>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Scene Mode</span>
                       <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-lg gap-0.5">
-                        {([['720p', '720p'], ['1080p', '1080p']] as const).map(([id, label]) => (
-                          <button key={id} onClick={() => setVideoQuality(id)}
-                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all",
-                              videoQuality === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
+                        {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
+                          <button key={id} onClick={() => setKlingMode(id)}
+                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-colors",
+                              klingMode === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
                             {label}
                           </button>
                         ))}
@@ -1232,32 +1274,31 @@ function VideoPageContent() {
                 </div>
               )}
 
-              {/* Kling: Scene Mode + Audio in 2-col */}
+              {/* Kling: Aspect + Quality + Sound in 3-col */}
               {isKlingModel && (
                 <div className="px-5 py-4 border-b border-white/[0.05]">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={cn("grid gap-2.5", hasAudio ? "grid-cols-3" : "grid-cols-2")}>
                     <div>
-                      <span className="text-[10px] font-black text-white/65 uppercase tracking-wider block mb-2">Scene Mode</span>
-                      <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-lg gap-0.5">
-                        {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
-                          <button key={id} onClick={() => setKlingMode(id)}
-                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all",
-                              klingMode === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
+                      <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} compact={true} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Quality</span>
+                      <CompactDropdown value={videoQuality} options={['720p', '1080p']} onChange={v => setVideoQuality(v as '720p' | '1080p')} />
                     </div>
                     {hasAudio && (
                       <div>
-                        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider block mb-2">Audio</span>
-                        <div className="flex items-center justify-between h-[34px] px-3 bg-white/[0.04] border border-white/[0.04] rounded-lg">
-                          <div className="flex items-center gap-1.5">
-                            <IconVolume className="w-3.5 h-3.5 text-white/55" />
-                            <span className="text-[10px] font-black text-white">Sound</span>
-                          </div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Sound</span>
+                        <button
+                          onClick={() => setGenAudio(a => !a)}
+                          className={cn(
+                            "w-full flex items-center justify-between px-2.5 py-2 rounded-lg border transition-colors",
+                            genAudio ? "bg-[#FFFF00]/10 border-[#FFFF00]/30" : "bg-[#111111] border-[#1e1e1e] hover:border-[#2e2e2e]"
+                          )}
+                        >
+                          <IconVolume className={cn("w-3.5 h-3.5", genAudio ? "text-[#FFFF00]" : "text-white/50")} />
                           <Toggle checked={genAudio} onChange={setGenAudio} />
-                        </div>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1270,12 +1311,12 @@ function VideoPageContent() {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Duration</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                         <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
                       </div>
                       <div className="flex justify-between mt-0.5">
-                        <span className="text-[9px] font-mono text-white/35">{durationMin}s</span>
-                        <span className="text-[9px] font-mono text-white/35">{durationMax}s</span>
+                        <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
+                        <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
                       </div>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
@@ -1287,7 +1328,7 @@ function VideoPageContent() {
                       <div className="flex items-center gap-2">
                         <IconVolume className="w-3.5 h-3.5 text-white/55" />
                         <span className="text-xs font-medium text-white">Audio</span>
-                        <span className="text-[9px] text-white/40">native generation</span>
+                        <span className="text-[9px] text-white/55">native generation</span>
                       </div>
                       <Toggle checked={genAudio} onChange={setGenAudio} />
                     </div>
@@ -1340,9 +1381,9 @@ function VideoPageContent() {
                                 <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
                                   {/* Shot label — no divider, just soft header */}
                                   <div className="flex items-center justify-between px-3 pt-2 pb-0">
-                                    <span className="text-[9px] font-black text-white/40 uppercase tracking-wider">Shot {i + 1}</span>
+                                    <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
                                     {shotPrompts.length > 1 && (
-                                      <button onClick={() => removeShot(i)} className="p-0.5 text-white/25 hover:text-red-400 transition-colors">
+                                      <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
                                         <IconTrash className="w-3 h-3" />
                                       </button>
                                     )}
@@ -1357,8 +1398,8 @@ function VideoPageContent() {
                                   />
                                   {/* Duration: inline compact row with constrained slider */}
                                   <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
-                                    <IconClock className="w-3 h-3 text-white/30 shrink-0" />
-                                    <span className="text-[9px] font-black text-white/35 uppercase tracking-wider shrink-0">Dur</span>
+                                    <IconClock className="w-3 h-3 text-white/45 shrink-0" />
+                                    <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
                                     <div className="flex-1" style={{ maxWidth: 150 }}>
                                       <PremiumSlider
                                         min={3}
@@ -1380,19 +1421,15 @@ function VideoPageContent() {
                             {shotPrompts.length < 6 && totalShotDur <= 12 && (
                               <button
                                 onClick={addShot}
-                                className="flex items-center gap-2 w-full py-1.5 text-white/30 hover:text-white/55 transition-colors group"
+                                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-dashed border-white/20 hover:border-white/35 hover:bg-white/[0.03] text-white/55 hover:text-white/85 transition-colors"
                               >
-                                <div className="flex-1 h-px bg-white/[0.07] group-hover:bg-white/[0.12] transition-colors" />
-                                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider shrink-0">
-                                  <IconPlus className="w-3 h-3" />
-                                  Add shot
-                                </span>
-                                <div className="flex-1 h-px bg-white/[0.07] group-hover:bg-white/[0.12] transition-colors" />
+                                <IconPlus className="w-3.5 h-3.5" />
+                                <span className="text-[11px] font-black uppercase tracking-wider">Add Shot</span>
                               </button>
                             )}
 
                             {/* Total duration */}
-                            <div className={cn("flex items-center justify-between text-[9px] px-0.5", overLimit ? "text-red-400" : "text-white/35")}>
+                            <div className={cn("flex items-center justify-between text-[9px] px-0.5", overLimit ? "text-red-400" : "text-white/50")}>
                               <span>Total duration</span>
                               <span className="font-mono font-bold">{totalShotDur}s / 15s max</span>
                             </div>
@@ -1401,8 +1438,8 @@ function VideoPageContent() {
                             {selectedModel?.controls?.elementList && (
                               <div className="pt-1">
                                 <div className="flex items-center gap-1.5 mb-1.5">
-                                  <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Subject Elements</span>
-                                  <span className="text-[9px] text-white/35 italic">(optional)</span>
+                                  <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
+                                  <span className="text-[9px] text-white/50 italic">(optional)</span>
                                 </div>
                                 <div className="flex gap-1.5">
                                   {[0, 1, 2].map(idx => (
@@ -1417,7 +1454,7 @@ function VideoPageContent() {
                                     />
                                   ))}
                                 </div>
-                                <p className="text-[9px] text-white/35 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
+                                <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
                               </div>
                             )}
                           </div>
@@ -1434,12 +1471,12 @@ function VideoPageContent() {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Prompt Adherence</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Prompt Adherence</span>
                         <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{cfgScale.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between mt-0.5">
-                        <span className="text-[9px] font-mono text-white/35">Creative</span>
-                        <span className="text-[9px] font-mono text-white/35">Strict</span>
+                        <span className="text-[9px] font-mono text-white/50">Creative</span>
+                        <span className="text-[9px] font-mono text-white/50">Strict</span>
                       </div>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
@@ -1492,7 +1529,7 @@ function VideoPageContent() {
                   <div>
                     <button
                       onClick={() => setShowAdvanced(p => !p)}
-                      className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider hover:text-white/70 transition-colors w-full"
+                      className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
                     >
                       <IconMinus className="w-3.5 h-3.5" />
                       <span>Advanced</span>
@@ -1500,7 +1537,7 @@ function VideoPageContent() {
                     </button>
                     {showAdvanced && (
                       <div className="mt-3 space-y-2">
-                        <label className="text-[10px] font-black text-white/65 uppercase tracking-wider">Seed</label>
+                        <label className="text-[10px] font-black text-white uppercase tracking-wider">Seed</label>
                         <input
                           type="number"
                           value={seed}
@@ -1508,14 +1545,14 @@ function VideoPageContent() {
                           placeholder="Random"
                           className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                         />
-                        <p className="text-[9px] text-white/35">Same seed reproduces identical results</p>
+                        <p className="text-[9px] text-white/50">Same seed reproduces identical results</p>
                       </div>
                     )}
                   </div>
                 )}
                 <button
                   onClick={() => setShowNegPrompt(p => !p)}
-                  className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider hover:text-white/70 transition-colors w-full"
+                  className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
                 >
                   <IconMinus className="w-3.5 h-3.5" />
                   <span>Negative Prompt</span>
@@ -1641,7 +1678,7 @@ function VideoPageContent() {
               <button
                 onClick={handleGenerate}
                 disabled={ctaDisabled}
-                className="w-full bg-[#FFFF00] hover:bg-[#e6e600] text-black font-bold h-14 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] text-base uppercase tracking-wider"
+                className="w-full bg-[#FFFF00] hover:bg-[#e6e600] text-black font-bold h-14 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(255,255,0,0.1)] hover:shadow-[0_0_30px_rgba(255,255,0,0.3)] text-base uppercase tracking-wider"
               >
                 {isSubmitting ? (
                   <><IconLoader2 className="w-5 h-5 animate-spin" /><span>Starting…</span></>

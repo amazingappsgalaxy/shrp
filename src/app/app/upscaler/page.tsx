@@ -505,7 +505,7 @@ function UpscalerContent() {
                       value={customPrompt}
                       onChange={e => setCustomPrompt(e.target.value)}
                       placeholder="maintain glossy lip, add subtle freckles..."
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/25 transition-all"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors"
                     />
                   </div>
                 </div>

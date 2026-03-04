@@ -989,7 +989,7 @@ function EditorContent() {
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     placeholder="Enter additional prompt details..."
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/25 transition-all min-h-[80px] resize-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/25 transition-colors min-h-[80px] resize-none"
                   />
                 </div>
               </div>

@@ -1814,7 +1814,7 @@ export default function EditPage() {
                       {/* Hex text input */}
                       <input type="text" value={lightSettings.color}
                         onChange={e => { setLightSettings(p => ({ ...p, color: e.target.value })); setActiveLightingStyle(null) }}
-                        className="w-[72px] bg-[#141414] border border-[#2e2e2e] rounded-md px-2 py-1 text-[11px] text-white font-mono uppercase outline-none focus:border-[#3c3c3c] transition-all" />
+                        className="w-[72px] bg-[#141414] border border-[#2e2e2e] rounded-md px-2 py-1 text-[11px] text-white font-mono uppercase outline-none focus:border-[#3c3c3c] transition-colors" />
                       {/* Preset swatches */}
                       <div className="flex gap-1 flex-1 flex-wrap justify-end">
                         {LIGHT_COLOR_PRESETS.map(c => (
@@ -1867,7 +1867,7 @@ export default function EditPage() {
                   value={promptText}
                   onChange={e => setPromptText(e.target.value)}
                   placeholder={"e.g. 'Make the background a sunset beach'"}
-                  className="w-full bg-[#141414] border border-[#2e2e2e] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-[#606060] resize-none outline-none focus:border-[#3c3c3c] leading-relaxed transition-all"
+                  className="w-full bg-[#141414] border border-[#2e2e2e] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-[#606060] resize-none outline-none focus:border-[#3c3c3c] leading-relaxed transition-colors"
                   rows={5}
                 />
                 {/* Reference images — thumbnails row + plus button below */}
