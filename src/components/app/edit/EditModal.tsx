@@ -1101,30 +1101,17 @@ export function EditModal({
         setImageNaturalSize(nat)
         const ds = computeDisplaySize(nat.w, nat.h)
         setDisplaySize(ds)
-        const canvas = displayCanvasRef.current
-        console.log('🎨 EditModal: Canvas ref available:', !!canvas)
-        if (canvas) {
-          canvas.width = nat.w
-          canvas.height = nat.h
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            ctx.drawImage(img, 0, 0)
-            console.log('✅ EditModal: Image drawn on canvas', { canvasWidth: canvas.width, canvasHeight: canvas.height })
-          } else {
-            console.error('❌ EditModal: Failed to get canvas context')
-          }
-        } else {
-          console.error('❌ EditModal: Canvas ref is null')
-        }
+
         // Clear all editor state when loading initial image
-        setLayers([])
         setTextAnnotations([])
         layerCanvasesRef.current.clear()
         nextColorIdx.current = 0
         setActiveLayerId(null)
         setMode('edit')
         setActiveTool('brush')
-        console.log('🧹 EditModal: Editor state cleared')
+        setLayers([])
+
+        console.log('🧹 EditModal: Editor state cleared, canvas will be setup by useEffect')
       }
       img.onerror = (e) => {
         console.error('❌ EditModal: Failed to load initial image:', initialImageUrl, e)
@@ -1135,6 +1122,32 @@ export function EditModal({
       console.log('⏭️ EditModal: Skipping image load', { hasInitialImageUrl: !!initialImageUrl, isOpen })
     }
   }, [initialImageUrl, isOpen])
+
+  // ── Setup canvas when image and natural size are ready
+  useEffect(() => {
+    if (!bgImageRef.current || !imageNaturalSize) return
+
+    console.log('🎨 EditModal: Setting up canvas with loaded image')
+    const canvas = displayCanvasRef.current
+
+    if (canvas) {
+      canvas.width = imageNaturalSize.w
+      canvas.height = imageNaturalSize.h
+      const ctx = canvas.getContext('2d')
+
+      if (ctx && bgImageRef.current) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(bgImageRef.current, 0, 0)
+        console.log('✅ EditModal: Canvas initialized and image drawn', {
+          canvasSize: `${canvas.width}x${canvas.height}`
+        })
+      } else {
+        console.error('❌ EditModal: Failed to get canvas context')
+      }
+    } else {
+      console.warn('⚠️ EditModal: Canvas ref not available yet, will retry on next render')
+    }
+  }, [imageNaturalSize])
 
   // ── Prevent body scroll when modal is open (non-standalone mode)
   useEffect(() => {
@@ -1307,17 +1320,13 @@ export function EditModal({
       setImageNaturalSize(nat)
       const ds = computeDisplaySize(nat.w, nat.h)
       setDisplaySize(ds)
-      const canvas = displayCanvasRef.current
-      if (canvas) {
-        canvas.width = nat.w
-        canvas.height = nat.h
-        const ctx = canvas.getContext('2d')
-        ctx?.drawImage(img, 0, 0)
-      }
-      setLayers([])
+
+      // Clear editor state
       setTextAnnotations([])
       layerCanvasesRef.current.clear()
       nextColorIdx.current = 0
+      setLayers([])
+      // Canvas will be setup by the imageNaturalSize useEffect
     }
     img.src = url
   }, [])
@@ -2222,18 +2231,15 @@ export function EditModal({
                     setImageNaturalSize(nat)
                     const ds = computeDisplaySize(nat.w, nat.h)
                     setDisplaySize(ds)
-                    const canvas = displayCanvasRef.current
-                    if (canvas) {
-                      canvas.width = nat.w; canvas.height = nat.h
-                      const ctx = canvas.getContext('2d')
-                      ctx?.drawImage(img, 0, 0)
-                    }
+
+                    // Clear editor state
                     setLayers([])
                     setActiveLayerId(null)
                     layerCanvasesRef.current.clear()
                     nextColorIdx.current = 0
                     setTextAnnotations([])
                     setMode('edit')
+                    // Canvas will be setup by the imageNaturalSize useEffect
                   }
                   img.src = resultUrl
                   setImageUrl(resultUrl)
