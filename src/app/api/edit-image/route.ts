@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       referenceImages = [],   // extra reference images
       mode = 'edit',
       historyId: clientHistoryId, // optional client-provided historyId for task tracking
+      pageName,               // page name for history filtering (app/image, app/edit, app/history)
     } = body as {
       compositeDataUrl?: string
       cleanOriginalDataUrl?: string
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
       referenceImages?: string[]
       mode?: 'edit' | 'relight' | 'prompt'
       historyId?: string
+      pageName?: string
     }
 
     if (!model || !combinedPrompt) {
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // ── Insert a 'processing' record immediately so history page sees it ───────
     // Use pageName from request (based on source context) or default to 'app/edit'
-    const pageName = typeof req.pageName === 'string' ? req.pageName : 'app/edit'
+    const pageNameToUse = typeof pageName === 'string' && pageName ? pageName : 'app/edit'
 
     await supabase.from('history_items').insert({
       id: historyId,
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
       task_id: taskId,
       output_urls: [],
       model_name: model,
-      page_name: pageName,
+      page_name: pageNameToUse,
       status: 'processing',
       generation_time_ms: null,
       settings: { model, creditCost, mode },

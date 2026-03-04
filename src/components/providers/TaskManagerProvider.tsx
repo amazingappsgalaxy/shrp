@@ -22,12 +22,13 @@ interface WatchedTask {
   addedAt: number
   status: TaskStatus
   notified: boolean
+  errorMessage?: string  // Store error message when task fails
 }
 
 interface TaskManagerContextValue {
   addWatchedTask: (historyId: string, label?: string) => void
   resolveTask: (historyId: string) => void   // immediately mark as completed (API returned)
-  failTask: (historyId: string) => void       // immediately mark as failed
+  failTask: (historyId: string, errorMessage?: string) => void  // immediately mark as failed with optional error
   dismissTask: (historyId: string) => void
 }
 
@@ -198,13 +199,13 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
     })
   }, [])
 
-  // Immediately mark a task as failed
-  const failTask = useCallback((historyId: string) => {
+  // Immediately mark a task as failed with optional error message
+  const failTask = useCallback((historyId: string, errorMessage?: string) => {
     setTasks(prev => {
       const task = prev.get(historyId)
       if (!task || task.status !== 'processing') return prev
       const next = new Map(prev)
-      next.set(historyId, { ...task, status: 'failed' })
+      next.set(historyId, { ...task, status: 'failed', errorMessage })
       return next
     })
   }, [])
@@ -223,7 +224,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
     status: t.status === 'completed' ? 'success' as const
           : t.status === 'failed'    ? 'error' as const
           :                            'loading' as const,
-    message: t.label,
+    message: t.status === 'failed' && t.errorMessage ? t.errorMessage : t.label,  // Show error message for failed tasks
   }))
 
   return (

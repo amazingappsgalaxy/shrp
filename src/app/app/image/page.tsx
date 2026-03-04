@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react"
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -165,6 +165,19 @@ function ImageModal({
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+
+  // Memoize callbacks to prevent infinite re-renders in EditModal
+  const handleGenerationStart = useCallback((historyId: string, mode: string) => {
+    if (onAddLoadingImage) {
+      onAddLoadingImage(historyId, mode)
+    }
+  }, [onAddLoadingImage])
+
+  const handleGenerationComplete = useCallback((imageUrl: string, historyId: string, mode: string, prompt: string) => {
+    if (onAddImage) {
+      onAddImage(imageUrl, historyId, mode, prompt)
+    }
+  }, [onAddImage])
 
   // Reset zoom/pan when navigating
   useEffect(() => {
@@ -349,19 +362,8 @@ function ImageModal({
           onClose={() => setIsEditModalOpen(false)}
           initialImageUrl={img.url}
           sourceContext="image-page"
-          onGenerationStart={(historyId, mode) => {
-            // Add loading placeholder to canvas grid
-            if (onAddLoadingImage) {
-              onAddLoadingImage(historyId, mode)
-            }
-          }}
-          onGenerationComplete={(imageUrl, historyId, mode, prompt) => {
-            // Replace loading placeholder with actual image
-            if (onAddImage) {
-              onAddImage(imageUrl, historyId, mode, prompt)
-            }
-            // DON'T close modal - user can see results and continue editing
-          }}
+          onGenerationStart={handleGenerationStart}
+          onGenerationComplete={handleGenerationComplete}
         />
       )}
     </div>,
@@ -517,11 +519,19 @@ function parseHistItems(items: HistoryItem[]): { images: GridImage[]; pendingIds
     const rawAspect = item.settings?.aspect_ratio
     const aspect: Aspect = (ASPECTS as readonly string[]).includes(rawAspect ?? '') ? rawAspect as Aspect : '1:1'
     if (item.status === 'completed') {
-      for (const out of item.outputUrls) {
+      item.outputUrls.forEach((out, index) => {
         const url = typeof out === 'string' ? out : out.url
-        if (!url) continue
-        images.push({ id: `hist-${item.id}-${url.slice(-12)}`, url, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined })
-      }
+        if (!url) return
+        // Use index to ensure unique keys even if URLs are similar
+        images.push({
+          id: `hist-${item.id}-${index}`,
+          url,
+          aspect,
+          loading: false,
+          prompt: item.settings?.prompt,
+          model: item.modelName ?? undefined
+        })
+      })
     } else if (item.status === 'processing') {
       pendingIds.push(item.id)
       images.push({ id: `hist-proc-${item.id}`, url: '', aspect, loading: true })

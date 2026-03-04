@@ -33,16 +33,25 @@ function SquareTile({ task, onClose }: { task: TaskItem; onClose: () => void }) 
   const R = 9
   const circ = 2 * Math.PI * R  // ~56.5
 
+  // Expand width when there's an error message to show
+  const hasErrorMessage = isError && task.message
+  const tileWidth = hasErrorMessage ? 280 : 48
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.7, y: 8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        width: tileWidth  // Animate width change
+      }}
       exit={{ opacity: 0, scale: 0.7, y: 8 }}
       transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
-      className="relative flex items-center justify-center rounded-2xl overflow-hidden"
+      className="relative flex items-center rounded-2xl overflow-hidden"
       style={{
-        width: 48,
+        minWidth: 48,
         height: 48,
         background: isSuccess
           ? 'radial-gradient(circle at 50% 50%, #0a1a0f 0%, #0c0c0c 100%)'
@@ -54,9 +63,12 @@ function SquareTile({ task, onClose }: { task: TaskItem; onClose: () => void }) 
           ? '0 0 14px rgba(34,197,94,0.15), 0 4px 24px rgba(0,0,0,0.9)'
           : '0 4px 24px rgba(0,0,0,0.9)',
         cursor: (isError || isSuccess) ? 'pointer' : 'default',
+        padding: hasErrorMessage ? '0 12px' : '0',
+        gap: hasErrorMessage ? '10px' : '0',
+        justifyContent: hasErrorMessage ? 'flex-start' : 'center',
       }}
       onClick={(isError || isSuccess) ? onClose : undefined}
-      title={isError ? 'Dismiss' : isSuccess ? 'Dismiss' : undefined}
+      title={isError && !hasErrorMessage ? 'Failed - click to dismiss' : isSuccess ? 'Success - click to dismiss' : undefined}
     >
       {/* Loading ring */}
       {isLoading && (
@@ -104,12 +116,25 @@ function SquareTile({ task, onClose }: { task: TaskItem; onClose: () => void }) 
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1, x: [0, -3, 3, -2, 2, 0] }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
+          style={{ flexShrink: 0 }}
         >
           <circle cx="12" cy="12" r="9" fill="none" stroke="#ff4444" strokeWidth="1.5"
             opacity={0.5} />
           <path d="M9 9l6 6M15 9l-6 6" stroke="#ff4444" strokeWidth="2"
             strokeLinecap="round" />
         </motion.svg>
+      )}
+
+      {/* Error message text - shown when tile expands */}
+      {hasErrorMessage && (
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="flex-1 min-w-0 text-[11px] text-red-400 leading-tight pr-2"
+        >
+          {task.message}
+        </motion.div>
       )}
     </motion.div>
   )
@@ -178,13 +203,16 @@ function PillTile({ task, onClose }: { task: TaskItem; onClose: () => void }) {
 
       {/* Label + progress bar */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="mb-1.5">
           <span className="text-[10px] font-black uppercase tracking-widest"
             style={{ color: isError ? '#ff5555' : isSuccess ? '#FFFF00' : '#888888' }}>
             {isLoading ? 'Generating…' : isSuccess ? 'Done' : 'Failed'}
           </span>
+          {/* Error message - full width, bigger, more visible */}
           {isError && task.message && (
-            <span className="text-[9px] text-red-400/60 truncate ml-2 max-w-[120px]">{task.message}</span>
+            <div className="text-[11px] text-red-400 mt-1 leading-tight">
+              {task.message}
+            </div>
           )}
         </div>
         <div className="h-[2px] rounded-full bg-[#1e1e1e] overflow-hidden">

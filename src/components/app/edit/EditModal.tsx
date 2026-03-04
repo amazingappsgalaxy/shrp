@@ -1661,7 +1661,7 @@ export function EditModal({
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Generation failed'
-        failTask(historyId)
+        failTask(historyId, msg)  // Pass error message to task manager
         setError(msg)
       } finally {
         setGeneratingCount(c => c - 1)
