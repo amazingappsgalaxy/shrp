@@ -731,7 +731,6 @@ function VideoPageContent() {
   const [genDuration, setGenDuration] = useState(5)
   const [genAudio, setGenAudio] = useState(false)
   const [videoQuality, setVideoQuality] = useState<'720p' | '1080p'>('720p')
-  const [cfgScale, setCfgScale] = useState(0.5)
   const [cameraFixed, setCameraFixed] = useState(false)
   const [seed, setSeed] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -978,7 +977,7 @@ function VideoPageContent() {
           body.quality = videoQuality
           const mp: Record<string, unknown> = {}
 
-          if (isKlingModel) mp.cfg_scale = cfgScale
+
           if (Object.keys(mp).length > 0) body.model_params = mp
           // Multi-shot
           if (isKlingModel && multiShot && selectedModel?.controls?.multiShot) {
@@ -1206,7 +1205,7 @@ function VideoPageContent() {
                     onChange={e => setPrompt(e.target.value)}
                     placeholder="A sweeping cinematic shot of mountains at golden hour, camera slowly rising…"
                     rows={4}
-                    className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
+                    className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
                   />
                 </div>
 
@@ -1338,7 +1337,7 @@ function VideoPageContent() {
                                       onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
                                       placeholder={`Scene ${i + 1}…`}
                                       rows={2}
-                                      className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/25 outline-none resize-none leading-relaxed"
+                                      className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/40 outline-none resize-none leading-relaxed"
                                     />
                                     <div className="px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-3">
                                       <div className="flex-1">
@@ -1385,7 +1384,7 @@ function VideoPageContent() {
                                         value={elementIds[idx] ?? ''}
                                         onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
                                         placeholder={`ID ${idx + 1}`}
-                                        className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/25 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                                        className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
                                       />
                                     ))}
                                   </div>
@@ -1400,24 +1399,6 @@ function VideoPageContent() {
                   </div>
                 )}
 
-                {/* Kling: Prompt Adherence */}
-                {isKlingModel && (
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Prompt Adherence</span>
-                        <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{cfgScale.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between mt-0.5">
-                        <span className="text-[9px] font-mono text-white/50">Creative</span>
-                        <span className="text-[9px] font-mono text-white/50">Strict</span>
-                      </div>
-                    </div>
-                    <div className="shrink-0" style={{ width: 160 }}>
-                      <Slider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} segments={16} />
-                    </div>
-                  </div>
-                )}
 
                 {/* Veo: enhance prompt + upsample */}
                 {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
@@ -1474,7 +1455,7 @@ function VideoPageContent() {
                             value={seed}
                             onChange={e => setSeed(e.target.value)}
                             placeholder="Random"
-                            className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <p className="text-[9px] text-white/50">Same seed reproduces identical results</p>
                         </div>
@@ -1495,7 +1476,7 @@ function VideoPageContent() {
                       onChange={e => setGenNegPrompt(e.target.value)}
                       placeholder="Describe what to avoid…"
                       rows={2}
-                      className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
+                      className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
                     />
                   )}
                 </div>
@@ -1591,7 +1572,7 @@ function VideoPageContent() {
                     : 'A person walking gracefully through a forest…'
                 }
                 rows={5}
-                className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
+                className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
               />
             </div>
           )}
