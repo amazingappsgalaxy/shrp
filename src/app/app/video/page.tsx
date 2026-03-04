@@ -1212,15 +1212,19 @@ function VideoPageContent() {
 
                 {/* Kling: Duration */}
                 {isKlingModel && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                      <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                        <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
+                      </div>
+                      <div className="flex justify-between mt-0.5">
+                        <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
+                        <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
+                      </div>
                     </div>
-                    <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} />
-                    <div className="flex justify-between mt-1.5">
-                      <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
-                      <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
+                    <div className="shrink-0" style={{ width: 160 }}>
+                      <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} />
                     </div>
                   </div>
                 )}
@@ -1336,13 +1340,20 @@ function VideoPageContent() {
                                       rows={2}
                                       className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/25 outline-none resize-none leading-relaxed"
                                     />
-                                    <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
-                                      <IconClock className="w-3 h-3 text-white/45 shrink-0" />
-                                      <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
+                                    <div className="px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-3">
                                       <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Duration</span>
+                                          <span className="font-mono text-[9px] font-bold text-[#FFFF00]">{shotDur}s</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-[8px] font-mono text-white/35">{durationMin}s</span>
+                                          <span className="text-[8px] font-mono text-white/35">{durationMax}s</span>
+                                        </div>
+                                      </div>
+                                      <div className="shrink-0" style={{ width: 110 }}>
                                         <Slider min={durationMin} max={durationMax} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
                                       </div>
-                                      <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
                                     </div>
                                   </div>
                                 )
