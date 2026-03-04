@@ -35,6 +35,8 @@ export interface ModelControls {
   multiShot?: boolean
   /** Whether the model supports element_list (Kling subject consistency) */
   elementList?: boolean
+  /** Whether the model supports keep_original_sound (preserve input video audio) */
+  keepOriginalSound?: boolean
 }
 
 export interface ModelConfig {
@@ -446,6 +448,40 @@ const VIDEO_MODELS: ModelConfig[] = [
   },
   // ── Video editing models ───────────────────────────────────────────────────
   {
+    id: 'kling-o3-video-edit',
+    label: 'Kling O3 Edit',
+    type: 'video',
+    description: 'AI-powered video editing — transform existing videos with natural language instructions',
+    credits: 280,
+    costUsd: 0.28,
+    tag: 'Edit',
+    controls: {
+      multiShot: true,
+      elementList: true,
+      keepOriginalSound: true,
+    },
+    providers: ['evolink'],
+  },
+  // ── Reference-to-video models ──────────────────────────────────────────────
+  {
+    id: 'kling-o3-reference-to-video',
+    label: 'Kling O3 Ref2Vid',
+    type: 'video',
+    description: 'Generate new videos guided by a reference video\'s style and motion using Kling O3',
+    credits: 350,
+    costUsd: 0.35,
+    tag: 'Motion',
+    controls: {
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      durations: ['3', '5', '8', '10'],
+      multiShot: true,
+      elementList: true,
+      keepOriginalSound: true,
+    },
+    providers: ['evolink'],
+  },
+  // ── Legacy models (kept for backwards compatibility) ───────────────────────
+  {
     id: 'kling-effects',
     label: 'Kling Effects',
     type: 'video',
@@ -458,7 +494,6 @@ const VIDEO_MODELS: ModelConfig[] = [
     },
     providers: ['evolink'],
   },
-  // ── Motion transfer models ─────────────────────────────────────────────────
   {
     id: 'kling-video-motion-control',
     label: 'Kling Motion Control',

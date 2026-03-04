@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
     element_list?: number[]
     enhance_prompt?: boolean
     enable_upsample?: boolean
+    keep_original_sound?: boolean
   }
   try {
     body = await request.json()
@@ -117,13 +118,14 @@ export async function POST(request: NextRequest) {
     element_list,
     enhance_prompt,
     enable_upsample,
+    keep_original_sound,
   } = body
 
   if (!modelId) {
     return NextResponse.json({ error: 'model is required' }, { status: 400 })
   }
-  // For motion tab, prompt is optional (motion patterns come from source/target videos)
-  if (tab !== 'motion' && !prompt?.trim()) {
+  // Prompt is optional for motion and edit tabs (video input defines the content)
+  if (tab === 'generate' && !prompt?.trim()) {
     return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
   }
   // Normalize prompt to string (may be undefined for motion tab)
@@ -235,9 +237,15 @@ export async function POST(request: NextRequest) {
         sound: audio_sync ? 'on' : 'off',
         negative_prompt: negative_prompt,
         quality: quality,
-        // image_start/image_end for I2V models
+        // image_start/image_end for I2V models (kling-3, kling-o3)
         ...(firstFrameUrl ? { image_start: firstFrameUrl } : {}),
         ...(endFrameUrl ? { image_end: endFrameUrl } : {}),
+        // video_url for edit/reference-to-video models
+        ...(videoUrl ? { video_url: videoUrl } : {}),
+        // keep_original_sound for edit/reference-to-video models
+        ...(keep_original_sound !== undefined ? { keep_original_sound } : {}),
+        // image_urls: style reference images (kling-o3-reference-to-video)
+        ...(targetUrl ? { image_urls: [targetUrl] } : {}),
         ...(Object.keys(evolinkModelParams).length > 0 ? { model_params: evolinkModelParams } : {}),
       }
       const result = await provider.submitTask(req)

@@ -37,6 +37,12 @@ export interface EvolinkVideoRequest {
   image_start?: string
   /** End-frame image URL for image-to-video (Kling I2V: image_end) */
   image_end?: string
+  /** Reference or source video URL (kling-o3-video-edit, kling-o3-reference-to-video) */
+  video_url?: string
+  /** Whether to preserve original audio from input video */
+  keep_original_sound?: boolean
+  /** Optional reference image URLs for style/scene guidance */
+  image_urls?: string[]
 }
 
 export type EvolinkTaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | string

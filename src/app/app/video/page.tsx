@@ -37,10 +37,10 @@ interface VideoResult {
 
 const ALL_VIDEO_MODELS = getVideoModels()
 const GENERATE_MODELS = ALL_VIDEO_MODELS.filter(
-  m => !['kling-effects', 'kling-video-motion-control'].includes(m.id)
+  m => !['kling-effects', 'kling-video-motion-control', 'kling-o3-video-edit', 'kling-o3-reference-to-video'].includes(m.id)
 )
-const EDIT_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-effects')
-const MOTION_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-video-motion-control')
+const EDIT_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-o3-video-edit')
+const MOTION_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-o3-reference-to-video')
 
 // Deduplicate by variantGroupId — only show the default variant as the group representative
 function dedupeVariants(models: ModelConfig[]): ModelConfig[] {
@@ -398,7 +398,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
       <div
         className={cn(
           "relative rounded-lg border overflow-hidden transition-all cursor-pointer",
-          "aspect-video",
+          "h-28",
           dragging ? "border-[#FFFF00]/50 bg-[#1a1a00]" : "",
           preview
             ? "border-[#333333] bg-black"
@@ -477,7 +477,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
       <div
         className={cn(
           "relative rounded-lg border overflow-hidden cursor-pointer transition-all group",
-          "aspect-video",
+          "h-24",
           preview ? "border-[#333333] bg-black" : "border-dashed border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#0a0a0a]"
         )}
         onClick={() => !preview && inputRef.current?.click()}
@@ -753,6 +753,8 @@ function VideoPageContent() {
   const [shotPrompts, setShotPrompts] = useState<string[]>(['', ''])
   const [shotDurations, setShotDurations] = useState<number[]>([5, 5])
   const [elementIds, setElementIds] = useState<string[]>(['', '', ''])
+  // Edit/Motion: keep original sound from uploaded video
+  const [keepOriginalSound, setKeepOriginalSound] = useState(true)
 
   // Resolve the actual model ID — for variant groups (Veo 3.1), pick by veoVariant
   const resolvedGenerateModelId = useMemo(() => {
@@ -953,8 +955,8 @@ function VideoPageContent() {
       }
     }
     if (activeTab === 'motion') {
-      if (!motionSourceCdnUrl) { showToast('Please upload a motion source video.'); return }
-      if (!motionTargetCdnUrl) { showToast('Please upload a target image or video.'); return }
+      if (!motionSourceCdnUrl) { showToast('Please upload a reference video.'); return }
+      // Style reference image is optional for kling-o3-reference-to-video
     }
 
     setIsSubmitting(true)
@@ -1006,11 +1008,48 @@ function VideoPageContent() {
           if (enableUpsample) body.enable_upsample = true
         }
       } else if (activeTab === 'edit') {
-        body.aspect_ratio = editAspect
         body.video_url = editVideoCdnUrl
+        body.keep_original_sound = keepOriginalSound
+        if (isKlingO3VideoEdit) {
+          body.quality = videoQuality
+          if (selectedModel?.controls?.multiShot && multiShot) {
+            body.multi_shot = true
+            body.shot_type = 'customize'
+            if (shotType === 'customize') {
+              body.multi_prompt = shotPrompts.map((p, i) => ({
+                index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
+              }))
+            }
+          }
+          if (selectedModel?.controls?.elementList) {
+            const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
+            if (activeElements.length > 0) body.element_list = activeElements
+          }
+        } else {
+          body.aspect_ratio = editAspect
+        }
       } else if (activeTab === 'motion') {
         body.video_url = motionSourceCdnUrl
-        body.target_url = motionTargetCdnUrl
+        body.keep_original_sound = keepOriginalSound
+        if (motionTargetCdnUrl) body.target_url = motionTargetCdnUrl
+        if (isKlingO3RefToVideo) {
+          body.quality = videoQuality
+          body.duration = genDuration
+          body.aspect_ratio = genAspect
+          if (selectedModel?.controls?.multiShot && multiShot) {
+            body.multi_shot = true
+            body.shot_type = 'customize'
+            if (shotType === 'customize') {
+              body.multi_prompt = shotPrompts.map((p, i) => ({
+                index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
+              }))
+            }
+          }
+          if (selectedModel?.controls?.elementList) {
+            const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
+            if (activeElements.length > 0) body.element_list = activeElements
+          }
+        }
       }
 
       const res = await fetch('/api/generate-video', {
@@ -1078,9 +1117,9 @@ function VideoPageContent() {
   }
 
   const ctaDisabled = isSubmitting
-    || (activeTab !== 'motion' && !prompt.trim())
+    || (activeTab === 'generate' && !prompt.trim())
     || (activeTab === 'edit' && !editVideoCdnUrl && !editVideoPreview)
-    || (activeTab === 'motion' && (!motionSourcePreview || !motionTargetPreview))
+    || (activeTab === 'motion' && !motionSourcePreview)
 
   if (isLoading) return <ElegantLoading message="Initializing Video Studio…" />
   if (!user && !isDemo) {
@@ -1095,9 +1134,11 @@ function VideoPageContent() {
   const hasAudio = selectedModel?.controls?.audioSync === true
   const hasFirstFrame = selectedModel?.controls?.firstFrameImage === true
   const hasEndFrame = selectedModel?.controls?.endFrameImage === true
-  const isKlingModel = selectedModelId.startsWith('kling')
+  const isKlingModel = selectedModelId.startsWith('kling') && activeTab === 'generate'
   const isKlingO3 = selectedModelId === 'kling-o3'   // element_list, customize-only, no neg-prompt
   const isKlingV3 = selectedModelId === 'kling-3'    // intelligence shot type, negative_prompt
+  const isKlingO3VideoEdit = selectedModelId === 'kling-o3-video-edit'
+  const isKlingO3RefToVideo = selectedModelId === 'kling-o3-reference-to-video'
   const isEvolinkModel = selectedModel?.providers[0] === 'evolink'
   const isSeedanceModel = selectedModelId.startsWith('doubao')
   const isVeoModel = selectedModelId.startsWith('veo')
@@ -1149,16 +1190,16 @@ function VideoPageContent() {
                 <SectionLabel>Model</SectionLabel>
                 <ModelDropdown groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
                 {isVeoVariantGroup && veoVariants.length > 0 && (
-                  <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-md gap-0.5 mt-3">
+                  <div className="flex flex-wrap gap-1.5 mt-3">
                     {veoVariants.map(v => (
                       <button
                         key={v.variantTier}
                         onClick={() => setVeoVariant(v.variantTier!)}
                         className={cn(
-                          "flex-1 py-2 text-[11px] font-black rounded transition-colors",
+                          "px-3 py-1.5 text-[11px] font-black rounded-md transition-colors",
                           veoVariant === v.variantTier
                             ? "bg-white/[0.09] text-[#FFFF00]"
-                            : "text-white/55 hover:text-white"
+                            : "bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.07]"
                         )}
                       >
                         {v.variantTier}
@@ -1247,13 +1288,64 @@ function VideoPageContent() {
                   </div>
                 )}
 
-                {/* Non-Kling: Aspect + Duration + Audio */}
+                {/* Non-Kling: Aspect (+ model-specific toggles) + Duration + Audio */}
                 {!isKlingModel && (
                   <>
-                    <div>
-                      <SectionLabel>Aspect Ratio</SectionLabel>
-                      <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
-                    </div>
+                    {/* Veo: Aspect + Enhance + Upsample in 3-col grid */}
+                    {isVeoModel && (
+                      <div className={cn("grid gap-2.5",
+                        (selectedModel?.controls?.enhancePrompt && selectedModel?.controls?.enableUpsample) ? "grid-cols-3"
+                          : (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) ? "grid-cols-2"
+                          : "grid-cols-1"
+                      )}>
+                        <div>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
+                          <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} compact={true} />
+                        </div>
+                        {selectedModel?.controls?.enhancePrompt && (
+                          <div>
+                            <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Enhance</span>
+                            <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                              <IconSparkles className="w-3.5 h-3.5 text-white/55" />
+                              <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
+                            </div>
+                          </div>
+                        )}
+                        {selectedModel?.controls?.enableUpsample && (
+                          <div>
+                            <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">1080p</span>
+                            <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                              <IconUpload className="w-3.5 h-3.5 text-white/55" />
+                              <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Seedance: Aspect + Lock Camera in 2-col grid */}
+                    {isSeedanceModel && (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
+                          <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} compact={true} />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Camera</span>
+                          <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                            <IconCamera className="w-3.5 h-3.5 text-white/55" />
+                            <Toggle checked={cameraFixed} onChange={setCameraFixed} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Sora and others: full-width aspect dropdown */}
+                    {!isVeoModel && !isSeedanceModel && (
+                      <div>
+                        <SectionLabel>Aspect Ratio</SectionLabel>
+                        <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
+                      </div>
+                    )}
+                    {/* Duration row */}
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
@@ -1263,6 +1355,7 @@ function VideoPageContent() {
                       </div>
                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{genDuration}s</span>
                     </div>
+                    {/* Audio toggle */}
                     {hasAudio && (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1381,35 +1474,6 @@ function VideoPageContent() {
                 )}
 
 
-                {/* Veo: enhance prompt + upsample */}
-                {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
-                  <div className="space-y-3">
-                    {selectedModel?.controls?.enhancePrompt && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Enhance Prompt</span>
-                        <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
-                      </div>
-                    )}
-                    {selectedModel?.controls?.enableUpsample && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Upsample to 1080p</span>
-                        <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Seedance: Lock Camera */}
-                {isSeedanceModel && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <IconCamera className="w-3.5 h-3.5 text-white/55" />
-                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Lock Camera</span>
-                    </div>
-                    <Toggle checked={cameraFixed} onChange={setCameraFixed} />
-                  </div>
-                )}
-
                 {/* Advanced: seed + negative prompt */}
                 <div className="pt-1 border-t border-white/[0.04] space-y-3">
                   {hasSeed && (
@@ -1466,11 +1530,11 @@ function VideoPageContent() {
               <div className="px-5 py-5 border-b border-white/5">
                 <div className="flex items-center gap-2 mb-1">
                   <IconWand className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">Kling Effects</span>
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Kling O3 Edit</span>
                   <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Edit'])}>Edit</span>
                 </div>
                 <p className="text-[10px] text-white/55 leading-relaxed mt-1">
-                  Apply AI visual transformations to existing videos. Upload your clip, then describe the effect.
+                  AI-powered video editing — transform existing videos with natural language instructions.
                 </p>
               </div>
 
@@ -1480,15 +1544,27 @@ function VideoPageContent() {
                   label=""
                   preview={editVideoPreview}
                   uploading={editVideoUploading}
-                  hint="MP4, WebM, MOV"
+                  hint="MP4 / MOV · ≤200MB · ≥3s"
                   onFile={(f) => uploadVideo(f, setEditVideoPreview, setEditVideoCdnUrl, setEditVideoUploading)}
                   onClear={() => { setEditVideoPreview(null); setEditVideoCdnUrl(null) }}
                 />
               </div>
 
+              {/* Edit settings: Quality + Keep Sound */}
               <div className="px-5 py-4 border-b border-white/[0.05]">
-                <SectionLabel>Output Aspect</SectionLabel>
-                <AspectDropdown ratios={['16:9', '9:16', '1:1']} selected={editAspect} onSelect={setEditAspect} />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Quality</span>
+                    <CompactDropdown value={videoQuality} options={['720p', '1080p']} onChange={v => setVideoQuality(v as '720p' | '1080p')} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Keep Audio</span>
+                    <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                      <IconVolume className="w-3.5 h-3.5 text-white/55" />
+                      <Toggle checked={keepOriginalSound} onChange={setKeepOriginalSound} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -1499,18 +1575,18 @@ function VideoPageContent() {
               <div className="px-5 py-5 border-b border-white/5">
                 <div className="flex items-center gap-2 mb-1">
                   <IconTransfer className="w-4 h-4 text-teal-400" />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">Motion Control</span>
-                  <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Motion'])}>Kling</span>
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Reference to Video</span>
+                  <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Motion'])}>Kling O3</span>
                 </div>
                 <p className="text-[10px] text-white/55 leading-relaxed mt-1">
-                  Transfer motion from a reference video to your target subject.
+                  Generate new videos guided by a reference video's style and motion.
                 </p>
               </div>
 
               <div className="px-5 py-5 border-b border-white/5">
                 <VideoUploadBox
-                  label="Motion Source"
-                  hint="Reference motion"
+                  label="Reference Video"
+                  hint="MP4 / MOV · ≥3s · Required"
                   preview={motionSourcePreview}
                   uploading={motionSourceUploading}
                   onFile={(f) => uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)}
@@ -1518,15 +1594,46 @@ function VideoPageContent() {
                 />
               </div>
 
-              <div className="px-5 py-5 border-b border-white/5">
+              <div className="px-5 py-4 border-b border-white/5">
                 <ImageUploadBox
-                  label="Target Subject"
-                  hint="Target subject"
+                  label="Style Reference"
+                  optional
+                  hint="Optional image for style guidance"
                   preview={motionTargetPreview}
                   uploading={motionTargetUploading}
                   onFile={(f) => uploadImage(f, setMotionTargetPreview, setMotionTargetCdnUrl, setMotionTargetUploading)}
                   onClear={() => { setMotionTargetPreview(null); setMotionTargetCdnUrl(null) }}
                 />
+              </div>
+
+              {/* Motion settings: Aspect + Duration + Quality + Keep Sound */}
+              <div className="px-5 py-4 border-b border-white/[0.05] space-y-4">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
+                    <AspectDropdown ratios={['16:9', '9:16', '1:1']} selected={genAspect} onSelect={setGenAspect} compact={true} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Quality</span>
+                    <CompactDropdown value={videoQuality} options={['720p', '1080p']} onChange={v => setVideoQuality(v as '720p' | '1080p')} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Keep Audio</span>
+                    <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                      <IconVolume className="w-3.5 h-3.5 text-white/55" />
+                      <Toggle checked={keepOriginalSound} onChange={setKeepOriginalSound} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                  </div>
+                  <div className="shrink-0" style={{ width: 160 }}>
+                    <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={8} />
+                  </div>
+                  <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{Math.min(genDuration, 10)}s</span>
+                </div>
               </div>
             </>
           )}
@@ -1535,18 +1642,18 @@ function VideoPageContent() {
           {activeTab !== 'generate' && (
             <div className="px-5 py-5 flex-1">
               <SectionLabel>
-                {activeTab === 'edit' ? 'Effect Description' : 'Motion Guidance'}
-                {activeTab === 'motion' && <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span>}
+                {activeTab === 'edit' ? 'Edit Instructions' : 'Guidance Prompt'}
+                <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span>
               </SectionLabel>
               <textarea
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 placeholder={
                   activeTab === 'edit'
-                    ? 'Apply a dramatic film grain effect with vintage color grading and light leaks…'
-                    : 'A person walking gracefully through a forest…'
+                    ? 'Apply warm cinematic color grading with smooth transitions…'
+                    : 'Maintain the same motion style, switch to a snowy background…'
                 }
-                rows={5}
+                rows={4}
                 className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
               />
             </div>
