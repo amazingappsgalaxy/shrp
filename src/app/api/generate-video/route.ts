@@ -293,6 +293,7 @@ export async function POST(request: NextRequest) {
         model: modelId,
         prompt: normalizedPrompt,
         ...(aspect_ratio ? { aspect_ratio } : {}),
+        ...(quality ? { quality } : {}),
         ...(duration !== undefined ? { duration } : {}),
         ...(audio_sync !== undefined ? { audio_sync } : {}),
         ...(negative_prompt ? { negative_prompt } : {}),

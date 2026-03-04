@@ -132,6 +132,20 @@ async function processVideoTask(
       }
     }
 
+    if (pollStatus === 'SUCCESS' && !outputUrl) {
+      console.error(`❌ process-pending video: provider reported SUCCESS but returned no output URL for task=${task.id}`)
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...settings, _failureReason: 'Video generation completed but returned no output URL' },
+        })
+        .eq('id', task.id)
+        .eq('status', 'processing')
+      return 'failed'
+    }
+
     if (pollStatus === 'SUCCESS' && outputUrl) {
       const generationTimeMs = Date.now() - new Date(task.created_at).getTime()
 

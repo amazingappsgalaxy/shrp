@@ -1092,6 +1092,18 @@ export function EditModal({
           const ctx = canvas.getContext('2d')
           ctx?.drawImage(img, 0, 0)
         }
+        // Clear all editor state when loading initial image
+        setLayers([])
+        setTextAnnotations([])
+        layerCanvasesRef.current.clear()
+        nextColorIdx.current = 0
+        setActiveLayerId(null)
+        setMode('edit')
+        setActiveTool('brush')
+      }
+      img.onerror = () => {
+        console.error('Failed to load initial image:', initialImageUrl)
+        setError('Failed to load image. Please try again.')
       }
       img.src = initialImageUrl
     }
@@ -1106,6 +1118,31 @@ export function EditModal({
       }
     }
     return undefined
+  }, [isOpen, sourceContext])
+
+  // ── Cleanup state when modal closes
+  useEffect(() => {
+    if (!isOpen && sourceContext !== 'standalone') {
+      // Reset state when modal closes to prevent stale data on next open
+      setImageUrl(null)
+      setImageNaturalSize(null)
+      setDisplaySize(null)
+      setLayers([])
+      setTextAnnotations([])
+      setActiveLayerId(null)
+      setMode('edit')
+      setActiveTool('brush')
+      setResults([])
+      setError(null)
+      setBrushSize(28)
+      layerCanvasesRef.current.clear()
+      nextColorIdx.current = 0
+      bgImageRef.current = null
+      if (displayCanvasRef.current) {
+        const ctx = displayCanvasRef.current.getContext('2d')
+        ctx?.clearRect(0, 0, displayCanvasRef.current.width, displayCanvasRef.current.height)
+      }
+    }
   }, [isOpen, sourceContext])
 
   // ── Escape key handler for modal mode

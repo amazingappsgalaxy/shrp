@@ -395,6 +395,7 @@ export class SynvowProvider {
       prompt: req.prompt,
     }
     if (req.aspect_ratio) body.aspect_ratio = req.aspect_ratio
+    if (req.quality) body.quality = req.quality
     if (req.duration !== undefined) body.duration = req.duration
     if (req.audio_sync !== undefined) body.audio_sync = req.audio_sync
     if (req.negative_prompt) body.negative_prompt = req.negative_prompt
@@ -408,16 +409,19 @@ export class SynvowProvider {
     if (req.video_url) body.video_url = req.video_url
     if (req.target_url) body.target_url = req.target_url
 
-    if (req.images?.length) {
-      body.images = req.images.map((img) =>
-        img.type === 'url' ? img.data : `data:image/jpeg;base64,${img.data}`
-      )
-    }
+    // Build images array: first_frame takes priority as the leading image;
+    // additional reference images (req.images) are appended after it.
+    const imagesList: string[] = []
     if (req.first_frame) {
-      // first_frame is either a CDN URL or base64 — pass directly if URL, encode otherwise
       const isUrl = req.first_frame.startsWith('http')
-      body.images = [isUrl ? req.first_frame : `data:image/jpeg;base64,${req.first_frame}`]
+      imagesList.push(isUrl ? req.first_frame : `data:image/jpeg;base64,${req.first_frame}`)
     }
+    if (req.images?.length) {
+      for (const img of req.images) {
+        imagesList.push(img.type === 'url' ? img.data : `data:image/jpeg;base64,${img.data}`)
+      }
+    }
+    if (imagesList.length > 0) body.images = imagesList
 
     const res = await fetch(endpoint, {
       method: 'POST',

@@ -95,6 +95,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (pollStatus === 'SUCCESS' && !outputUrl) {
+      // Provider reported success but returned no URL — treat as failure
+      console.error(`❌ video-poll: provider reported SUCCESS but returned no output URL for task=${taskId}`)
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...settings, _failureReason: 'Video generation completed but returned no output URL' },
+        })
+        .eq('id', taskId)
+        .eq('status', 'processing')
+      return NextResponse.json({ status: 'failed', error: 'Video generation returned no output' })
+    }
+
     if (pollStatus === 'SUCCESS' && outputUrl) {
       const generationTimeMs = Date.now() - new Date(item.created_at).getTime()
 
