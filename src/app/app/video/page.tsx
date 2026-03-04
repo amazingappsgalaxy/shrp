@@ -772,6 +772,9 @@ function VideoPageContent() {
   const [editVideoPreview, setEditVideoPreview] = useState<string | null>(null)
   const [editVideoCdnUrl, setEditVideoCdnUrl] = useState<string | null>(null)
   const [editVideoUploading, setEditVideoUploading] = useState(false)
+  const [editRefImagePreview, setEditRefImagePreview] = useState<string | null>(null)
+  const [editRefImageCdnUrl, setEditRefImageCdnUrl] = useState<string | null>(null)
+  const [editRefImageUploading, setEditRefImageUploading] = useState(false)
   const [editAspect, setEditAspect] = useState('16:9')
 
   // Motion settings
@@ -1010,6 +1013,7 @@ function VideoPageContent() {
       } else if (activeTab === 'edit') {
         body.video_url = editVideoCdnUrl
         body.keep_original_sound = keepOriginalSound
+        if (editRefImageCdnUrl) body.target_url = editRefImageCdnUrl
         if (isKlingO3VideoEdit) {
           body.quality = videoQuality
           if (selectedModel?.controls?.multiShot && multiShot) {
@@ -1118,8 +1122,8 @@ function VideoPageContent() {
 
   const ctaDisabled = isSubmitting
     || (activeTab === 'generate' && !prompt.trim())
-    || (activeTab === 'edit' && !editVideoCdnUrl && !editVideoPreview)
-    || (activeTab === 'motion' && !motionSourcePreview)
+    || (activeTab === 'edit' && (!editVideoCdnUrl || editVideoUploading))
+    || (activeTab === 'motion' && (!motionSourceCdnUrl || motionSourceUploading))
 
   if (isLoading) return <ElegantLoading message="Initializing Video Studio…" />
   if (!user && !isDemo) {
@@ -1547,6 +1551,18 @@ function VideoPageContent() {
                   hint="MP4 / MOV · ≤200MB · ≥3s"
                   onFile={(f) => uploadVideo(f, setEditVideoPreview, setEditVideoCdnUrl, setEditVideoUploading)}
                   onClear={() => { setEditVideoPreview(null); setEditVideoCdnUrl(null) }}
+                />
+              </div>
+
+              <div className="px-5 py-4 border-b border-white/5">
+                <ImageUploadBox
+                  label="Reference Images"
+                  optional
+                  hint="Optional style or content reference"
+                  preview={editRefImagePreview}
+                  uploading={editRefImageUploading}
+                  onFile={(f) => uploadImage(f, setEditRefImagePreview, setEditRefImageCdnUrl, setEditRefImageUploading)}
+                  onClear={() => { setEditRefImagePreview(null); setEditRefImageCdnUrl(null) }}
                 />
               </div>
 

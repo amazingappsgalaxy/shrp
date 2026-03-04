@@ -208,9 +208,15 @@ export async function POST(request: NextRequest) {
 
     if (primaryProvider === 'evolink') {
       const provider = getEvolinkProvider()
-      // Build model_params: merge client-provided (mode, cfg_scale) with multi-shot
-      // kling-o3 only supports 'customize', not 'intelligence'
-      const resolvedShotType = (modelId === 'kling-o3') ? 'customize' : (shot_type ?? 'customize')
+      // kling-o3, kling-o3-video-edit, kling-o3-reference-to-video only support 'customize'
+      const O3_MODELS = ['kling-o3', 'kling-o3-video-edit', 'kling-o3-reference-to-video']
+      const isO3Model = O3_MODELS.includes(modelId)
+      const resolvedShotType = isO3Model ? 'customize' : (shot_type ?? 'customize')
+      // kling-o3-video-edit does not support duration or aspect_ratio
+      const supportsEditParams = modelId !== 'kling-o3-video-edit'
+      // New O3 edit/ref models use keep_original_sound, not sound
+      const usesKeepOriginalSound = modelId === 'kling-o3-video-edit' || modelId === 'kling-o3-reference-to-video'
+
       const evolinkModelParams = {
         ...(model_params || {}),
         watermark_info: { enabled: false },
@@ -232,10 +238,10 @@ export async function POST(request: NextRequest) {
       const req: EvolinkVideoRequest = {
         model: modelId,
         prompt: normalizedPrompt,
-        duration: duration,
-        aspect_ratio: aspect_ratio,
-        sound: audio_sync ? 'on' : 'off',
-        negative_prompt: negative_prompt,
+        ...(supportsEditParams && duration !== undefined ? { duration } : {}),
+        ...(supportsEditParams && aspect_ratio ? { aspect_ratio } : {}),
+        ...(!usesKeepOriginalSound ? { sound: audio_sync ? 'on' : 'off' } : {}),
+        ...(negative_prompt ? { negative_prompt } : {}),
         quality: quality,
         // image_start/image_end for I2V models (kling-3, kling-o3)
         ...(firstFrameUrl ? { image_start: firstFrameUrl } : {}),
@@ -244,7 +250,7 @@ export async function POST(request: NextRequest) {
         ...(videoUrl ? { video_url: videoUrl } : {}),
         // keep_original_sound for edit/reference-to-video models
         ...(keep_original_sound !== undefined ? { keep_original_sound } : {}),
-        // image_urls: style reference images (kling-o3-reference-to-video)
+        // image_urls: style reference images (kling-o3-reference-to-video, kling-o3-video-edit)
         ...(targetUrl ? { image_urls: [targetUrl] } : {}),
         ...(Object.keys(evolinkModelParams).length > 0 ? { model_params: evolinkModelParams } : {}),
       }
