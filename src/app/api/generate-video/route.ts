@@ -84,8 +84,12 @@ export async function POST(request: NextRequest) {
     seed?: number
     /** Kling multi-shot: enable flag (goes into model_params) */
     multi_shot?: boolean
+    /** Kling multi-shot: shot planning mode */
+    shot_type?: 'customize' | 'intelligence'
     /** Kling multi-shot: per-shot prompts (duration as number from client, converted to string for API) */
     multi_prompt?: { index: number; prompt: string; duration: number }[]
+    /** Kling element library IDs (max 3) */
+    element_list?: number[]
     enhance_prompt?: boolean
     enable_upsample?: boolean
   }
@@ -108,7 +112,9 @@ export async function POST(request: NextRequest) {
     camera_fixed,
     seed,
     multi_shot,
+    shot_type,
     multi_prompt,
+    element_list,
     enhance_prompt,
     enable_upsample,
   } = body
@@ -201,17 +207,21 @@ export async function POST(request: NextRequest) {
     if (primaryProvider === 'evolink') {
       const provider = getEvolinkProvider()
       // Build model_params: merge client-provided (mode, cfg_scale) with multi-shot
+      const resolvedShotType = shot_type ?? 'customize'
       const evolinkModelParams = {
         ...(model_params || {}),
         ...(multi_shot ? {
           multi_shot: true,
-          shot_type: 'customize' as const,
-          multi_prompt: multi_prompt?.map(s => ({
-            index: s.index,
-            prompt: s.prompt,
-            duration: String(s.duration), // API requires string
-          })),
+          shot_type: resolvedShotType,
+          ...(resolvedShotType === 'customize' && multi_prompt?.length ? {
+            multi_prompt: multi_prompt.map(s => ({
+              index: s.index,
+              prompt: s.prompt,
+              duration: String(s.duration), // API requires string
+            })),
+          } : {}),
         } : {}),
+        ...(element_list?.length ? { element_list: element_list.map(id => ({ element_id: id })) } : {}),
       }
 
       const req: EvolinkVideoRequest = {

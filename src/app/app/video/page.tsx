@@ -240,7 +240,7 @@ function ModelDropdown({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-[#111111] border border-[#222222] hover:border-[#333333] rounded-xl text-left transition-all"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-[#111111] border border-[#222222] hover:border-[#333333] rounded-lg text-left transition-all"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
@@ -268,7 +268,7 @@ function ModelDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0c0c0c] border border-[#222222] rounded-xl overflow-hidden z-30 shadow-2xl max-h-72 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0c0c0c] border border-[#222222] rounded-lg overflow-hidden z-30 shadow-2xl max-h-72 overflow-y-auto">
           {groups.map(group => (
             <div key={group.label}>
               <div className="px-3 py-1.5 text-[8px] font-black text-[#444] uppercase tracking-widest border-b border-[#1a1a1a] bg-[#080808]">
@@ -711,8 +711,11 @@ function VideoPageContent() {
   const [enableUpsample, setEnableUpsample] = useState(false)
   // Kling multi-shot
   const [multiShot, setMultiShot] = useState(false)
+  const [shotType, setShotType] = useState<'customize' | 'intelligence'>('customize')
   const [shotCount, setShotCount] = useState(2)
   const [shotPrompts, setShotPrompts] = useState<string[]>(['', ''])
+  const [shotDurations, setShotDurations] = useState<number[]>([5, 5])
+  const [elementIds, setElementIds] = useState<string[]>(['', '', ''])
 
   // Resolve the actual model ID — for variant groups (Veo 3.1), pick by veoVariant
   const resolvedGenerateModelId = useMemo(() => {
@@ -784,6 +787,15 @@ function VideoPageContent() {
       return next.slice(0, shotCount)
     })
   }, [shotCount])
+
+  useEffect(() => {
+    setShotDurations(prev => {
+      const def = Math.max(1, Math.floor(genDuration / shotCount))
+      const next = [...prev]
+      while (next.length < shotCount) next.push(def)
+      return next.slice(0, shotCount)
+    })
+  }, [shotCount, genDuration])
 
   useEffect(() => {
     return () => {
@@ -909,9 +921,17 @@ function VideoPageContent() {
           // Multi-shot
           if (isKlingModel && multiShot && selectedModel?.controls?.multiShot) {
             body.multi_shot = true
-            body.multi_prompt = shotPrompts.slice(0, shotCount).map((p, i) => ({
-              index: i, prompt: p.trim(), duration: Math.floor(genDuration / shotCount),
-            }))
+            body.shot_type = shotType
+            if (shotType === 'customize') {
+              body.multi_prompt = shotPrompts.slice(0, shotCount).map((p, i) => ({
+                index: i, prompt: p.trim(), duration: shotDurations[i] ?? Math.floor(genDuration / shotCount),
+              }))
+            }
+          }
+          // Element list
+          const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
+          if (isKlingModel && activeElements.length > 0) {
+            body.element_list = activeElements
           }
         }
         if (isSeedanceModel) body.camera_fixed = cameraFixed
@@ -1038,13 +1058,13 @@ function VideoPageContent() {
 
           {/* Mode tabs */}
           <div className="px-5 pt-5 pb-5 border-b border-white/5">
-            <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-xl border border-[rgb(255_255_255_/_0.04)] gap-0.5">
+            <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)] gap-0.5">
               {TABS.map(({ id, label, Icon }) => (
                 <button
                   key={id}
                   onClick={() => setActiveTab(id)}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-black rounded-lg transition-all uppercase tracking-wider",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
                     activeTab === id ? "bg-[#FFFF00] text-black shadow-md" : "text-gray-400 hover:text-white"
                   )}
                 >
@@ -1097,7 +1117,7 @@ function VideoPageContent() {
               <div className="px-5 py-4 border-b border-white/5">
                 <div className="flex items-center justify-between mb-3">
                   <SectionLabel>Duration</SectionLabel>
-                  <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">{genDuration}s</span>
+                  <span className="font-mono text-[11px] text-[#FFFF00] -mt-3">{genDuration}s</span>
                 </div>
                 <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" growing={false} />
                 <div className="flex justify-between mt-1.5 px-0.5">
@@ -1109,7 +1129,7 @@ function VideoPageContent() {
               {/* Audio sync */}
               {hasAudio && (
                 <div className="px-5 py-5 border-b border-white/5">
-                  <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                  <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                     <div>
                       <div className="flex items-center gap-2">
                         <IconVolume className="w-3.5 h-3.5 text-[#555]" />
@@ -1159,7 +1179,7 @@ function VideoPageContent() {
                 <div className="px-5 py-4 border-b border-white/5">
                   <div className="flex items-center justify-between mb-3">
                     <SectionLabel>Prompt Adherence</SectionLabel>
-                    <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">{cfgScale.toFixed(2)}</span>
+                    <span className="font-mono text-[11px] text-[#FFFF00] -mt-3">{cfgScale.toFixed(2)}</span>
                   </div>
                   <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" growing={false} />
                   <div className="flex justify-between mt-1.5 px-0.5">
@@ -1172,7 +1192,7 @@ function VideoPageContent() {
               {/* Kling multi-shot */}
               {isKlingModel && selectedModel?.controls?.multiShot && (
                 <div className="px-5 py-4 border-b border-white/5">
-                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all mb-3">
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all mb-3">
                     <div>
                       <span className="text-xs font-black text-white">Multi-Shot Mode</span>
                       <p className="text-[10px] text-[#555] mt-0.5">Control each scene independently</p>
@@ -1180,31 +1200,81 @@ function VideoPageContent() {
                     <Toggle checked={multiShot} onChange={setMultiShot} />
                   </div>
                   {multiShot && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <SectionLabel>Shots</SectionLabel>
-                        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5 ml-auto mb-3">
+                    <div className="space-y-3">
+                      {/* Shot planning type */}
+                      <div>
+                        <SectionLabel>Shot Planning</SectionLabel>
+                        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
+                          {([['customize', 'Manual'], ['intelligence', 'AI Auto']] as const).map(([id, label]) => (
+                            <button key={id} onClick={() => setShotType(id)}
+                              className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all",
+                                shotType === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white")}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Shot count */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Shots</span>
+                        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
                           {[2, 3, 4, 5, 6].map(n => (
                             <button key={n} onClick={() => setShotCount(n)}
-                              className={cn("w-6 h-6 text-[10px] font-black rounded-md transition-all",
+                              className={cn("w-7 h-7 text-[10px] font-black rounded-md transition-all",
                                 shotCount === n ? "bg-white/[0.09] text-[#FFFF00]" : "text-gray-500 hover:text-white")}>
                               {n}
                             </button>
                           ))}
                         </div>
                       </div>
-                      {Array.from({ length: shotCount }, (_, i) => (
-                        <div key={i} className="flex items-start gap-2">
-                          <span className="text-[9px] font-mono text-[#444] mt-2 w-5 flex-shrink-0">S{i+1}</span>
-                          <input
-                            type="text"
-                            value={shotPrompts[i] ?? ''}
-                            onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
-                            placeholder={`Shot ${i+1} description…`}
-                            className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a]"
-                          />
+                      {/* Per-shot rows (manual mode) */}
+                      {shotType === 'customize' && (
+                        <div className="space-y-1.5">
+                          {Array.from({ length: shotCount }, (_, i) => (
+                            <div key={i} className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-mono text-[#555] w-5 flex-shrink-0">S{i+1}</span>
+                              <input
+                                type="text"
+                                value={shotPrompts[i] ?? ''}
+                                onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                placeholder={`Shot ${i+1} description…`}
+                                className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2.5 py-1.5 text-[11px] text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a]"
+                              />
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <input
+                                  type="number"
+                                  min={3} max={15}
+                                  value={shotDurations[i] ?? 5}
+                                  onChange={e => setShotDurations(prev => { const n = [...prev]; n[i] = Math.min(15, Math.max(3, parseInt(e.target.value) || 3)); return n })}
+                                  className="w-10 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md py-1.5 text-[11px] text-[#FFFF00] focus:outline-none focus:border-[#3a3a3a] text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <span className="text-[9px] text-[#555]">s</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      {/* Subject elements */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Subject Elements</span>
+                          <span className="text-[9px] text-[#444] italic">(optional)</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          {[0, 1, 2].map(idx => (
+                            <input
+                              key={idx}
+                              type="number"
+                              min={1}
+                              value={elementIds[idx] ?? ''}
+                              onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
+                              placeholder={`ID ${idx + 1}`}
+                              className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[9px] text-[#444] mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1214,7 +1284,7 @@ function VideoPageContent() {
               {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
                 <div className="px-5 py-4 border-b border-white/5 space-y-2">
                   {selectedModel?.controls?.enhancePrompt && (
-                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                       <div>
                         <span className="text-xs font-black text-white">Enhance Prompt</span>
                         <p className="text-[10px] text-[#555] mt-0.5">Auto-optimize and translate to English</p>
@@ -1223,7 +1293,7 @@ function VideoPageContent() {
                     </div>
                   )}
                   {selectedModel?.controls?.enableUpsample && (
-                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                       <div>
                         <span className="text-xs font-black text-white">Upsample to 1080p</span>
                         <p className="text-[10px] text-[#555] mt-0.5">Enable resolution upsampling</p>
@@ -1237,7 +1307,7 @@ function VideoPageContent() {
               {/* Camera fixed (Seedance) */}
               {isSeedanceModel && (
                 <div className="px-5 py-4 border-b border-white/5">
-                  <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                  <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                     <div>
                       <div className="flex items-center gap-2">
                         <IconCamera className="w-3.5 h-3.5 text-[#555]" />
@@ -1269,7 +1339,7 @@ function VideoPageContent() {
                         value={seed}
                         onChange={e => setSeed(e.target.value)}
                         placeholder="Random"
-                        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-3 py-2 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-3 py-2 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <p className="text-[9px] text-[#444]">Use the same seed to reproduce identical results</p>
                     </div>
@@ -1323,7 +1393,7 @@ function VideoPageContent() {
                     onChange={e => setGenNegPrompt(e.target.value)}
                     placeholder="Describe what to avoid…"
                     rows={2}
-                    className="w-full mt-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all resize-none"
+                    className="w-full mt-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-3 py-2.5 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all resize-none"
                   />
                 )}
               </div>
@@ -1418,7 +1488,7 @@ function VideoPageContent() {
                   : 'A person walking gracefully through a forest…'
               }
               rows={5}
-              className="w-full bg-[#0d0d0d] border border-[#222222] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#333] focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
+              className="w-full bg-[#0d0d0d] border border-[#222222] rounded-md px-4 py-3 text-sm text-white placeholder:text-[#333] focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
             />
           </div>
 
