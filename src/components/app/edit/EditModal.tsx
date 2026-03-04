@@ -944,16 +944,6 @@ export function EditModal({
   const { addWatchedTask, resolveTask, failTask } = useTaskManager()
   const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
-  // Debug logging - removed onGenerationComplete from deps to prevent infinite loops
-  useEffect(() => {
-    console.log('🚀 EditModal mounted/updated', {
-      isOpen,
-      sourceContext,
-      initialImageUrl: initialImageUrl?.substring(0, 50) + '...',
-      hasCallbacks: { start: !!onGenerationStart, complete: !!onGenerationComplete }
-    })
-  }, [isOpen, sourceContext, initialImageUrl])
-
   // ── Image state
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null)
@@ -1089,15 +1079,9 @@ export function EditModal({
   // ── Load initial image if provided
   useEffect(() => {
     if (initialImageUrl && isOpen) {
-      console.log('🖼️ EditModal: Loading initial image:', initialImageUrl)
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
-        console.log('✅ EditModal: Image loaded successfully', {
-          naturalWidth: img.naturalWidth,
-          naturalHeight: img.naturalHeight,
-          src: initialImageUrl
-        })
         bgImageRef.current = img
         setImageUrl(initialImageUrl)
         const nat = { w: img.naturalWidth, h: img.naturalHeight }
@@ -1113,16 +1097,11 @@ export function EditModal({
         setMode('edit')
         setActiveTool('brush')
         setLayers([])
-
-        console.log('🧹 EditModal: Editor state cleared, canvas will be setup by useEffect')
       }
-      img.onerror = (e) => {
-        console.error('❌ EditModal: Failed to load initial image:', initialImageUrl, e)
+      img.onerror = () => {
         setError('Failed to load image. Please try again.')
       }
       img.src = initialImageUrl
-    } else {
-      console.log('⏭️ EditModal: Skipping image load', { hasInitialImageUrl: !!initialImageUrl, isOpen })
     }
   }, [initialImageUrl, isOpen])
 
@@ -1130,25 +1109,15 @@ export function EditModal({
   useEffect(() => {
     if (!bgImageRef.current || !imageNaturalSize) return
 
-    console.log('🎨 EditModal: Setting up canvas with loaded image')
     const canvas = displayCanvasRef.current
+    if (!canvas) return
 
-    if (canvas) {
-      canvas.width = imageNaturalSize.w
-      canvas.height = imageNaturalSize.h
-      const ctx = canvas.getContext('2d')
-
-      if (ctx && bgImageRef.current) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(bgImageRef.current, 0, 0)
-        console.log('✅ EditModal: Canvas initialized and image drawn', {
-          canvasSize: `${canvas.width}x${canvas.height}`
-        })
-      } else {
-        console.error('❌ EditModal: Failed to get canvas context')
-      }
-    } else {
-      console.warn('⚠️ EditModal: Canvas ref not available yet, will retry on next render')
+    canvas.width = imageNaturalSize.w
+    canvas.height = imageNaturalSize.h
+    const ctx = canvas.getContext('2d')
+    if (ctx && bgImageRef.current) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(bgImageRef.current, 0, 0)
     }
   }, [imageNaturalSize])
 
@@ -1205,16 +1174,9 @@ export function EditModal({
   // ── Canvas rendering
   const renderCanvas = useCallback(() => {
     const canvas = displayCanvasRef.current
-    if (!canvas || !bgImageRef.current) {
-      console.log('⏭️ renderCanvas: Skipped', { hasCanvas: !!canvas, hasBgImage: !!bgImageRef.current })
-      return
-    }
+    if (!canvas || !bgImageRef.current) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    console.log('🎨 renderCanvas: Drawing', {
-      canvasSize: `${canvas.width}x${canvas.height}`,
-      layerCount: layers.length
-    })
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height)
     for (const layer of layers) {
@@ -1555,23 +1517,9 @@ export function EditModal({
   const totalCost = creditCost * genCount
 
   const handleGenerate = useCallback(async () => {
-    console.log('🎬 handleGenerate called', {
-      canGenerate,
-      hasImageUrl: !!imageUrl,
-      mode,
-      creditBalance,
-      totalCost,
-      creditsLoading,
-      sourceContext,
-    })
-
-    if (!canGenerate) {
-      console.warn('⚠️ Generation blocked: canGenerate is false', { mode, layersCount: layers.length, promptText })
-      return
-    }
+    if (!canGenerate) return
 
     if (!imageUrl) {
-      console.warn('⚠️ Generation blocked: no imageUrl')
       return
     }
 
@@ -1579,12 +1527,9 @@ export function EditModal({
 
     if (!creditsLoading && totalCost > 0 && creditBalance < totalCost) {
       const errMsg = `Not enough credits (${creditBalance} available, ${totalCost} required). Top up from the dashboard.`
-      console.error('⚠️ Generation blocked: insufficient credits', { creditBalance, totalCost })
       setError(errMsg)
       return
     }
-
-    console.log('✅ All checks passed, starting generation...')
 
     let compositeDataUrl: string | undefined
     let cleanOriginalDataUrl: string | undefined
@@ -1661,15 +1606,6 @@ export function EditModal({
           : sourceContext === 'history-page' ? 'app/history'
           : 'app/edit'
 
-        console.log(`📤 Sending API request for ${historyId}`, {
-          mode,
-          model: selectedModel,
-          pageName,
-          hasCleanOriginal: !!cleanOriginalDataUrl,
-          hasComposite: !!compositeDataUrl,
-          refImagesCount: referenceImages.length,
-        })
-
         const body: Record<string, unknown> = {
           mode, model: selectedModel,
           historyId,
@@ -1681,8 +1617,6 @@ export function EditModal({
         }
         const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
-        console.log(`📥 API response for ${historyId}:`, res.status, res.statusText)
-
         if (!res.ok) {
           const d = await res.json().catch(() => ({}))
           console.error(`❌ API error for ${historyId}:`, d)
@@ -1690,15 +1624,11 @@ export function EditModal({
         }
 
         const data = await res.json()
-        console.log(`✅ Generation successful for ${historyId}`, { outputUrl: data.outputUrl?.substring(0, 60) })
-
         resolveTask(historyId)
         setResults(prev => [{ id: historyId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl!, prompt: combinedPrompt }, ...prev])
         setResultsDockOpen(true)
 
-        // Call completion callback if provided
         if (onGenerationComplete) {
-          console.log(`🔔 Calling onGenerationComplete for ${historyId}`)
           onGenerationComplete(data.outputUrl, historyId, mode, combinedPrompt)
         }
       } catch (err: unknown) {
