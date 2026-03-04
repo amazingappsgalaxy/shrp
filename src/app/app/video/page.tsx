@@ -7,6 +7,7 @@ import { useTaskManager } from "@/components/providers/TaskManagerProvider"
 import { useCredits } from "@/lib/hooks/use-credits"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { VideoCard, VideoModal } from "@/components/ui/VideoPlayer"
+import { PillRangeSlider } from "@/components/ui/pill-range-slider"
 import { getVideoModels } from "@/services/models"
 import type { ModelConfig } from "@/services/models"
 import {
@@ -107,51 +108,21 @@ function playTick() {
   } catch { /* ignore */ }
 }
 
-// ─── PremiumSlider ─────────────────────────────────────────────────────────────
+// ─── Slider with tick sound ────────────────────────────────────────────────────
 
-function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', segments = 16 }: {
+function Slider({ value, min, max, step, onChange, segments = 40 }: {
   value: number; min: number; max: number; step: number
-  onChange: (v: number) => void; color?: string
-  segments?: number
+  onChange: (v: number) => void; segments?: number
 }) {
-  const trackRef = useRef<HTMLDivElement>(null)
   const lastTickRef = useRef<number | null>(null)
-  const pct = max === min ? 1 : (value - min) / (max - min)
-  const filledCount = Math.max(0, Math.round(pct * segments))
-
-  const update = (e: React.PointerEvent) => {
-    const r = trackRef.current!.getBoundingClientRect()
-    const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
-    const next = Math.round((min + p * (max - min)) / step) * step
-    if (next !== lastTickRef.current) { playTick(); lastTickRef.current = next }
-    onChange(next)
-  }
-
   return (
-    <div
-      ref={trackRef}
-      className="flex items-center gap-[3px] w-full cursor-pointer select-none"
-      style={{ touchAction: 'none', height: 22 }}
-      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); update(e) }}
-      onPointerMove={e => { if (e.buttons > 0) update(e) }}
-    >
-      {Array.from({ length: segments }, (_, i) => {
-        const t = i / (segments - 1)
-        const isFilled = i < filledCount
-        const isEdge = isFilled && i === filledCount - 1
-        return (
-          <div
-            key={i}
-            className="flex-1 rounded-full"
-            style={{
-              height: 22,
-              background: isFilled ? (isEdge ? '#ffffff' : color) : '#222222',
-              opacity: isFilled && !isEdge ? 0.5 + t * 0.5 : 1,
-            }}
-          />
-        )
-      })}
-    </div>
+    <PillRangeSlider
+      value={value} min={min} max={max} step={step} segments={segments}
+      onChange={v => {
+        if (v !== lastTickRef.current) { playTick(); lastTickRef.current = v }
+        onChange(v)
+      }}
+    />
   )
 }
 
@@ -1242,7 +1213,7 @@ function VideoPageContent() {
                       <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                       <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
                     </div>
-                    <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" segments={40} />
+                    <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} />
                     <div className="flex justify-between mt-1.5">
                       <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
                       <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
@@ -1292,7 +1263,7 @@ function VideoPageContent() {
                         </div>
                       </div>
                       <div className="shrink-0" style={{ width: 160 }}>
-                        <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" segments={16} />
+                        <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} />
                       </div>
                     </div>
                     {hasAudio && (
@@ -1365,7 +1336,7 @@ function VideoPageContent() {
                                       <IconClock className="w-3 h-3 text-white/45 shrink-0" />
                                       <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
                                       <div className="flex-1" style={{ maxWidth: 150 }}>
-                                        <PremiumSlider min={3} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} color="#FFFF00" segments={16} />
+                                        <Slider min={3} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} segments={16} />
                                       </div>
                                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
                                     </div>
@@ -1428,7 +1399,7 @@ function VideoPageContent() {
                       </div>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
-                      <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" segments={16} />
+                      <Slider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} segments={16} />
                     </div>
                   </div>
                 )}
