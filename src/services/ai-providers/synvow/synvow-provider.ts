@@ -400,6 +400,9 @@ export class SynvowProvider {
     if (req.negative_prompt) body.negative_prompt = req.negative_prompt
     if (req.camera_fixed !== undefined) body.camera_fixed = req.camera_fixed
     if (req.seed !== undefined) body.seed = req.seed
+    if (req.enhance_prompt) body.enhance_prompt = true
+    if (req.enable_upsample) body.enable_upsample = true
+    if (req.end_frame) body.end_frame = req.end_frame
 
     // Video input (for kling-effects, kling-video-motion-control)
     if (req.video_url) body.video_url = req.video_url

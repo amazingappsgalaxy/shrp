@@ -21,10 +21,18 @@ export interface ModelControls {
   strictReference?: boolean
   /** Whether the model accepts a first-frame image for video seeding */
   firstFrameImage?: boolean
+  /** Whether the model accepts an end-frame image for video seeding */
+  endFrameImage?: boolean
   /** Supported durations in seconds (video models) */
   durations?: string[]
   /** Whether the model supports audio-sync (video models) */
   audioSync?: boolean
+  /** Whether the model supports enhance_prompt (auto-translates / optimizes prompt) */
+  enhancePrompt?: boolean
+  /** Whether the model supports enable_upsample (upscale to 1080p) */
+  enableUpsample?: boolean
+  /** Whether the model supports multi-shot generation (Kling) */
+  multiShot?: boolean
 }
 
 export interface ModelConfig {
@@ -42,7 +50,7 @@ export interface ModelConfig {
   tag: string
   controls: ModelControls
   /**
-   * Groups quality variants of the same base model (e.g. nano-banana 1K/2K/4K).
+   * Groups quality variants of the same base model (e.g. nano-banana-2 family: separate model IDs per resolution).
    * Models sharing a qualityGroupId are shown as a quality tier picker, not separate models.
    */
   qualityGroupId?: string
@@ -53,6 +61,15 @@ export interface ModelConfig {
    * These are a single model ID that supports multiple output sizes via a request param.
    */
   supportedImageSizes?: ('1K' | '2K' | '3K' | '4K')[]
+  /**
+   * Groups variant models of the same base model family (e.g. Veo 3.1: fast/standard/pro/pro-4k).
+   * Models sharing a variantGroupId are shown as a single entry with a variant sub-picker.
+   */
+  variantGroupId?: string
+  /** Variant tier label within a variant group (e.g. "Fast", "Standard", "Pro", "Pro 4K") */
+  variantTier?: string
+  /** Whether this is the representative/default model shown in the group picker */
+  variantDefault?: boolean
   /**
    * Ordered list of provider IDs that can fulfill this model.
    * First entry is the primary provider; subsequent entries are fallbacks.
@@ -74,7 +91,7 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
-      maxReferenceImages: 5, // chat completions content array; 5 is a safe practical limit
+      maxReferenceImages: 5,
     },
     qualityGroupId: 'nano-banana',
     qualityTier: '1K',
@@ -125,10 +142,8 @@ const IMAGE_MODELS: ModelConfig[] = [
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
       referenceImage: true,
-      maxReferenceImages: 16, // Gemini 2.0 Flash supports up to 16 image inputs
+      maxReferenceImages: 16,
     },
-    // Resolution is hard-capped at 1K by the api.gptbest.vip proxy — 2K/4K are non-functional.
-    // Use nano-banana-2-4k for 4K output instead.
     providers: ['synvow'],
   },
   {
@@ -144,7 +159,6 @@ const IMAGE_MODELS: ModelConfig[] = [
     },
     providers: ['synvow'],
   },
-  // ─── New models ────────────────────────────────────────────────────────────
   {
     id: 'gemini-3.1-flash-image-preview',
     label: 'Gemini Flash',
@@ -181,7 +195,6 @@ const IMAGE_MODELS: ModelConfig[] = [
     credits: 25,
     costUsd: 0.025,
     tag: 'ByteDance',
-    // 1K/2K/4K resolution picker; single model ID, size param controls output resolution
     supportedImageSizes: ['2K', '3K'],
     controls: {
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'],
@@ -211,21 +224,22 @@ const IMAGE_MODELS: ModelConfig[] = [
 // ─── Video models ──────────────────────────────────────────────────────────────
 
 const VIDEO_MODELS: ModelConfig[] = [
-  // ── Kling models (Evolink) ────────────────────────────────────────────────
-  // Note: Kling 2.5/2.6 are not available on current Synvow/bltcy.ai endpoint.
-  // Kling 3.0 and O3 are served via Evolink (requires EVOLINK_API_KEY).
+  // ── Kling models (Evolink) ─────────────────────────────────────────────────
   {
     id: 'kling-3',
     label: 'Kling 3.0',
     type: 'video',
-    description: 'Kuaishou Kling 3.0 — premium multi-shot video generation',
+    description: 'Kuaishou Kling 3.0 — multi-shot cinematic video generation',
     credits: 300,
     costUsd: 0.30,
     tag: 'Premium',
     controls: {
       aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '10'],
+      durations: ['3', '5', '10', '15'],
       audioSync: true,
+      multiShot: true,
+      firstFrameImage: true,
+      endFrameImage: true,
     },
     providers: ['evolink'],
   },
@@ -239,27 +253,112 @@ const VIDEO_MODELS: ModelConfig[] = [
     tag: 'Advanced',
     controls: {
       aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '10'],
+      durations: ['3', '5', '10', '15'],
       audioSync: true,
+      multiShot: true,
+      firstFrameImage: true,
+      endFrameImage: true,
     },
     providers: ['evolink'],
   },
-  // ── Google Veo models ─────────────────────────────────────────────────────
+  // ── Google Veo 3.1 family (grouped as variant picker) ─────────────────────
   {
-    id: 'veo2',
-    label: 'Veo 2',
+    id: 'veo3.1-fast',
+    label: 'Veo 3.1',
     type: 'video',
-    description: 'Google Veo 2 — photorealistic video generation',
-    credits: 400,
-    costUsd: 0.40,
+    description: 'Fastest generation, great for iteration',
+    credits: 350,
+    costUsd: 0.35,
     tag: 'Google',
+    variantGroupId: 'veo-3.1',
+    variantTier: 'Fast',
+    variantDefault: true,
     controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
+      aspectRatios: ['16:9', '9:16'],
       durations: ['5', '8'],
       firstFrameImage: true,
+      enhancePrompt: true,
+      enableUpsample: true,
     },
     providers: ['synvow'],
   },
+  {
+    id: 'veo3.1',
+    label: 'Veo 3.1',
+    type: 'video',
+    description: 'Enhanced generation with improved motion coherence',
+    credits: 500,
+    costUsd: 0.50,
+    tag: 'Google',
+    variantGroupId: 'veo-3.1',
+    variantTier: 'Standard',
+    controls: {
+      aspectRatios: ['16:9', '9:16'],
+      durations: ['5', '8'],
+      firstFrameImage: true,
+      audioSync: true,
+      enhancePrompt: true,
+      enableUpsample: true,
+    },
+    providers: ['synvow'],
+  },
+  {
+    id: 'veo3.1-pro',
+    label: 'Veo 3.1',
+    type: 'video',
+    description: 'Professional-grade video with advanced controls',
+    credits: 600,
+    costUsd: 0.60,
+    tag: 'Google',
+    variantGroupId: 'veo-3.1',
+    variantTier: 'Pro',
+    controls: {
+      aspectRatios: ['16:9', '9:16'],
+      durations: ['5', '8'],
+      firstFrameImage: true,
+      audioSync: true,
+      enhancePrompt: true,
+      enableUpsample: true,
+    },
+    providers: ['synvow'],
+  },
+  {
+    id: 'veo3.1-pro-4k',
+    label: 'Veo 3.1',
+    type: 'video',
+    description: 'Ultra-high resolution 4K professional video',
+    credits: 800,
+    costUsd: 0.80,
+    tag: 'Google',
+    variantGroupId: 'veo-3.1',
+    variantTier: 'Pro 4K',
+    controls: {
+      aspectRatios: ['16:9', '9:16'],
+      durations: ['5', '8'],
+      firstFrameImage: true,
+      audioSync: true,
+      enhancePrompt: true,
+    },
+    providers: ['synvow'],
+  },
+  {
+    id: 'veo3.1-components',
+    label: 'Veo 3.1',
+    type: 'video',
+    description: 'Multi-image component assembly into video',
+    credits: 550,
+    costUsd: 0.55,
+    tag: 'Google',
+    variantGroupId: 'veo-3.1',
+    variantTier: 'Components',
+    controls: {
+      aspectRatios: ['16:9', '9:16'],
+      durations: ['5', '8'],
+      enhancePrompt: true,
+    },
+    providers: ['synvow'],
+  },
+  // ── Google Veo 3 ──────────────────────────────────────────────────────────
   {
     id: 'veo3',
     label: 'Veo 3',
@@ -269,87 +368,30 @@ const VIDEO_MODELS: ModelConfig[] = [
     costUsd: 0.50,
     tag: 'Google',
     controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
+      aspectRatios: ['16:9', '9:16'],
       durations: ['5', '8'],
       firstFrameImage: true,
       audioSync: true,
+      enhancePrompt: true,
+      enableUpsample: true,
     },
     providers: ['synvow'],
   },
+  // ── Google Veo 2 ──────────────────────────────────────────────────────────
   {
-    id: 'veo3.1',
-    label: 'Veo 3.1',
+    id: 'veo2',
+    label: 'Veo 2',
     type: 'video',
-    description: 'Google Veo 3.1 — enhanced generation with improved motion coherence',
-    credits: 500,
-    costUsd: 0.50,
-    tag: 'Google',
-    controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '8'],
-      firstFrameImage: true,
-      audioSync: true,
-    },
-    providers: ['synvow'],
-  },
-  {
-    id: 'veo3.1-fast',
-    label: 'Veo 3.1 Fast',
-    type: 'video',
-    description: 'Google Veo 3.1 Fast — quick video generation with quality',
-    credits: 350,
-    costUsd: 0.35,
-    tag: 'Google',
-    controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '8'],
-      firstFrameImage: true,
-    },
-    providers: ['synvow'],
-  },
-  {
-    id: 'veo3.1-pro',
-    label: 'Veo 3.1 Pro',
-    type: 'video',
-    description: 'Google Veo 3.1 Pro — professional-grade video with advanced controls',
-    credits: 600,
-    costUsd: 0.60,
-    tag: 'Google',
-    controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '8'],
-      firstFrameImage: true,
-      audioSync: true,
-    },
-    providers: ['synvow'],
-  },
-  {
-    id: 'veo3.1-pro-4k',
-    label: 'Veo 3.1 Pro 4K',
-    type: 'video',
-    description: 'Google Veo 3.1 Pro 4K — ultra-high resolution professional video',
-    credits: 800,
-    costUsd: 0.80,
+    description: 'Google Veo 2 — photorealistic video generation',
+    credits: 400,
+    costUsd: 0.40,
     tag: 'Google',
     controls: {
       aspectRatios: ['16:9', '9:16'],
       durations: ['5', '8'],
       firstFrameImage: true,
-      audioSync: true,
-    },
-    providers: ['synvow'],
-  },
-  {
-    id: 'veo3.1-components',
-    label: 'Veo 3.1 Components',
-    type: 'video',
-    description: 'Google Veo 3.1 Components — granular control over visual elements',
-    credits: 550,
-    costUsd: 0.55,
-    tag: 'Google',
-    controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '8'],
+      enhancePrompt: true,
+      enableUpsample: true,
     },
     providers: ['synvow'],
   },

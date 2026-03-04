@@ -40,11 +40,22 @@ const GENERATE_MODELS = ALL_VIDEO_MODELS.filter(
 const EDIT_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-effects')
 const MOTION_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-video-motion-control')
 
+// Deduplicate by variantGroupId — only show the default variant as the group representative
+function dedupeVariants(models: ModelConfig[]): ModelConfig[] {
+  const seen = new Set<string>()
+  return models.filter(m => {
+    if (!m.variantGroupId) return true
+    if (seen.has(m.variantGroupId)) return false
+    seen.add(m.variantGroupId)
+    return true
+  })
+}
+
 const MODEL_GROUPS: { label: string; models: ModelConfig[] }[] = [
-  { label: 'Kling', models: GENERATE_MODELS.filter(m => m.id.startsWith('kling')) },
-  { label: 'Google Veo', models: GENERATE_MODELS.filter(m => m.id.startsWith('veo')) },
-  { label: 'OpenAI Sora', models: GENERATE_MODELS.filter(m => m.id.startsWith('sora')) },
-  { label: 'ByteDance', models: GENERATE_MODELS.filter(m => m.id.startsWith('doubao')) },
+  { label: 'Kling', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('kling'))) },
+  { label: 'Google Veo', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('veo'))) },
+  { label: 'OpenAI Sora', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('sora'))) },
+  { label: 'ByteDance', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('doubao'))) },
 ].filter(g => g.models.length > 0)
 
 const ASPECT_LABELS: Record<string, string> = {
@@ -65,7 +76,23 @@ const TAG_COLORS: Record<string, string> = {
   Motion: 'bg-teal-500/15 text-teal-400',
 }
 
-// ─── PremiumSlider — exact match to edit/page.tsx relight section ─────────────
+// ─── Tick sound (Web Audio API) ────────────────────────────────────────────────
+
+function playTick() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'sine'; osc.frequency.value = 1200
+    gain.gain.setValueAtTime(0.04, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04)
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04)
+    setTimeout(() => ctx.close(), 200)
+  } catch { /* ignore */ }
+}
+
+// ─── PremiumSlider ─────────────────────────────────────────────────────────────
 
 function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', growing = false, segments = 20 }: {
   value: number; min: number; max: number; step: number
@@ -73,13 +100,16 @@ function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', gro
   growing?: boolean; segments?: number
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const lastTickRef = useRef<number | null>(null)
   const pct = max === min ? 1 : (value - min) / (max - min)
   const filledCount = Math.max(0, Math.round(pct * segments))
 
   const update = (e: React.PointerEvent) => {
     const r = trackRef.current!.getBoundingClientRect()
     const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
-    onChange(Math.round((min + p * (max - min)) / step) * step)
+    const next = Math.round((min + p * (max - min)) / step) * step
+    if (next !== lastTickRef.current) { playTick(); lastTickRef.current = next }
+    onChange(next)
   }
 
   return (
@@ -133,36 +163,54 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-// ─── Aspect ratio card ─────────────────────────────────────────────────────────
+// ─── Aspect ratio picker (image-page style) ────────────────────────────────────
 
-function AspectCard({
-  ratio, selected, onSelect,
-}: {
-  ratio: string; selected: boolean; onSelect: () => void
-}) {
-  const shapes: Record<string, React.ReactNode> = {
-    '16:9': <div className={cn("border-2 rounded-sm w-9 h-[20px]", selected ? "border-[#FFFF00]" : "border-[#555]")} />,
-    '9:16': <div className={cn("border-2 rounded-sm w-[20px] h-9", selected ? "border-[#FFFF00]" : "border-[#555]")} />,
-    '1:1':  <div className={cn("border-2 rounded-sm w-[26px] h-[26px]", selected ? "border-[#FFFF00]" : "border-[#555]")} />,
-  }
+const VIDEO_ASPECT_LABELS: Record<string, string> = {
+  '16:9': 'Wide', '9:16': 'Story', '1:1': 'Square', '4:3': 'Landscape', '3:4': 'Portrait',
+}
+const VIDEO_ASPECT_RATIO: Record<string, number> = {
+  '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4,
+}
+
+function AspectShape({ ratio, active }: { ratio: string; active: boolean }) {
+  const r = VIDEO_ASPECT_RATIO[ratio] ?? 1
+  const BOX = 24
+  const w = r >= 1 ? BOX : Math.round(BOX * r)
+  const h = r >= 1 ? Math.round(BOX / r) : BOX
   return (
-    <button
-      onClick={onSelect}
-      className={cn(
-        "flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all",
-        selected
-          ? "border-[#FFFF00]/40 bg-[#1a1a00]"
-          : "border-[#222222] hover:border-[#383838] hover:bg-[#111111] bg-[#0d0d0d]"
-      )}
-    >
-      {shapes[ratio] ?? <div className="w-6 h-6 border-2 border-[#555] rounded-sm" />}
-      <span className={cn(
-        "text-[9px] font-black uppercase tracking-wider",
-        selected ? "text-[#FFFF00]" : "text-[#555555]"
-      )}>
-        {ASPECT_LABELS[ratio] ?? ratio}
-      </span>
-    </button>
+    <div style={{ width: BOX + 6, height: BOX + 6 }} className="flex items-center justify-center">
+      <div
+        style={{ width: w, height: h }}
+        className={cn("rounded-[2px] transition-all", active ? "bg-[#FFFF00]" : "bg-white/[0.18] border border-white/25")}
+      />
+    </div>
+  )
+}
+
+function AspectPicker({ ratios, selected, onSelect }: {
+  ratios: string[]; selected: string; onSelect: (r: string) => void
+}) {
+  return (
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(ratios.length, 4)}, 1fr)` }}>
+      {ratios.map(r => (
+        <button
+          key={r}
+          onClick={() => onSelect(r)}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-1 rounded-md border transition-all",
+            selected === r
+              ? "bg-white/[0.05] border-white/20"
+              : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10",
+          )}
+        >
+          <AspectShape ratio={r} active={selected === r} />
+          <span className={cn("text-[9px] font-black", selected === r ? "text-[#FFFF00]" : "text-white/40")}>{r}</span>
+          <span className={cn("text-[8px]", selected === r ? "text-[#FFFF00]/50" : "text-gray-600")}>
+            {VIDEO_ASPECT_LABELS[r] ?? r}
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -638,10 +686,6 @@ function VideoPageContent() {
   const editModel = EDIT_MODELS[0]?.id ?? 'kling-effects'
   const motionModel = MOTION_MODELS[0]?.id ?? 'kling-video-motion-control'
 
-  const selectedModelId = activeTab === 'generate' ? generateModel
-    : activeTab === 'edit' ? editModel : motionModel
-  const selectedModel = ALL_VIDEO_MODELS.find(m => m.id === selectedModelId)
-
   // Generate settings
   const [genAspect, setGenAspect] = useState('16:9')
   const [genDuration, setGenDuration] = useState(5)
@@ -657,6 +701,30 @@ function VideoPageContent() {
   const [firstFramePreview, setFirstFramePreview] = useState<string | null>(null)
   const [firstFrameCdnUrl, setFirstFrameCdnUrl] = useState<string | null>(null)
   const [firstFrameUploading, setFirstFrameUploading] = useState(false)
+  const [endFramePreview, setEndFramePreview] = useState<string | null>(null)
+  const [endFrameCdnUrl, setEndFrameCdnUrl] = useState<string | null>(null)
+  const [endFrameUploading, setEndFrameUploading] = useState(false)
+  // Veo variant within group (e.g. 'Fast' | 'Standard' | 'Pro' | 'Pro 4K' | 'Components')
+  const [veoVariant, setVeoVariant] = useState('Fast')
+  // Veo-specific
+  const [enhancePrompt, setEnhancePrompt] = useState(false)
+  const [enableUpsample, setEnableUpsample] = useState(false)
+  // Kling multi-shot
+  const [multiShot, setMultiShot] = useState(false)
+  const [shotCount, setShotCount] = useState(2)
+  const [shotPrompts, setShotPrompts] = useState<string[]>(['', ''])
+
+  // Resolve the actual model ID — for variant groups (Veo 3.1), pick by veoVariant
+  const resolvedGenerateModelId = useMemo(() => {
+    const base = ALL_VIDEO_MODELS.find(m => m.id === generateModel)
+    if (!base?.variantGroupId) return generateModel
+    const variant = ALL_VIDEO_MODELS.find(m => m.variantGroupId === base.variantGroupId && m.variantTier === veoVariant)
+    return variant?.id ?? generateModel
+  }, [generateModel, veoVariant])
+
+  const selectedModelId = activeTab === 'generate' ? resolvedGenerateModelId
+    : activeTab === 'edit' ? editModel : motionModel
+  const selectedModel = ALL_VIDEO_MODELS.find(m => m.id === selectedModelId)
 
   // Edit settings
   const [editVideoPreview, setEditVideoPreview] = useState<string | null>(null)
@@ -701,13 +769,21 @@ function VideoPageContent() {
     }
   }, [videos])
 
-  // Clamp duration when model changes
+  // Clamp duration when model changes and sync shotPrompts to shotCount
   useEffect(() => {
-    const durations = (ALL_VIDEO_MODELS.find(m => m.id === generateModel)?.controls?.durations ?? ['5', '15']).map(Number)
+    const durations = (ALL_VIDEO_MODELS.find(m => m.id === resolvedGenerateModelId)?.controls?.durations ?? ['5', '15']).map(Number)
     const min = durations[0] ?? 5
     const max = durations[durations.length - 1] ?? 15
     setGenDuration(d => Math.max(min, Math.min(max, d)))
-  }, [generateModel])
+  }, [resolvedGenerateModelId])
+
+  useEffect(() => {
+    setShotPrompts(prev => {
+      const next = [...prev]
+      while (next.length < shotCount) next.push('')
+      return next.slice(0, shotCount)
+    })
+  }, [shotCount])
 
   useEffect(() => {
     return () => {
@@ -823,15 +899,28 @@ function VideoPageContent() {
         body.audio_sync = genAudio
         if (genNegPrompt.trim()) body.negative_prompt = genNegPrompt.trim()
         if (firstFrameCdnUrl) body.first_frame_url = firstFrameCdnUrl
+        if (endFrameCdnUrl) body.end_frame_url = endFrameCdnUrl
         if (isEvolinkModel) {
           body.quality = videoQuality
           const mp: Record<string, unknown> = {}
           if (isKlingModel) mp.mode = klingMode
           if (isKlingModel) mp.cfg_scale = cfgScale
           if (Object.keys(mp).length > 0) body.model_params = mp
+          // Multi-shot
+          if (isKlingModel && multiShot && selectedModel?.controls?.multiShot) {
+            body.multi_shot = true
+            body.multi_prompt = shotPrompts.slice(0, shotCount).map((p, i) => ({
+              index: i, prompt: p.trim(), duration: Math.floor(genDuration / shotCount),
+            }))
+          }
         }
         if (isSeedanceModel) body.camera_fixed = cameraFixed
         if (hasSeed && seed.trim()) body.seed = parseInt(seed)
+        // Veo-specific
+        if (isVeoModel) {
+          if (enhancePrompt) body.enhance_prompt = true
+          if (enableUpsample) body.enable_upsample = true
+        }
       } else if (activeTab === 'edit') {
         body.aspect_ratio = editAspect
         body.video_url = editVideoCdnUrl
@@ -921,10 +1010,18 @@ function VideoPageContent() {
   const durationMax = durationNums[durationNums.length - 1] ?? 15
   const hasAudio = selectedModel?.controls?.audioSync === true
   const hasFirstFrame = selectedModel?.controls?.firstFrameImage === true
+  const hasEndFrame = selectedModel?.controls?.endFrameImage === true
   const isKlingModel = selectedModelId.startsWith('kling')
   const isEvolinkModel = selectedModel?.providers[0] === 'evolink'
   const isSeedanceModel = selectedModelId.startsWith('doubao')
-  const hasSeed = isSeedanceModel || selectedModelId.startsWith('veo')
+  const isVeoModel = selectedModelId.startsWith('veo')
+  const hasSeed = isSeedanceModel || isVeoModel
+  // Veo variant group: the picker model chosen by user (before variant resolution)
+  const baseGenerateModel = ALL_VIDEO_MODELS.find(m => m.id === generateModel)
+  const isVeoVariantGroup = !!baseGenerateModel?.variantGroupId
+  const veoVariants = isVeoVariantGroup
+    ? ALL_VIDEO_MODELS.filter(m => m.variantGroupId === baseGenerateModel!.variantGroupId)
+    : []
 
   const TABS: { id: VideoTab; label: string; Icon: React.ElementType }[] = [
     { id: 'generate', label: 'Generate', Icon: IconSparkles },
@@ -967,34 +1064,43 @@ function VideoPageContent() {
                 <ModelDropdown groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
               </div>
 
-              {/* Aspect ratio */}
-              <div className="px-5 py-5 border-b border-white/5">
-                <SectionLabel>Aspect Ratio</SectionLabel>
-                <div className="grid grid-cols-3 gap-2">
-                  {availableAspects.map(ar => (
-                    <AspectCard key={ar} ratio={ar} selected={genAspect === ar} onSelect={() => setGenAspect(ar)} />
-                  ))}
+              {/* Veo variant sub-picker */}
+              {isVeoVariantGroup && veoVariants.length > 0 && (
+                <div className="px-5 pt-3 pb-3 border-b border-white/5">
+                  <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
+                    {veoVariants.map(v => (
+                      <button
+                        key={v.variantTier}
+                        onClick={() => setVeoVariant(v.variantTier!)}
+                        className={cn(
+                          "flex-1 flex flex-col items-center py-1.5 px-1 rounded-md transition-all",
+                          veoVariant === v.variantTier
+                            ? "bg-white/[0.09] text-[#FFFF00]"
+                            : "text-gray-500 hover:text-white"
+                        )}
+                      >
+                        <span className="text-[9px] font-black uppercase tracking-wider">{v.variantTier}</span>
+                        <span className="text-[8px] font-mono text-current opacity-60">{v.credits}cr</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {/* Aspect ratio */}
+              <div className="px-5 py-4 border-b border-white/5">
+                <SectionLabel>Aspect Ratio</SectionLabel>
+                <AspectPicker ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
               </div>
 
               {/* Duration */}
-              <div className="px-5 py-5 border-b border-white/5">
-                <div className="flex items-center justify-between mb-4">
+              <div className="px-5 py-4 border-b border-white/5">
+                <div className="flex items-center justify-between mb-3">
                   <SectionLabel>Duration</SectionLabel>
-                  <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">
-                    {genDuration}s
-                  </span>
+                  <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">{genDuration}s</span>
                 </div>
-                <PremiumSlider
-                  min={durationMin}
-                  max={durationMax}
-                  step={1}
-                  value={genDuration}
-                  onChange={setGenDuration}
-                  color="#FFFF00"
-                  growing={true}
-                />
-                <div className="flex justify-between mt-2 px-0.5">
+                <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" growing={false} />
+                <div className="flex justify-between mt-1.5 px-0.5">
                   <span className="text-[9px] font-mono text-[#444]">{durationMin}s</span>
                   <span className="text-[9px] font-mono text-[#444]">{durationMax}s</span>
                 </div>
@@ -1016,77 +1122,121 @@ function VideoPageContent() {
                 </div>
               )}
 
-              {/* Kling mode (Standard / Pro) — Tier-2 pill style */}
+              {/* Kling: Scene Mode + Quality side by side */}
               {isKlingModel && (
-                <div className="px-5 py-5 border-b border-white/5">
-                  <SectionLabel>Scene Mode</SectionLabel>
-                  <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5 mb-2">
-                    {([['std', 'Standard'], ['pro', 'Pro']] as const).map(([id, label]) => (
-                      <button
-                        key={id}
-                        onClick={() => setKlingMode(id)}
-                        className={cn(
-                          "flex-1 py-2 text-[10.5px] font-black rounded-md transition-all uppercase tracking-wider",
-                          klingMode === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white"
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-[#444] leading-relaxed">
-                    {klingMode === 'pro' ? 'Enhanced motion planning for complex multi-shot scenes' : 'Balanced quality and speed for most prompts'}
-                  </p>
-                </div>
-              )}
-
-              {/* Video quality (Evolink only) — Tier-2 pill style */}
-              {isEvolinkModel && (
-                <div className="px-5 py-5 border-b border-white/5">
-                  <SectionLabel>Output Quality</SectionLabel>
-                  <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
-                    {([['720p', '720p HD'], ['1080p', '1080p Full HD']] as const).map(([id, label]) => (
-                      <button
-                        key={id}
-                        onClick={() => setVideoQuality(id)}
-                        className={cn(
-                          "flex-1 py-2 text-[10.5px] font-black rounded-md transition-all uppercase tracking-wider",
-                          videoQuality === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white"
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                <div className="px-5 py-4 border-b border-white/5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <SectionLabel>Scene Mode</SectionLabel>
+                      <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
+                        {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
+                          <button key={id} onClick={() => setKlingMode(id)}
+                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all uppercase tracking-wider",
+                              klingMode === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white")}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <SectionLabel>Quality</SectionLabel>
+                      <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5">
+                        {([['720p', '720p'], ['1080p', '1080p']] as const).map(([id, label]) => (
+                          <button key={id} onClick={() => setVideoQuality(id)}
+                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-all uppercase tracking-wider",
+                              videoQuality === id ? "bg-white/[0.09] text-[#FFFF00] shadow-sm" : "text-gray-500 hover:text-white")}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Prompt adherence / cfg_scale (Kling only) */}
+              {/* Kling: cfg_scale */}
               {isKlingModel && (
-                <div className="px-5 py-5 border-b border-white/5">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="px-5 py-4 border-b border-white/5">
+                  <div className="flex items-center justify-between mb-3">
                     <SectionLabel>Prompt Adherence</SectionLabel>
-                    <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">
-                      {cfgScale.toFixed(2)}
-                    </span>
+                    <span className="font-mono text-[11px] text-[#FFFF00] bg-[#1a1a00] border border-[#FFFF00]/20 px-2 py-0.5 rounded -mt-3">{cfgScale.toFixed(2)}</span>
                   </div>
-                  <PremiumSlider
-                    min={0} max={1} step={0.05}
-                    value={cfgScale}
-                    onChange={setCfgScale}
-                    color="#FFFF00"
-                    growing={false}
-                  />
-                  <div className="flex justify-between mt-2 px-0.5">
+                  <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" growing={false} />
+                  <div className="flex justify-between mt-1.5 px-0.5">
                     <span className="text-[9px] font-mono text-[#444]">Creative</span>
                     <span className="text-[9px] font-mono text-[#444]">Strict</span>
                   </div>
                 </div>
               )}
 
+              {/* Kling multi-shot */}
+              {isKlingModel && selectedModel?.controls?.multiShot && (
+                <div className="px-5 py-4 border-b border-white/5">
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all mb-3">
+                    <div>
+                      <span className="text-xs font-black text-white">Multi-Shot Mode</span>
+                      <p className="text-[10px] text-[#555] mt-0.5">Control each scene independently</p>
+                    </div>
+                    <Toggle checked={multiShot} onChange={setMultiShot} />
+                  </div>
+                  {multiShot && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <SectionLabel>Shots</SectionLabel>
+                        <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5 ml-auto mb-3">
+                          {[2, 3, 4, 5, 6].map(n => (
+                            <button key={n} onClick={() => setShotCount(n)}
+                              className={cn("w-6 h-6 text-[10px] font-black rounded-md transition-all",
+                                shotCount === n ? "bg-white/[0.09] text-[#FFFF00]" : "text-gray-500 hover:text-white")}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {Array.from({ length: shotCount }, (_, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-[9px] font-mono text-[#444] mt-2 w-5 flex-shrink-0">S{i+1}</span>
+                          <input
+                            type="text"
+                            value={shotPrompts[i] ?? ''}
+                            onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                            placeholder={`Shot ${i+1} description…`}
+                            className="flex-1 bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-[11px] text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Veo: enhance prompt + upsample */}
+              {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
+                <div className="px-5 py-4 border-b border-white/5 space-y-2">
+                  {selectedModel?.controls?.enhancePrompt && (
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                      <div>
+                        <span className="text-xs font-black text-white">Enhance Prompt</span>
+                        <p className="text-[10px] text-[#555] mt-0.5">Auto-optimize and translate to English</p>
+                      </div>
+                      <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
+                    </div>
+                  )}
+                  {selectedModel?.controls?.enableUpsample && (
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
+                      <div>
+                        <span className="text-xs font-black text-white">Upsample to 1080p</span>
+                        <p className="text-[10px] text-[#555] mt-0.5">Enable resolution upsampling</p>
+                      </div>
+                      <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Camera fixed (Seedance) */}
               {isSeedanceModel && (
-                <div className="px-5 py-5 border-b border-white/5">
+                <div className="px-5 py-4 border-b border-white/5">
                   <div className="flex items-center justify-between px-3 py-3 rounded-xl bg-[#111111] border border-[#222222] hover:border-[#2e2e2e] transition-all">
                     <div>
                       <div className="flex items-center gap-2">
@@ -1127,18 +1277,33 @@ function VideoPageContent() {
                 </div>
               )}
 
-              {/* First frame */}
-              {hasFirstFrame && (
-                <div className="px-5 py-5 border-b border-white/5">
-                  <SectionLabel>First Frame <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
-                  <ImageUploadBox
-                    label=""
-                    preview={firstFramePreview}
-                    uploading={firstFrameUploading}
-                    hint="Set the opening frame of your video"
-                    onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
-                    onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
-                  />
+              {/* First frame + End frame (combined when both available) */}
+              {(hasFirstFrame || hasEndFrame) && (
+                <div className="px-5 py-4 border-b border-white/5">
+                  <div className={cn("grid gap-3", hasEndFrame ? "grid-cols-2" : "grid-cols-1")}>
+                    {hasFirstFrame && (
+                      <div>
+                        <SectionLabel>First Frame <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <ImageUploadBox
+                          label="" preview={firstFramePreview} uploading={firstFrameUploading}
+                          hint="Opening frame"
+                          onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
+                          onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
+                        />
+                      </div>
+                    )}
+                    {hasEndFrame && (
+                      <div>
+                        <SectionLabel>End Frame <span className="text-[#444] normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <ImageUploadBox
+                          label="" preview={endFramePreview} uploading={endFrameUploading}
+                          hint="Closing frame"
+                          onFile={(f) => uploadImage(f, setEndFramePreview, setEndFrameCdnUrl, setEndFrameUploading)}
+                          onClear={() => { setEndFramePreview(null); setEndFrameCdnUrl(null) }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1191,13 +1356,9 @@ function VideoPageContent() {
                 />
               </div>
 
-              <div className="px-5 py-5 border-b border-white/5">
+              <div className="px-5 py-4 border-b border-white/5">
                 <SectionLabel>Output Aspect</SectionLabel>
-                <div className="grid grid-cols-3 gap-2">
-                  {['16:9', '9:16', '1:1'].map(ar => (
-                    <AspectCard key={ar} ratio={ar} selected={editAspect === ar} onSelect={() => setEditAspect(ar)} />
-                  ))}
-                </div>
+                <AspectPicker ratios={['16:9', '9:16', '1:1']} selected={editAspect} onSelect={setEditAspect} />
               </div>
             </>
           )}

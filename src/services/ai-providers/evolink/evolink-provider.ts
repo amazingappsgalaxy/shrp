@@ -21,12 +21,20 @@ import type {
  *   3. Extract result.video_url from completed task
  */
 
-/** Map internal model IDs to Evolink API model names */
+/** Map internal model IDs to Evolink API model names.
+ *  When a first_frame (image_start) is provided at request time,
+ *  the provider automatically routes to the I2V variant. */
 const EVOLINK_MODEL_MAP: Record<string, string> = {
   'kling-3': 'kling-v3-text-to-video',
   'kling-o3': 'kling-o3-text-to-video',
   'kling-effects': 'kling-effects',
   'kling-video-motion-control': 'kling-motion-control',
+}
+
+/** I2V variants: when image_start or image_end is present, use this model instead */
+const EVOLINK_I2V_MAP: Record<string, string> = {
+  'kling-3': 'kling-v3-image-to-video',
+  'kling-o3': 'kling-o3-image-to-video',
 }
 
 function getBase(): string {
@@ -44,8 +52,9 @@ export class EvolinkProvider {
     return !!this.apiKey
   }
 
-  /** Returns the API model name for a given internal model ID */
-  private resolveModelName(modelId: string): string {
+  /** Returns the API model name. Auto-selects I2V variant when image inputs are present. */
+  private resolveModelName(modelId: string, hasImageInput: boolean): string {
+    if (hasImageInput && EVOLINK_I2V_MAP[modelId]) return EVOLINK_I2V_MAP[modelId]!
     return EVOLINK_MODEL_MAP[modelId] ?? modelId
   }
 
@@ -54,7 +63,8 @@ export class EvolinkProvider {
    * Returns task ID for polling.
    */
   async submitTask(req: EvolinkVideoRequest): Promise<EvolinkSubmitResult> {
-    const apiModelId = this.resolveModelName(req.model)
+    const hasImageInput = !!(req.image_start || req.image_end)
+    const apiModelId = this.resolveModelName(req.model, hasImageInput)
 
     const body: Record<string, unknown> = {
       model: apiModelId,
@@ -67,7 +77,13 @@ export class EvolinkProvider {
 
     if (req.negative_prompt) body.negative_prompt = req.negative_prompt
     if (req.callback_url) body.callback_url = req.callback_url
-    if (req.model_params) body.model_params = req.model_params
+    // image_start / image_end for I2V models (Kling image-to-video)
+    if (req.image_start) body.image_start = req.image_start
+    if (req.image_end) body.image_end = req.image_end
+    // model_params is passed as-is — multi_shot, shot_type, multi_prompt, mode, cfg_scale, etc.
+    if (req.model_params && Object.keys(req.model_params).length > 0) {
+      body.model_params = req.model_params
+    }
 
     const res = await fetch(`${getBase()}/v1/videos/generations`, {
       method: 'POST',

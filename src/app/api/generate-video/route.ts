@@ -73,13 +73,21 @@ export async function POST(request: NextRequest) {
     audio_sync?: boolean
     negative_prompt?: string
     first_frame_url?: string
+    end_frame_url?: string
     video_url?: string
     target_url?: string
     tab?: string
     quality?: '720p' | '1080p'
+    /** Extra model-specific params (e.g. mode, cfg_scale for Kling) */
     model_params?: Record<string, unknown>
     camera_fixed?: boolean
     seed?: number
+    /** Kling multi-shot: enable flag (goes into model_params) */
+    multi_shot?: boolean
+    /** Kling multi-shot: per-shot prompts (duration as number from client, converted to string for API) */
+    multi_prompt?: { index: number; prompt: string; duration: number }[]
+    enhance_prompt?: boolean
+    enable_upsample?: boolean
   }
   try {
     body = await request.json()
@@ -99,6 +107,10 @@ export async function POST(request: NextRequest) {
     model_params,
     camera_fixed,
     seed,
+    multi_shot,
+    multi_prompt,
+    enhance_prompt,
+    enable_upsample,
   } = body
 
   if (!modelId) {
@@ -132,12 +144,16 @@ export async function POST(request: NextRequest) {
 
   // ── Ensure CDN URLs for inputs ────────────────────────────────────────────
   let firstFrameUrl = body.first_frame_url
+  let endFrameUrl = body.end_frame_url
   let videoUrl = body.video_url
   let targetUrl = body.target_url
 
   try {
     if (firstFrameUrl && !firstFrameUrl.startsWith('data:')) {
       firstFrameUrl = await ensureOnCdn(firstFrameUrl, userId)
+    }
+    if (endFrameUrl && !endFrameUrl.startsWith('data:')) {
+      endFrameUrl = await ensureOnCdn(endFrameUrl, userId)
     }
     if (videoUrl) videoUrl = await ensureOnCdn(videoUrl, userId)
     if (targetUrl) targetUrl = await ensureOnCdn(targetUrl, userId)
@@ -184,6 +200,20 @@ export async function POST(request: NextRequest) {
 
     if (primaryProvider === 'evolink') {
       const provider = getEvolinkProvider()
+      // Build model_params: merge client-provided (mode, cfg_scale) with multi-shot
+      const evolinkModelParams = {
+        ...(model_params || {}),
+        ...(multi_shot ? {
+          multi_shot: true,
+          shot_type: 'customize' as const,
+          multi_prompt: multi_prompt?.map(s => ({
+            index: s.index,
+            prompt: s.prompt,
+            duration: String(s.duration), // API requires string
+          })),
+        } : {}),
+      }
+
       const req: EvolinkVideoRequest = {
         model: modelId,
         prompt: normalizedPrompt,
@@ -192,7 +222,10 @@ export async function POST(request: NextRequest) {
         sound: audio_sync ? 'on' : 'off',
         negative_prompt: negative_prompt,
         quality: quality,
-        model_params: model_params,
+        // image_start/image_end for I2V models
+        ...(firstFrameUrl ? { image_start: firstFrameUrl } : {}),
+        ...(endFrameUrl ? { image_end: endFrameUrl } : {}),
+        ...(Object.keys(evolinkModelParams).length > 0 ? { model_params: evolinkModelParams } : {}),
       }
       const result = await provider.submitTask(req)
       providerTaskId = result.taskId
@@ -208,13 +241,12 @@ export async function POST(request: NextRequest) {
         ...(negative_prompt ? { negative_prompt } : {}),
         ...(videoUrl ? { video_url: videoUrl } : {}),
         ...(targetUrl ? { target_url: targetUrl } : {}),
-        ...(firstFrameUrl
-          ? firstFrameUrl.startsWith('data:')
-            ? { first_frame: firstFrameUrl }
-            : { first_frame: firstFrameUrl }
-          : {}),
+        ...(firstFrameUrl ? { first_frame: firstFrameUrl } : {}),
+        ...(endFrameUrl ? { end_frame: endFrameUrl } : {}),
         ...(camera_fixed !== undefined ? { camera_fixed } : {}),
         ...(seed !== undefined ? { seed } : {}),
+        ...(enhance_prompt ? { enhance_prompt: true } : {}),
+        ...(enable_upsample ? { enable_upsample: true } : {}),
       }
       const result = await provider.submitTask(req)
       providerTaskId = result.taskId

@@ -51,6 +51,12 @@ export interface SynvowGenerateRequest {
   camera_fixed?: boolean
   /** Seed for reproducible results */
   seed?: number
+  /** Auto-optimize and translate prompt to English (Veo models) */
+  enhance_prompt?: boolean
+  /** Upsample output to 1080p (Veo models) */
+  enable_upsample?: boolean
+  /** CDN URL for end-frame video seeding (Kling) */
+  end_frame?: string
 }
 
 export type SynvowTaskStatus =
