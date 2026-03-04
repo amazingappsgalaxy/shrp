@@ -828,9 +828,9 @@ function VideoPageContent() {
 
   const openPlansPopup = () => window.dispatchEvent(new CustomEvent('sharpii:open-plans'))
 
-  const showToast = (msg: string, type: 'error' | 'info' = 'error') => {
+  const showToast = (msg: string, type: 'error' | 'info' = 'error', duration = 5000) => {
     setToastMsg({ msg, type })
-    setTimeout(() => setToastMsg(null), 5000)
+    setTimeout(() => setToastMsg(null), duration)
   }
 
   // Image upload
@@ -926,6 +926,9 @@ function VideoPageContent() {
       const n = [...p]
       const otherSum = n.reduce((s, d, j) => j !== idx ? s + d : s, 0)
       const maxVal = Math.max(minDur, Math.min(maxDur, maxDur - otherSum))
+      if (Math.round(newVal) > maxVal) {
+        showToast(`Maximum ${maxDur}s for this model`, 'error', 1000)
+      }
       n[idx] = Math.min(maxVal, Math.max(minDur, Math.round(newVal)))
       return n
     })
@@ -1213,18 +1216,12 @@ function VideoPageContent() {
                 {isKlingModel && (
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                        <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
-                      </div>
-                      <div className="flex justify-between mt-0.5">
-                        <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
-                        <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
-                      </div>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
                       <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} />
                     </div>
+                    <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{genDuration}s</span>
                   </div>
                 )}
 
@@ -1341,7 +1338,7 @@ function VideoPageContent() {
                                     />
                                     <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
                                       <IconClock className="w-3 h-3 text-white/45 shrink-0" />
-                                      <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
+                                      <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Duration</span>
                                       <Slider min={durationMin} max={durationMax} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
                                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0">{shotDur}s</span>
                                     </div>
