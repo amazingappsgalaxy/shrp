@@ -237,7 +237,7 @@ const VIDEO_MODELS: ModelConfig[] = [
     tag: 'Premium',
     controls: {
       aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['3', '5', '10', '15'],
+      durations: ['1', '5', '10', '15'],
       audioSync: true,
       multiShot: true,
       elementList: true,
@@ -256,7 +256,7 @@ const VIDEO_MODELS: ModelConfig[] = [
     tag: 'Advanced',
     controls: {
       aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['3', '5', '10', '15'],
+      durations: ['1', '5', '10', '15'],
       audioSync: true,
       multiShot: true,
       elementList: true,

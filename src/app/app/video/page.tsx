@@ -920,14 +920,17 @@ function VideoPageContent() {
   }, [shotPrompts.length])
 
   const adjustShotDuration = useCallback((idx: number, newVal: number) => {
+    const durations = (selectedModel?.controls?.durations ?? ['1', '15']).map(Number)
+    const minDur = durations[0] ?? 1
+    const maxDur = durations[durations.length - 1] ?? 15
     setShotDurations(p => {
       const n = [...p]
       const otherSum = n.reduce((s, d, j) => j !== idx ? s + d : s, 0)
-      const maxVal = Math.max(3, Math.min(15, 15 - otherSum))
-      n[idx] = Math.min(maxVal, Math.max(3, Math.round(newVal)))
+      const maxVal = Math.max(minDur, Math.min(maxDur, maxDur - otherSum))
+      n[idx] = Math.min(maxVal, Math.max(minDur, Math.round(newVal)))
       return n
     })
-  }, [])
+  }, [selectedModel])
 
   const handleGenerate = async () => {
     if (!prompt.trim() && activeTab !== 'motion') return
@@ -1337,7 +1340,7 @@ function VideoPageContent() {
                                       <IconClock className="w-3 h-3 text-white/45 shrink-0" />
                                       <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
                                       <div className="flex-1" style={{ maxWidth: 150 }}>
-                                        <Slider min={3} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
+                                        <Slider min={durationMin} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
                                       </div>
                                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
                                     </div>
