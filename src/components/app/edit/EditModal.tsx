@@ -1661,7 +1661,7 @@ export function EditModal({
         setGeneratingCount(c => c - 1)
       }
     }))
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask, creditBalance, creditsLoading, totalCost, addWatchedTask, onGenerationComplete])
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask, creditBalance, creditsLoading, totalCost, addWatchedTask, onGenerationStart, onGenerationComplete])
 
   const canvasCursor = !bgImageRef.current ? 'default'
     : mode !== 'edit' ? 'default'
