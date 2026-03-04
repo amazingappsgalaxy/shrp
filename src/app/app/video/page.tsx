@@ -110,15 +110,15 @@ function playTick() {
 
 // ─── Slider with tick sound ────────────────────────────────────────────────────
 
-function Slider({ value, min, max, step, onChange, segments = 40, pillHeight, autoWidth }: {
+function Slider({ value, min, max, step, onChange, segments = 40, pillHeight, autoWidth, fillFromZero }: {
   value: number; min: number; max: number; step: number
-  onChange: (v: number) => void; segments?: number; pillHeight?: number; autoWidth?: boolean
+  onChange: (v: number) => void; segments?: number; pillHeight?: number; autoWidth?: boolean; fillFromZero?: boolean
 }) {
   const lastTickRef = useRef<number | null>(null)
   return (
     <PillRangeSlider
       value={value} min={min} max={max} step={step} segments={segments}
-      pillHeight={pillHeight} autoWidth={autoWidth}
+      pillHeight={pillHeight} autoWidth={autoWidth} fillFromZero={fillFromZero}
       onChange={v => {
         if (v !== lastTickRef.current) { playTick(); lastTickRef.current = v }
         onChange(v)
@@ -1259,7 +1259,7 @@ function VideoPageContent() {
                       <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
-                      <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} />
+                      <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} fillFromZero />
                     </div>
                     <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{genDuration}s</span>
                   </div>
@@ -1313,7 +1313,7 @@ function VideoPageContent() {
                         )}
                         {selectedModel?.controls?.enableUpsample && (
                           <div>
-                            <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">1080p</span>
+                            <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Upscale</span>
                             <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
                               <IconUpload className="w-3.5 h-3.5 text-white/55" />
                               <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
@@ -1351,7 +1351,7 @@ function VideoPageContent() {
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                       </div>
                       <div className="shrink-0" style={{ width: 160 }}>
-                        <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} />
+                        <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} fillFromZero />
                       </div>
                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{genDuration}s</span>
                     </div>
@@ -1630,7 +1630,7 @@ function VideoPageContent() {
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                   </div>
                   <div className="shrink-0" style={{ width: 160 }}>
-                    <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={8} />
+                    <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={8} fillFromZero />
                   </div>
                   <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{Math.min(genDuration, 10)}s</span>
                 </div>

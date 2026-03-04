@@ -26,6 +26,12 @@ interface PillRangeSliderProps {
    * container. Use this for compact / inline sliders.
    */
   autoWidth?: boolean
+  /**
+   * When true, fill and drag position are computed relative to 0 instead of min.
+   * Use for duration sliders where min > 0: a value of 5 on a 5–8s model shows
+   * 5/8 = 62% filled rather than 0%, and clicking maps click-position → seconds.
+   */
+  fillFromZero?: boolean
   className?: string
 }
 
@@ -39,6 +45,7 @@ export function PillRangeSlider({
   segments = 40,
   pillHeight = 22,
   autoWidth = false,
+  fillFromZero = false,
   className,
 }: PillRangeSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -46,7 +53,10 @@ export function PillRangeSlider({
   // In autoWidth mode the number of pills = number of discrete steps
   const count = autoWidth ? Math.round((max - min) / step) + 1 : segments
 
-  const pct = max === min ? 1 : (value - min) / (max - min)
+  // fillFromZero: fill & drag use 0 as origin so value=min always shows a
+  // non-empty bar (e.g. 5s on a 5-8s model = 62% filled, not 0%).
+  const origin = fillFromZero ? 0 : min
+  const pct = max === origin ? 1 : (value - origin) / (max - origin)
   const filledCount = Math.max(0, Math.round(pct * count))
 
   // All three scale proportionally with pillHeight
@@ -58,7 +68,13 @@ export function PillRangeSlider({
   const update = (e: React.PointerEvent) => {
     const r = trackRef.current!.getBoundingClientRect()
     const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
-    onChange(Math.round((min + p * (max - min)) / step) * step)
+    if (fillFromZero) {
+      // Click position maps directly to seconds (0→max), clamped to min
+      const raw = Math.round(p * max / step) * step
+      onChange(Math.max(min, raw))
+    } else {
+      onChange(Math.round((min + p * (max - min)) / step) * step)
+    }
   }
 
   return (
