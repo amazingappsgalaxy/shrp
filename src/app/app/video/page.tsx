@@ -758,7 +758,6 @@ function VideoPageContent() {
   const [genAspect, setGenAspect] = useState('16:9')
   const [genDuration, setGenDuration] = useState(5)
   const [genAudio, setGenAudio] = useState(false)
-  const [klingMode, setKlingMode] = useState<'std' | 'pro'>('std')
   const [videoQuality, setVideoQuality] = useState<'720p' | '1080p'>('720p')
   const [cfgScale, setCfgScale] = useState(0.5)
   const [cameraFixed, setCameraFixed] = useState(false)
@@ -1003,7 +1002,7 @@ function VideoPageContent() {
         if (isEvolinkModel) {
           body.quality = videoQuality
           const mp: Record<string, unknown> = {}
-          if (isKlingModel) mp.mode = klingMode
+
           if (isKlingModel) mp.cfg_scale = cfgScale
           if (Object.keys(mp).length > 0) body.model_params = mp
           // Multi-shot
@@ -1236,31 +1235,17 @@ function VideoPageContent() {
                   />
                 </div>
 
-                {/* Kling: Duration + Scene Mode */}
+                {/* Kling: Duration */}
                 {isKlingModel && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                        <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
-                      </div>
-                      <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" />
-                      <div className="flex justify-between mt-1.5">
-                        <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
-                        <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
-                      </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                      <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
                     </div>
-                    <div>
-                      <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Scene Mode</span>
-                      <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-md gap-0.5">
-                        {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
-                          <button key={id} onClick={() => setKlingMode(id)}
-                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded transition-colors",
-                              klingMode === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
+                    <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" segments={40} />
+                    <div className="flex justify-between mt-1.5">
+                      <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
+                      <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
                     </div>
                   </div>
                 )}
