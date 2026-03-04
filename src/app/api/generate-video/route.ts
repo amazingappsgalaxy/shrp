@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     enable_upsample,
     keep_original_sound,
   } = body
-  const clientImageUrls = body.image_urls?.filter(u => typeof u === 'string' && u.length > 0)
+  let clientImageUrls = body.image_urls?.filter(u => typeof u === 'string' && u.length > 0)
 
   if (!modelId) {
     return NextResponse.json({ error: 'model is required' }, { status: 400 })
@@ -168,6 +168,10 @@ export async function POST(request: NextRequest) {
     }
     if (videoUrl) videoUrl = await ensureOnCdn(videoUrl, userId)
     if (targetUrl) targetUrl = await ensureOnCdn(targetUrl, userId)
+    // Ensure reference image URLs are on our CDN (they may be external/temporary)
+    if (clientImageUrls?.length) {
+      clientImageUrls = await Promise.all(clientImageUrls.map(u => ensureOnCdn(u, userId)))
+    }
   } catch (err) {
     console.warn('⚠️ generate-video: CDN upload failed for input, using original:', err)
   }
@@ -282,8 +286,8 @@ export async function POST(request: NextRequest) {
       providerTaskId = result.taskId
     }
 
-    // Store provider task ID for polling
-    await supabase
+    // Store provider task ID for polling — critical: without this the task can never complete
+    const { error: updateError } = await supabase
       .from('history_items')
       .update({
         settings: {
@@ -299,6 +303,26 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', taskId)
+
+    if (updateError) {
+      // Task was submitted to provider but we can't store its ID — mark as failed so
+      // user isn't left with a stuck processing record
+      console.error(`🚨 generate-video: failed to store _providerTaskId for task=${taskId}:`, updateError)
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: {
+            prompt: normalizedPrompt,
+            creditsToDeduct: creditCost,
+            _provider: primaryProvider,
+            _failureReason: 'Failed to store provider task ID — please retry',
+          },
+        })
+        .eq('id', taskId)
+      return NextResponse.json({ error: 'Failed to store task state — please retry' }, { status: 500 })
+    }
 
     return NextResponse.json({
       success: true,

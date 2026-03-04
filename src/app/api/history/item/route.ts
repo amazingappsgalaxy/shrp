@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       .select('id, task_id, output_urls, model_name, page_name, status, generation_time_ms, settings, created_at')
       .eq('id', historyId)
       .eq('user_id', sessionData.user.id)
-      .single()
+      .maybeSingle()
 
     if (error || !data) {
       return NextResponse.json({ error: 'History item not found' }, { status: 404 })

@@ -18,7 +18,7 @@ exports.handler = async function (event, context) {
 
   if (!cronSecret) {
     console.error('CRON_SECRET env var is not set — skipping task processing')
-    return { statusCode: 200, body: 'CRON_SECRET not configured' }
+    return { statusCode: 500, body: 'CRON_SECRET not configured' }
   }
 
   try {

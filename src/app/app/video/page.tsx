@@ -1162,15 +1162,40 @@ function VideoPageContent() {
       addWatchedTask(dbTaskId, 'Video generating')
       setVideos(prev => prev.map(v => v.id === localId ? { ...v, taskId: dbTaskId } : v))
 
+      const pollStartTime = Date.now()
+      const MAX_POLL_DURATION_MS = 45 * 60 * 1000 // 45 minutes hard timeout
+      const MAX_CONSECUTIVE_ERRORS = 5
+      let consecutiveErrors = 0
+
+      const stopPoll = (reason: 'success' | 'failed', errMsg?: string) => {
+        clearInterval(pollInterval)
+        pollIntervalsRef.current.delete(localId)
+        cleanupTask(localId)
+        if (reason === 'failed') {
+          failTask(dbTaskId)
+          setVideos(prev => prev.map(v => v.id === localId ? { ...v, loading: false, error: errMsg || 'Generation failed' } : v))
+          setActiveTasks(prev => {
+            const m = new Map(prev)
+            const t = m.get(localId)
+            if (t) m.set(localId, { ...t, progress: 100, status: 'error', message: errMsg || 'Generation failed' })
+            return m
+          })
+          setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 5000)
+        }
+      }
+
       const pollInterval = setInterval(async () => {
+        // Hard timeout — stop polling and let cron handle it
+        if (Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+          stopPoll('failed', 'Generation timed out. Check History for status.')
+          return
+        }
         try {
           const pollRes = await fetch(`/api/generate-video/poll?taskId=${dbTaskId}`)
           const pollData = await pollRes.json()
+          consecutiveErrors = 0 // reset on any successful HTTP response
 
           if (pollData.status === 'success') {
-            clearInterval(pollInterval)
-            pollIntervalsRef.current.delete(localId)
-            cleanupTask(localId)
             const videoUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url ? pollData.outputs[0].url : null
             setVideos(prev => prev.map(v => v.id === localId ? { ...v, url: videoUrl, loading: false } : v))
             resolveTask(dbTaskId)
@@ -1181,21 +1206,17 @@ function VideoPageContent() {
               return m
             })
             setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 4000)
+            stopPoll('success')
           } else if (pollData.status === 'failed') {
-            clearInterval(pollInterval)
-            pollIntervalsRef.current.delete(localId)
-            cleanupTask(localId)
-            failTask(dbTaskId)
-            setVideos(prev => prev.map(v => v.id === localId ? { ...v, loading: false, error: pollData.error || 'Generation failed' } : v))
-            setActiveTasks(prev => {
-              const m = new Map(prev)
-              const t = m.get(localId)
-              if (t) m.set(localId, { ...t, progress: 100, status: 'error', message: pollData.error || 'Generation failed' })
-              return m
-            })
-            setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 5000)
+            stopPoll('failed', pollData.error || 'Generation failed')
           }
-        } catch { /* will retry */ }
+        } catch {
+          consecutiveErrors++
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            // Network is broken — stop polling, let cron finish the task
+            stopPoll('failed', 'Lost connection. Check History for status.')
+          }
+        }
       }, 8000)
 
       pollIntervalsRef.current.set(localId, pollInterval)

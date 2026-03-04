@@ -7,13 +7,14 @@ import { GenerationAnimation } from "@/components/ui/GenerationAnimation"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import {
   IconArrowUp, IconSparkles,
-  IconDownload, IconRefresh, IconX, IconPlus, IconChevronDown, IconCheck, IconBug,
+  IconDownload, IconRefresh, IconX, IconPlus, IconChevronDown, IconCheck, IconBug, IconWand,
 } from "@tabler/icons-react"
 import { getImageModels } from "@/services/models"
 import { uploadImageToCdn } from "@/lib/upload-image"
 import { APP_DATA_KEY } from "@/lib/hooks/use-app-data"
 import { useSWRConfig } from "swr"
 import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
+import { EditModal } from '@/components/app/edit/EditModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Count      = 1 | 2 | 4
@@ -147,12 +148,13 @@ function AspectShape({ aspect, active }: { aspect: Aspect; active: boolean }) {
 
 // ─── Image modal ──────────────────────────────────────────────────────────────
 function ImageModal({
-  images, index, onClose, onNavigate,
+  images, index, onClose, onNavigate, onAddImage,
 }: {
   images: GridImage[]
   index: number | null
   onClose: () => void
   onNavigate: (index: number) => void
+  onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string) => void
 }) {
   const img = index !== null ? images[index] ?? null : null
 
@@ -161,6 +163,7 @@ function ImageModal({
   const [pan,     setPan]     = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Reset zoom/pan when navigating
   useEffect(() => {
@@ -325,6 +328,12 @@ function ImageModal({
             </div>
           </div>
           <div className="p-5 border-t border-white/[0.06]">
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="flex items-center justify-center gap-2 w-full h-11 bg-white/[0.09] text-[#FFFF00] text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.12] transition-all mb-2"
+            >
+              <IconWand size={13} /> Edit Image
+            </button>
             <a href={img.url} download target="_blank" rel="noreferrer"
               className="flex items-center justify-center gap-2 w-full h-11 bg-[#FFFF00] text-black text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#e6e600] transition-all">
               <IconDownload size={13} /> Download
@@ -332,6 +341,22 @@ function ImageModal({
           </div>
         </div>
       </div>
+
+      {isEditModalOpen && (
+        <EditModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          initialImageUrl={img.url}
+          sourceContext="image-page"
+          onGenerationComplete={(imageUrl, historyId, mode, prompt) => {
+            // Add the edited image to the canvas grid
+            if (onAddImage) {
+              onAddImage(imageUrl, historyId, mode, prompt)
+            }
+            setIsEditModalOpen(false)
+          }}
+        />
+      )}
     </div>,
     document.body,
   )
@@ -844,6 +869,24 @@ export default function ImagePage() {
     e.target.value = ""
   }
 
+  // Add edited image to the canvas grid
+  function handleAddEditedImage(imageUrl: string, historyId: string, mode: string, prompt: string) {
+    const newId = `edited-${Date.now()}-${historyId}`
+    const newImage: GridImage = {
+      id: newId,
+      url: imageUrl,
+      aspect: "1:1", // Default aspect, will be determined by actual image
+      loading: false,
+      prompt: prompt,
+      model: `Edit (${mode})`,
+      hasRefs: false,
+    }
+    setImages(prev => [...prev, newImage])
+    setGeneratedIds(prev => new Set([...prev, newId]))
+    mutate(APP_DATA_KEY) // Refresh credits
+    toast.success("Edited image added to canvas")
+  }
+
   // Each call is fully independent — no busy lock, multiple can run concurrently
   function handleGenerate() {
     if (!prompt.trim()) return
@@ -1076,6 +1119,7 @@ export default function ImagePage() {
         index={modalIndex}
         onClose={() => setModalIndex(null)}
         onNavigate={setModalIndex}
+        onAddImage={handleAddEditedImage}
       />
 
       {/* Pill hover preview — floating image preview above the hovered Image [N] token */}

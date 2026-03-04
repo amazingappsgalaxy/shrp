@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Download, Maximize2, Sparkles, AlertCircle } from "lucide-react";
+import { IconWand } from '@tabler/icons-react';
 import { cn } from "@/lib/utils";
+import { EditModal } from '@/components/app/edit/EditModal';
 
 // Redefine locally for simplicity
 type HistoryDetail = {
@@ -37,6 +39,8 @@ interface HistoryDetailModalProps {
 export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModalProps) {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [meta, setMeta] = useState<{ width?: number; height?: number; size?: string }>({});
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editImageUrl, setEditImageUrl] = useState<string | null>(null);
 
     // Reset index when item opens
     useEffect(() => {
@@ -197,7 +201,18 @@ export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModal
                                     </div>
                                 </div>
 
-                                <div className="flex gap-2 w-full">
+                                <div className="flex flex-col gap-2 w-full">
+                                    {item.status !== 'failed' && currentOutput && currentOutput.type === 'image' && (
+                                        <button
+                                            onClick={() => {
+                                                setEditImageUrl(currentOutput.url);
+                                                setIsEditModalOpen(true);
+                                            }}
+                                            className="w-full bg-white/[0.09] text-[#FFFF00] font-semibold h-10 rounded-md hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
+                                        >
+                                            <IconWand className="w-4 h-4" /> Edit Image
+                                        </button>
+                                    )}
                                     {item.status !== 'failed' && currentOutput && (
                                         <button
                                             onClick={() => {
@@ -210,7 +225,7 @@ export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModal
                                                 link.click();
                                                 document.body.removeChild(link);
                                             }}
-                                            className="flex-1 bg-white text-black font-semibold h-10 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm"
+                                            className="w-full bg-white text-black font-semibold h-10 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm"
                                         >
                                             <Download className="w-4 h-4" /> Download
                                         </button>
@@ -269,6 +284,24 @@ export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModal
                         </div>
 
                     </motion.div>
+
+                    {/* Edit Modal */}
+                    {isEditModalOpen && editImageUrl && (
+                        <EditModal
+                            isOpen={isEditModalOpen}
+                            onClose={() => {
+                                setIsEditModalOpen(false);
+                                setEditImageUrl(null);
+                            }}
+                            initialImageUrl={editImageUrl}
+                            sourceContext="history-page"
+                            onGenerationComplete={() => {
+                                // Just close the modal - generations are auto-added to history
+                                setIsEditModalOpen(false);
+                                setEditImageUrl(null);
+                            }}
+                        />
+                    )}
                 </div>
             )}
         </AnimatePresence>
