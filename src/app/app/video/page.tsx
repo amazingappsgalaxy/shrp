@@ -514,6 +514,64 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
   )
 }
 
+// ─── Multi-image upload (up to 4, for reference images) ───────────────────────
+
+interface RefImage { preview: string; cdnUrl: string | null }
+
+function MultiImageUpload({ images, uploading, onAdd, onRemove }: {
+  images: RefImage[]
+  uploading: boolean
+  onAdd: (file: File) => void
+  onRemove: (idx: number) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Reference Images</span>
+        <span className="text-[9px] text-white/30 italic">(optional · up to 4 · JPG/PNG/WEBP)</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {images.map((img, i) => (
+          <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#333] flex-shrink-0">
+            <img src={img.preview} alt="" className="w-full h-full object-cover" />
+            {img.cdnUrl === null && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                <div className="w-4 h-4 border border-[#555] border-t-[#FFFF00] rounded-full animate-spin" />
+              </div>
+            )}
+            <button
+              onClick={() => onRemove(i)}
+              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center text-white/60 hover:text-red-400 transition-colors"
+            >
+              <IconTrash className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+        {images.length < 4 && (
+          <button
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="w-16 h-16 rounded-lg border border-dashed border-[#2a2a2a] hover:border-[#3a3a3a] flex flex-col items-center justify-center gap-1 bg-[#0a0a0a] text-white/40 hover:text-white/65 transition-colors flex-shrink-0"
+          >
+            {uploading
+              ? <div className="w-4 h-4 border border-[#333] border-t-[#FFFF00] rounded-full animate-spin" />
+              : <><IconPlus className="w-4 h-4" /><span className="text-[8px] font-black uppercase">Add</span></>
+            }
+          </button>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.webp"
+        className="hidden"
+        onChange={e => { if (e.target.files?.[0]) onAdd(e.target.files[0]) }}
+      />
+    </div>
+  )
+}
+
 // ─── Video skeleton ────────────────────────────────────────────────────────────
 
 function VideoSkeleton({ aspect }: { aspect: string }) {
@@ -772,18 +830,16 @@ function VideoPageContent() {
   const [editVideoPreview, setEditVideoPreview] = useState<string | null>(null)
   const [editVideoCdnUrl, setEditVideoCdnUrl] = useState<string | null>(null)
   const [editVideoUploading, setEditVideoUploading] = useState(false)
-  const [editRefImagePreview, setEditRefImagePreview] = useState<string | null>(null)
-  const [editRefImageCdnUrl, setEditRefImageCdnUrl] = useState<string | null>(null)
-  const [editRefImageUploading, setEditRefImageUploading] = useState(false)
+  const [editRefImages, setEditRefImages] = useState<RefImage[]>([])
+  const [editRefUploading, setEditRefUploading] = useState(false)
   const [editAspect, setEditAspect] = useState('16:9')
 
   // Motion settings
   const [motionSourcePreview, setMotionSourcePreview] = useState<string | null>(null)
   const [motionSourceCdnUrl, setMotionSourceCdnUrl] = useState<string | null>(null)
   const [motionSourceUploading, setMotionSourceUploading] = useState(false)
-  const [motionTargetPreview, setMotionTargetPreview] = useState<string | null>(null)
-  const [motionTargetCdnUrl, setMotionTargetCdnUrl] = useState<string | null>(null)
-  const [motionTargetUploading, setMotionTargetUploading] = useState(false)
+  const [motionRefImages, setMotionRefImages] = useState<RefImage[]>([])
+  const [motionRefUploading, setMotionRefUploading] = useState(false)
 
   const [prompt, setPrompt] = useState('')
   const [videos, setVideos] = useState<VideoResult[]>(() => {
@@ -891,6 +947,41 @@ function VideoPageContent() {
       setUploading(false)
     }
   }, [])
+
+  // Multi-image upload handler for reference images
+  const addRefImage = useCallback(async (
+    file: File,
+    setImages: React.Dispatch<React.SetStateAction<RefImage[]>>,
+    setUploading: (b: boolean) => void
+  ) => {
+    const preview = URL.createObjectURL(file)
+    setImages(prev => [...prev, { preview, cdnUrl: null }])
+    setUploading(true)
+    try {
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = e => resolve(e.target?.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUri }),
+      })
+      const data = await res.json()
+      if (data.imageUrl) {
+        setImages(prev => prev.map(img => img.preview === preview ? { ...img, cdnUrl: data.imageUrl } : img))
+      } else {
+        throw new Error(data.error || 'Upload failed')
+      }
+    } catch {
+      setImages(prev => prev.filter(img => img.preview !== preview))
+      showToast('Image upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }, [showToast])
 
   const currentAspect = activeTab === 'generate' ? genAspect
     : activeTab === 'edit' ? editAspect : '16:9'
@@ -1013,7 +1104,8 @@ function VideoPageContent() {
       } else if (activeTab === 'edit') {
         body.video_url = editVideoCdnUrl
         body.keep_original_sound = keepOriginalSound
-        if (editRefImageCdnUrl) body.target_url = editRefImageCdnUrl
+        const editImgUrls = editRefImages.map(i => i.cdnUrl).filter((u): u is string => !!u)
+        if (editImgUrls.length) body.image_urls = editImgUrls
         if (isKlingO3VideoEdit) {
           body.quality = videoQuality
           if (selectedModel?.controls?.multiShot && multiShot) {
@@ -1035,7 +1127,8 @@ function VideoPageContent() {
       } else if (activeTab === 'motion') {
         body.video_url = motionSourceCdnUrl
         body.keep_original_sound = keepOriginalSound
-        if (motionTargetCdnUrl) body.target_url = motionTargetCdnUrl
+        const motionImgUrls = motionRefImages.map(i => i.cdnUrl).filter((u): u is string => !!u)
+        if (motionImgUrls.length) body.image_urls = motionImgUrls
         if (isKlingO3RefToVideo) {
           body.quality = videoQuality
           body.duration = genDuration
@@ -1555,14 +1648,11 @@ function VideoPageContent() {
               </div>
 
               <div className="px-5 py-4 border-b border-white/5">
-                <ImageUploadBox
-                  label="Reference Images"
-                  optional
-                  hint="Optional style or content reference"
-                  preview={editRefImagePreview}
-                  uploading={editRefImageUploading}
-                  onFile={(f) => uploadImage(f, setEditRefImagePreview, setEditRefImageCdnUrl, setEditRefImageUploading)}
-                  onClear={() => { setEditRefImagePreview(null); setEditRefImageCdnUrl(null) }}
+                <MultiImageUpload
+                  images={editRefImages}
+                  uploading={editRefUploading}
+                  onAdd={f => addRefImage(f, setEditRefImages, setEditRefUploading)}
+                  onRemove={i => setEditRefImages(prev => prev.filter((_, idx) => idx !== i))}
                 />
               </div>
 
@@ -1582,6 +1672,85 @@ function VideoPageContent() {
                   </div>
                 </div>
               </div>
+
+              {/* Multi-Shot for Kling O3 Edit */}
+              {selectedModel?.controls?.multiShot && (
+                <div className="px-5 py-4 border-b border-white/[0.05]">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="text-xs font-black text-white">Multi-Shot</span>
+                      <p className="text-[10px] text-white/50 mt-0.5">Control each scene independently</p>
+                    </div>
+                    <Toggle checked={multiShot} onChange={setMultiShot} />
+                  </div>
+                  {multiShot && (
+                    <div className="space-y-2.5">
+                      <div className="space-y-2">
+                        {shotPrompts.map((sp, i) => {
+                          const shotDur = shotDurations[i] ?? 5
+                          return (
+                            <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
+                              <div className="flex items-center justify-between px-3 pt-2 pb-0">
+                                <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
+                                {shotPrompts.length > 1 && (
+                                  <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
+                                    <IconTrash className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                value={sp}
+                                onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                placeholder={`Scene ${i + 1}…`}
+                                rows={2}
+                                className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/40 outline-none resize-none leading-relaxed"
+                              />
+                              <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
+                                <IconClock className="w-3 h-3 text-white/45 shrink-0" />
+                                <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Duration</span>
+                                <Slider min={3} max={10} step={1} value={shotDur}
+                                  onChange={v => setShotDurations(prev => { const n = [...prev]; n[i] = v; return n })}
+                                  pillHeight={13} autoWidth />
+                                <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0">{shotDur}s</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                        {shotPrompts.length < 6 && (
+                          <button
+                            onClick={addShot}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
+                          >
+                            <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                              <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
+                            </div>
+                            <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
+                          </button>
+                        )}
+                      </div>
+                      {selectedModel?.controls?.elementList && (
+                        <div className="pt-1">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
+                            <span className="text-[9px] text-white/50 italic">(optional)</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            {[0, 1, 2].map(idx => (
+                              <input key={idx} type="number" min={1}
+                                value={elementIds[idx] ?? ''}
+                                onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
+                                placeholder={`ID ${idx + 1}`}
+                                className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                              />
+                            ))}
+                          </div>
+                          <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -1611,14 +1780,11 @@ function VideoPageContent() {
               </div>
 
               <div className="px-5 py-4 border-b border-white/5">
-                <ImageUploadBox
-                  label="Style Reference"
-                  optional
-                  hint="Optional image for style guidance"
-                  preview={motionTargetPreview}
-                  uploading={motionTargetUploading}
-                  onFile={(f) => uploadImage(f, setMotionTargetPreview, setMotionTargetCdnUrl, setMotionTargetUploading)}
-                  onClear={() => { setMotionTargetPreview(null); setMotionTargetCdnUrl(null) }}
+                <MultiImageUpload
+                  images={motionRefImages}
+                  uploading={motionRefUploading}
+                  onAdd={f => addRefImage(f, setMotionRefImages, setMotionRefUploading)}
+                  onRemove={i => setMotionRefImages(prev => prev.filter((_, idx) => idx !== i))}
                 />
               </div>
 
@@ -1646,11 +1812,90 @@ function VideoPageContent() {
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                   </div>
                   <div className="shrink-0" style={{ width: 160 }}>
-                    <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={8} fillFromZero />
+                    <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={16} fillFromZero />
                   </div>
                   <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{Math.min(genDuration, 10)}s</span>
                 </div>
               </div>
+
+              {/* Multi-Shot for Kling O3 Reference-to-Video */}
+              {selectedModel?.controls?.multiShot && (
+                <div className="px-5 py-4 border-b border-white/[0.05]">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="text-xs font-black text-white">Multi-Shot</span>
+                      <p className="text-[10px] text-white/50 mt-0.5">Control each scene independently</p>
+                    </div>
+                    <Toggle checked={multiShot} onChange={setMultiShot} />
+                  </div>
+                  {multiShot && (
+                    <div className="space-y-2.5">
+                      <div className="space-y-2">
+                        {shotPrompts.map((sp, i) => {
+                          const shotDur = shotDurations[i] ?? 5
+                          return (
+                            <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
+                              <div className="flex items-center justify-between px-3 pt-2 pb-0">
+                                <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
+                                {shotPrompts.length > 1 && (
+                                  <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
+                                    <IconTrash className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                value={sp}
+                                onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                placeholder={`Scene ${i + 1}…`}
+                                rows={2}
+                                className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/40 outline-none resize-none leading-relaxed"
+                              />
+                              <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
+                                <IconClock className="w-3 h-3 text-white/45 shrink-0" />
+                                <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Duration</span>
+                                <Slider min={3} max={10} step={1} value={shotDur}
+                                  onChange={v => setShotDurations(prev => { const n = [...prev]; n[i] = v; return n })}
+                                  pillHeight={13} autoWidth />
+                                <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0">{shotDur}s</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                        {shotPrompts.length < 6 && (
+                          <button
+                            onClick={addShot}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
+                          >
+                            <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                              <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
+                            </div>
+                            <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
+                          </button>
+                        )}
+                      </div>
+                      {selectedModel?.controls?.elementList && (
+                        <div className="pt-1">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
+                            <span className="text-[9px] text-white/50 italic">(optional)</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            {[0, 1, 2].map(idx => (
+                              <input key={idx} type="number" min={1}
+                                value={elementIds[idx] ?? ''}
+                                onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
+                                placeholder={`ID ${idx + 1}`}
+                                className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                              />
+                            ))}
+                          </div>
+                          <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

@@ -108,8 +108,14 @@ const LIGHTING_STYLES = [
 function uid() { return crypto.randomUUID() }
 
 function computeDisplaySize(nw: number, nh: number): { w: number; h: number } {
-  const maxW = Math.min(window.innerWidth - 400, 860)  // reserve for inline left panel (280px) + gaps
-  const maxH = Math.min(window.innerHeight - 210, 700)
+  // Responsive canvas sizing — mobile-first approach
+  const isMobile = window.innerWidth < 1024
+  const maxW = isMobile
+    ? Math.min(window.innerWidth - 32, 600)  // mobile: full width minus padding
+    : Math.min(window.innerWidth - 400, 860)  // desktop: reserve for left panel + gaps
+  const maxH = isMobile
+    ? Math.min(window.innerHeight - 280, 500)  // mobile: reserve more space for controls
+    : Math.min(window.innerHeight - 210, 700)
   let w = nw, h = nh
   if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
   if (h > maxH) { w = Math.round(w * maxH / h); h = maxH }
@@ -514,17 +520,17 @@ function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onS
     <div className="relative">
       <button
         onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0c0c0c] border border-[#252525] shadow-lg hover:border-[#303030] transition-all"
+        className="flex items-center gap-1 lg:gap-2 px-2 lg:px-4 py-1.5 lg:py-2.5 rounded-lg lg:rounded-xl bg-[#0c0c0c] border border-[#252525] shadow-lg hover:border-[#303030] transition-all"
       >
-        <IconSparkles className="w-3.5 h-3.5 text-gray-400" />
-        <span className="text-xs font-black text-gray-300 uppercase tracking-wide">
+        <IconSparkles className="w-3 lg:w-3.5 h-3 lg:h-3.5 text-gray-400" />
+        <span className="text-[10px] lg:text-xs font-black text-gray-300 uppercase tracking-wide whitespace-nowrap">
           {m?.label ?? 'Model'}{m?.qualityTier ? ` · ${m.qualityTier}` : ''}
         </span>
-        <IconChevronDown className={cn('w-3 h-3 text-gray-500 transition-transform duration-200', open && 'rotate-180')} />
+        <IconChevronDown className={cn('w-2.5 lg:w-3 h-2.5 lg:h-3 text-gray-500 transition-transform duration-200', open && 'rotate-180')} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 w-[220px] bg-[#0c0c0c] border border-[#252525] rounded-xl shadow-2xl overflow-hidden z-50">
+        <div className="absolute bottom-full mb-2 left-0 w-[180px] lg:w-[220px] bg-[#0c0c0c] border border-[#252525] rounded-lg lg:rounded-xl shadow-2xl overflow-hidden z-50">
           {EDIT_MODELS.map(id => {
             const mod = MODEL_REGISTRY[id]
             if (!mod) return null
@@ -533,16 +539,16 @@ function ModelDropdown({ selectedModel, onSelect }: { selectedModel: string; onS
                 key={id}
                 onClick={() => { onSelect(id); setOpen(false) }}
                 className={cn(
-                  'w-full flex items-center justify-between px-4 py-3 text-xs font-bold transition-all',
+                  'w-full flex items-center justify-between px-3 lg:px-4 py-2 lg:py-3 text-[10px] lg:text-xs font-bold transition-all',
                   selectedModel === id
                     ? 'bg-[#181818] text-[#FFFF00]'
                     : 'text-gray-400 hover:text-white hover:bg-[#141414]'
                 )}
               >
-                <span>{mod.label}{mod.qualityTier ? ` · ${mod.qualityTier}` : ''}</span>
-                <div className={cn('flex items-center gap-1', selectedModel === id ? 'text-[#FFFF00]' : 'text-gray-500')}>
-                  <CreditIcon className="w-3 h-3" />
-                  <span>{mod.credits}</span>
+                <span className="truncate">{mod.label}{mod.qualityTier ? ` · ${mod.qualityTier}` : ''}</span>
+                <div className={cn('flex items-center gap-0.5 lg:gap-1 flex-shrink-0', selectedModel === id ? 'text-[#FFFF00]' : 'text-gray-500')}>
+                  <CreditIcon className="w-2.5 lg:w-3 h-2.5 lg:h-3" />
+                  <span className="text-[9px] lg:text-[10px]">{mod.credits}</span>
                 </div>
               </button>
             )
@@ -605,7 +611,7 @@ function FloatingMaskCard({
       {/* The card */}
       <div
         ref={cardRef}
-        className="absolute w-[200px] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] border"
+        className="absolute w-[180px] lg:w-[200px] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] border text-xs lg:text-sm"
         style={{
           left: cardX,
           top: cardY,
@@ -1145,6 +1151,17 @@ export default function EditPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [undo, redo])
 
+  // ── Resize handler for mobile orientation changes
+  useEffect(() => {
+    if (!imageNaturalSize) return
+    const handleResize = () => {
+      const ds = computeDisplaySize(imageNaturalSize.w, imageNaturalSize.h)
+      setDisplaySize(ds)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [imageNaturalSize])
+
   // ── Flatten annotations onto canvas for export
   const flattenForExport = useCallback((): string => {
     const src = displayCanvasRef.current
@@ -1568,45 +1585,45 @@ export default function EditPage() {
       >
         {!imageUrl ? (
           /* ── REDESIGNED EMPTY STATE ─────────────────────────────────── */
-          <label className="group cursor-pointer flex flex-col items-center gap-8 select-none">
-            <div className="relative w-48 h-44 rounded-xl border border-[#333333] group-hover:border-[#505050] bg-[#111111] group-hover:bg-[#161616] flex flex-col items-center justify-center gap-3 transition-all duration-300">
-              <IconCloudUpload className="w-11 h-11 text-[#686868] group-hover:text-[#b0b0b0] transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
-              <span className="text-[11px] font-black uppercase tracking-widest text-[#686868] group-hover:text-[#b0b0b0] transition-colors">Upload Image</span>
+          <label className="group cursor-pointer flex flex-col items-center gap-4 lg:gap-8 select-none px-4">
+            <div className="relative w-40 lg:w-48 h-36 lg:h-44 rounded-xl border border-[#333333] group-hover:border-[#505050] bg-[#111111] group-hover:bg-[#161616] flex flex-col items-center justify-center gap-2 lg:gap-3 transition-all duration-300">
+              <IconCloudUpload className="w-9 lg:w-11 h-9 lg:h-11 text-[#686868] group-hover:text-[#b0b0b0] transition-all duration-300 group-hover:-translate-y-1" strokeWidth={1.5} />
+              <span className="text-[10px] lg:text-[11px] font-black uppercase tracking-widest text-[#686868] group-hover:text-[#b0b0b0] transition-colors">Upload Image</span>
             </div>
-            <div className="text-center space-y-2.5">
-              <p className="text-sm font-semibold text-[#787878] group-hover:text-[#c0c0c0] transition-colors">Drop an image or click to browse</p>
-              <div className="flex items-center justify-center gap-2">
+            <div className="text-center space-y-2 lg:space-y-2.5">
+              <p className="text-xs lg:text-sm font-semibold text-[#787878] group-hover:text-[#c0c0c0] transition-colors">Drop an image or click to browse</p>
+              <div className="flex items-center justify-center gap-1.5 lg:gap-2">
                 {['PNG', 'JPG', 'WebP'].map(t => (
-                  <span key={t} className="text-[10px] font-bold text-[#585858] px-2 py-0.5 rounded bg-[#141414] border border-[#252525] uppercase tracking-wide">{t}</span>
+                  <span key={t} className="text-[9px] lg:text-[10px] font-bold text-[#585858] px-1.5 lg:px-2 py-0.5 rounded bg-[#141414] border border-[#252525] uppercase tracking-wide">{t}</span>
                 ))}
               </div>
             </div>
             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
           </label>
         ) : (
-          /* flex row: left panel + canvas */
-          <div className="flex items-center gap-4 h-full">
+          /* flex row: left panel + canvas — responsive for mobile */
+          <div className="flex flex-col lg:flex-row items-center gap-4 h-full justify-center">
 
             {/* ── LEFT PANEL: EDIT TOOLS ───────────────────────── */}
             {mode === 'edit' && (
-              <div className="flex-shrink-0 self-center flex flex-col items-center gap-1 p-2 rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl">
+              <div className="flex-shrink-0 self-center flex flex-row lg:flex-col items-center gap-1 p-2 rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl order-2 lg:order-1">
                 {/* Undo / Redo */}
-                <div className="flex gap-0.5 mb-0.5">
+                <div className="flex gap-0.5 mb-0 lg:mb-0.5">
                   <button onClick={undo} title="Undo (Ctrl+Z)"
-                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#a0a0a0] hover:text-white hover:bg-[#222222] transition-all">
+                    className="w-7 lg:w-8 h-7 rounded-md flex items-center justify-center text-[#a0a0a0] hover:text-white hover:bg-[#222222] transition-all">
                     <IconArrowBackUp className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={redo} title="Redo (Ctrl+Shift+Z)"
-                    className="w-8 h-7 rounded-md flex items-center justify-center text-[#a0a0a0] hover:text-white hover:bg-[#222222] transition-all">
+                    className="w-7 lg:w-8 h-7 rounded-md flex items-center justify-center text-[#a0a0a0] hover:text-white hover:bg-[#222222] transition-all">
                     <IconArrowForwardUp className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="w-10 h-px bg-[#191919] mb-0.5" />
+                <div className="w-px lg:w-10 h-7 lg:h-px bg-[#191919] mb-0 lg:mb-0.5" />
 
                 {/* Active layer indicator */}
                 {activeLayerId && (
-                  <div className="w-6 h-1.5 rounded-full mb-0.5" style={{ background: layers.find(l => l.id === activeLayerId)?.color ?? '#fff' }} />
+                  <div className="w-1.5 lg:w-6 h-6 lg:h-1.5 rounded-full mb-0 lg:mb-0.5" style={{ background: layers.find(l => l.id === activeLayerId)?.color ?? '#fff' }} />
                 )}
 
                 {/* Tool buttons */}
@@ -1617,18 +1634,18 @@ export default function EditPage() {
                   { id: 'text' as Tool, Icon: IconTypography, tip: 'Text — add a label' },
                 ].map(({ id, Icon, tip }) => (
                   <button key={id} onClick={() => setActiveTool(id)} title={tip}
-                    className={cn('w-9 h-9 rounded-lg flex items-center justify-center transition-all',
+                    className={cn('w-8 lg:w-9 h-8 lg:h-9 rounded-lg flex items-center justify-center transition-all',
                       activeTool === id ? 'bg-[#FFFF00] text-black shadow-md' : 'text-[#c0c0c0] hover:text-white hover:bg-[#222222]'
                     )}>
-                    <Icon className="w-4 h-4" strokeWidth={1.8} />
+                    <Icon className="w-3.5 lg:w-4 h-3.5 lg:h-4" strokeWidth={1.8} />
                   </button>
                 ))}
 
-                {/* Brush size — vertical segmented slider */}
+                {/* Brush size — vertical segmented slider — hide on mobile for space */}
                 {(activeTool === 'brush' || activeTool === 'eraser') && (
                   <>
-                    <div className="w-5 h-px bg-[#1e1e1e] my-0.5" />
-                    <div className="flex flex-col items-center gap-1.5">
+                    <div className="w-px lg:w-5 h-7 lg:h-px bg-[#1e1e1e] my-0 lg:my-0.5 hidden lg:block" />
+                    <div className="hidden lg:flex flex-col items-center gap-1.5">
                       <PremiumSliderVertical
                         min={4} max={80} step={2}
                         value={brushSize}
@@ -1640,18 +1657,18 @@ export default function EditPage() {
                   </>
                 )}
 
-                <div className="w-5 h-px bg-[#1e1e1e] my-1" />
+                <div className="w-px lg:w-5 h-7 lg:h-px bg-[#1e1e1e] my-0 lg:my-1" />
 
                 {/* Add layer — yellow circle CTA */}
                 <button onClick={addLayer} title="Add new mask layer"
-                  className="w-9 h-9 rounded-full flex items-center justify-center bg-[#FFFF00] text-black hover:scale-105 active:scale-95 transition-all shadow-md">
-                  <IconPlus className="w-4 h-4" strokeWidth={2.5} />
+                  className="w-8 lg:w-9 h-8 lg:h-9 rounded-full flex items-center justify-center bg-[#FFFF00] text-black hover:scale-105 active:scale-95 transition-all shadow-md">
+                  <IconPlus className="w-3.5 lg:w-4 h-3.5 lg:h-4" strokeWidth={2.5} />
                 </button>
 
                 {/* Layer dots */}
                 {layers.length > 0 && (<>
-                  <div className="w-5 h-px bg-[#1e1e1e]" />
-                  <div className="flex flex-col gap-1.5">
+                  <div className="w-px lg:w-5 h-7 lg:h-px bg-[#1e1e1e]" />
+                  <div className="flex flex-row lg:flex-col gap-1.5">
                     {layers.map(l => (
                       <button key={l.id} onClick={() => setActiveLayerId(l.id)}
                         title={`${l.colorName} layer`}
@@ -1666,7 +1683,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: RELIGHT ──────────────────────────── */}
             {mode === 'relight' && (
-              <div className="flex-shrink-0 w-[280px] self-center overflow-y-auto rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
+              <div className="flex-shrink-0 w-full lg:w-[280px] max-w-[320px] self-center overflow-y-auto rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl order-2 lg:order-1" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
                 <div className="p-4 space-y-4">
 
                   {/* Lighting Style grid */}
@@ -1861,7 +1878,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
-              <div className="flex-shrink-0 w-[260px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3">
+              <div className="flex-shrink-0 w-full lg:w-[260px] max-w-[320px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3 order-2 lg:order-1">
                 {/* Prompt textarea — top */}
                 <textarea
                   value={promptText}
@@ -1910,7 +1927,7 @@ export default function EditPage() {
             )}
 
             {/* ── CANVAS WRAPPER ───────────────────────────────── */}
-            <div ref={canvasWrapperRef} className="relative flex-shrink-0" style={{ width: displaySize?.w, height: displaySize?.h }}>
+            <div ref={canvasWrapperRef} className="relative flex-shrink-0 order-1 lg:order-2" style={{ width: displaySize?.w, height: displaySize?.h }}>
 
             {/* Main canvas */}
             <canvas
@@ -1983,22 +2000,22 @@ export default function EditPage() {
 
             {/* Contextual hints */}
             {mode === 'edit' && (activeTool === 'brush' || activeTool === 'eraser') && !activeLayerId && layers.length === 0 && (
-              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-xs text-gray-300 font-semibold shadow-lg">
+              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-4 lg:pb-6 px-2">
+                <div className="px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-[10px] lg:text-xs text-gray-300 font-semibold shadow-lg text-center max-w-xs">
                   Paint anywhere to start masking — layer is created automatically
                 </div>
               </div>
             )}
             {mode === 'edit' && activeTool === 'rect' && (
-              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-xs text-gray-300 font-semibold shadow-lg">
+              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-4 lg:pb-6 px-2">
+                <div className="px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-[10px] lg:text-xs text-gray-300 font-semibold shadow-lg text-center max-w-xs">
                   Draw a rectangle, then describe the change in the floating card
                 </div>
               </div>
             )}
             {mode === 'edit' && activeTool === 'text' && (
-              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-6">
-                <div className="px-4 py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-xs text-gray-300 font-semibold shadow-lg">
+              <div className="absolute inset-0 flex items-end justify-center pointer-events-none pb-4 lg:pb-6 px-2">
+                <div className="px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-[10px] lg:text-xs text-gray-300 font-semibold shadow-lg text-center max-w-xs">
                   Click anywhere on the image to add a text label
                 </div>
               </div>
@@ -2049,8 +2066,8 @@ export default function EditPage() {
       </div>
 
       {/* ── MODE SWITCHER (floating top center) ──────────────────────── */}
-      <div className="fixed top-[4.6rem] left-1/2 -translate-x-1/2 z-40">
-        <div className="flex bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl p-1 shadow-xl gap-0.5">
+      <div className="fixed top-[4.6rem] left-1/2 -translate-x-1/2 z-40 px-2">
+        <div className="flex bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl p-1 shadow-xl gap-0.5 text-center">
           {([
             { id: 'edit',    label: 'Edit',    Icon: IconPencil  },
             { id: 'relight', label: 'Relight', Icon: IconBulb    },
@@ -2060,7 +2077,7 @@ export default function EditPage() {
               key={id}
               onClick={() => setMode(id)}
               className={cn(
-                'flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-black rounded-lg uppercase tracking-widest transition-all duration-200',
+                'flex items-center gap-1 lg:gap-1.5 px-2 lg:px-4 py-1.5 text-[10px] lg:text-[11px] font-black rounded-lg uppercase tracking-wider lg:tracking-widest transition-all duration-200',
                 mode === id
                   ? 'bg-[#FFFF00] text-black shadow-sm'
                   : 'text-[#b0b0b0] hover:text-white'
@@ -2076,24 +2093,24 @@ export default function EditPage() {
 
       {/* ── BOTTOM BAR — only visible when an image is loaded ───────── */}
       {imageUrl && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40">
-          <div className="flex items-center gap-2 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl px-2.5 py-2 shadow-[0_8px_40px_rgba(0,0,0,0.85)]">
+        <div className="fixed bottom-3 lg:bottom-5 left-1/2 -translate-x-1/2 z-40 px-2 w-full lg:w-auto max-w-full">
+          <div className="flex flex-wrap items-center justify-center gap-1.5 lg:gap-2 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl px-2 lg:px-2.5 py-2 shadow-[0_8px_40px_rgba(0,0,0,0.85)]">
               {/* Replace image */}
-              <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
+              <label className="flex items-center gap-1 lg:gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg lg:rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
                 <IconCloudUpload className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
-                <span className="text-[11px] font-black text-gray-400 uppercase tracking-wide">Replace</span>
+                <span className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-wide hidden sm:inline">Replace</span>
                 <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
               </label>
 
               {/* Model selector */}
               <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
 
-              <div className="w-px h-4 bg-[#252525] shrink-0" />
+              <div className="w-px h-3 lg:h-4 bg-[#252525] shrink-0 hidden sm:block" />
 
               {/* Credit cost — matches image page style */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <CreditIcon className="w-5 h-5 rounded" iconClassName="w-2.5 h-2.5" />
-                <span className="font-mono text-sm font-medium text-white/70 tabular-nums">{totalCost}</span>
+              <div className="flex items-center gap-1 lg:gap-1.5 shrink-0">
+                <CreditIcon className="w-4 lg:w-5 h-4 lg:h-5 rounded" iconClassName="w-2 lg:w-2.5 h-2 lg:h-2.5" />
+                <span className="font-mono text-xs lg:text-sm font-medium text-white/70 tabular-nums">{totalCost}</span>
               </div>
 
               {/* Generation count — pill segmented control */}
@@ -2103,7 +2120,7 @@ export default function EditPage() {
                     key={n}
                     onClick={() => setGenCount(n)}
                     className={cn(
-                      'px-2 py-1.5 text-[10.5px] font-black uppercase tracking-wide rounded-md transition-all whitespace-nowrap w-8',
+                      'px-1.5 lg:px-2 py-1 lg:py-1.5 text-[9px] lg:text-[10.5px] font-black uppercase tracking-wide rounded-md transition-all whitespace-nowrap w-6 lg:w-8',
                       genCount === n ? 'bg-[#222222] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
                     )}
                   >{n}</button>
@@ -2114,10 +2131,11 @@ export default function EditPage() {
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-7 py-2 rounded-xl font-black text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0"
+                className="flex items-center gap-1.5 lg:gap-2 px-4 lg:px-7 py-1.5 lg:py-2 rounded-xl font-black text-xs lg:text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
-                <IconWand className="w-4 h-4" />
-                Generate
+                <IconWand className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+                <span className="hidden sm:inline">Generate</span>
+                <span className="inline sm:hidden">Gen</span>
               </button>
         </div>
         </div>
@@ -2125,20 +2143,20 @@ export default function EditPage() {
 
       {/* ── RESULTS DOCK (floating bottom-right) ─────────────────────── */}
       {results.length > 0 && (
-        <div className="fixed right-5 bottom-6 z-40">
+        <div className="fixed right-2 lg:right-5 bottom-20 lg:bottom-6 z-40 max-w-[calc(100vw-1rem)]">
           <div className="bg-[#0c0c0c] border border-[#252525] rounded-xl shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-[#222222]">
-              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Results ({results.length})</span>
+            <div className="flex items-center justify-between px-3 lg:px-4 py-2 border-b border-[#222222]">
+              <span className="text-[9px] lg:text-[10px] font-black text-gray-500 uppercase tracking-widest">Results ({results.length})</span>
               <button onClick={() => setResultsDockOpen(p => !p)} className="text-gray-500 hover:text-white transition-colors">
-                {resultsDockOpen ? <IconChevronDown className="w-4 h-4" /> : <IconChevronUp className="w-4 h-4" />}
+                {resultsDockOpen ? <IconChevronDown className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> : <IconChevronUp className="w-3.5 h-3.5 lg:w-4 lg:h-4" />}
               </button>
             </div>
             {resultsDockOpen && (
-              <div className="flex gap-2 p-2.5 overflow-x-auto" style={{ maxWidth: 340 }}>
+              <div className="flex gap-2 p-2.5 overflow-x-auto" style={{ maxWidth: 'min(340px, calc(100vw - 2rem))' }}>
                 {results.map(r => (
                   <button
                     key={r.id} onClick={() => setModalResult(r)}
-                    className="flex-shrink-0 w-[72px] h-[72px] rounded-xl overflow-hidden border border-[#282828] hover:border-[#505050] transition-all duration-150 hover:scale-105"
+                    className="flex-shrink-0 w-[60px] h-[60px] lg:w-[72px] lg:h-[72px] rounded-lg lg:rounded-xl overflow-hidden border border-[#282828] hover:border-[#505050] transition-all duration-150 hover:scale-105"
                   >
                     <img src={r.url} alt="" className="w-full h-full object-cover" />
                   </button>
@@ -2151,10 +2169,10 @@ export default function EditPage() {
 
       {/* ── RESULT MODAL ─────────────────────────────────────────────── */}
       {modalResult && (
-        <div className="fixed inset-0 z-50 bg-[#080808]  flex items-center justify-center" onClick={() => setModalResult(null)}>
-          <div className="flex flex-col gap-4 max-w-4xl max-h-[90vh] items-center" onClick={e => e.stopPropagation()}>
-            <img src={modalResult.url} alt="" className="rounded-2xl max-h-[74vh] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.8)]" />
-            <div className="flex items-center gap-3">
+        <div className="fixed inset-0 z-50 bg-[#080808] flex items-center justify-center p-4" onClick={() => setModalResult(null)}>
+          <div className="flex flex-col gap-3 lg:gap-4 max-w-4xl max-h-[90vh] items-center w-full" onClick={e => e.stopPropagation()}>
+            <img src={modalResult.url} alt="" className="rounded-xl lg:rounded-2xl max-h-[60vh] lg:max-h-[74vh] object-contain shadow-[0_30px_80px_rgba(0,0,0,0.8)] w-full" />
+            <div className="flex flex-col sm:flex-row items-center gap-2 lg:gap-3 w-full sm:w-auto">
               <button
                 onClick={() => {
                   const resultUrl = modalResult.url
@@ -2183,14 +2201,14 @@ export default function EditPage() {
                   setImageUrl(resultUrl)
                   setModalResult(null)
                 }}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#FFFF00] text-black font-black text-sm hover:scale-105 transition-transform"
+                className="flex items-center justify-center gap-2 px-4 lg:px-6 py-2 lg:py-2.5 rounded-lg lg:rounded-xl bg-[#FFFF00] text-black font-black text-xs lg:text-sm hover:scale-105 transition-transform w-full sm:w-auto"
               >
-                <IconPencil className="w-4 h-4" /> Edit this
+                <IconPencil className="w-3.5 lg:w-4 h-3.5 lg:h-4" /> Edit this
               </button>
-              <a href={modalResult.url} download="result.png" className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#1e1e1e] text-white font-bold text-sm hover:bg-[#202020] transition-colors">
-                <IconDownload className="w-4 h-4" /> Download
+              <a href={modalResult.url} download="result.png" className="flex items-center justify-center gap-2 px-4 lg:px-6 py-2 lg:py-2.5 rounded-lg lg:rounded-xl bg-[#1e1e1e] text-white font-bold text-xs lg:text-sm hover:bg-[#202020] transition-colors w-full sm:w-auto">
+                <IconDownload className="w-3.5 lg:w-4 h-3.5 lg:h-4" /> Download
               </a>
-              <button onClick={() => setModalResult(null)} className="px-6 py-2.5 rounded-xl bg-[#141414] text-[#686868] font-bold text-sm hover:bg-[#1a1a1a] transition-colors">
+              <button onClick={() => setModalResult(null)} className="px-4 lg:px-6 py-2 lg:py-2.5 rounded-lg lg:rounded-xl bg-[#141414] text-[#686868] font-bold text-xs lg:text-sm hover:bg-[#1a1a1a] transition-colors w-full sm:w-auto">
                 Close
               </button>
             </div>

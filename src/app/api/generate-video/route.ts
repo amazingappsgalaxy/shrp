@@ -93,6 +93,8 @@ export async function POST(request: NextRequest) {
     enhance_prompt?: boolean
     enable_upsample?: boolean
     keep_original_sound?: boolean
+    /** Reference image URLs for kling-o3-video-edit / kling-o3-reference-to-video (up to 4) */
+    image_urls?: string[]
   }
   try {
     body = await request.json()
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
     enable_upsample,
     keep_original_sound,
   } = body
+  const clientImageUrls = body.image_urls?.filter(u => typeof u === 'string' && u.length > 0)
 
   if (!modelId) {
     return NextResponse.json({ error: 'model is required' }, { status: 400 })
@@ -250,8 +253,8 @@ export async function POST(request: NextRequest) {
         ...(videoUrl ? { video_url: videoUrl } : {}),
         // keep_original_sound for edit/reference-to-video models
         ...(keep_original_sound !== undefined ? { keep_original_sound } : {}),
-        // image_urls: style reference images (kling-o3-reference-to-video, kling-o3-video-edit)
-        ...(targetUrl ? { image_urls: [targetUrl] } : {}),
+        // image_urls: up to 4 reference images (kling-o3-video-edit, kling-o3-reference-to-video)
+        ...(clientImageUrls?.length ? { image_urls: clientImageUrls } : {}),
         ...(Object.keys(evolinkModelParams).length > 0 ? { model_params: evolinkModelParams } : {}),
       }
       const result = await provider.submitTask(req)
