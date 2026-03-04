@@ -6,14 +6,15 @@ import { ElegantLoading } from "@/components/ui/elegant-loading"
 import { useTaskManager } from "@/components/providers/TaskManagerProvider"
 import { useCredits } from "@/lib/hooks/use-credits"
 import { CreditIcon } from "@/components/ui/CreditIcon"
-import { VideoCard, VideoModal } from "@/components/ui/VideoPlayer"
+import { VideoModal } from "@/components/ui/VideoPlayer"
+import { GenerationAnimation } from "@/components/ui/GenerationAnimation"
 import { PillRangeSlider } from "@/components/ui/pill-range-slider"
 import { getVideoModels } from "@/services/models"
 import type { ModelConfig } from "@/services/models"
 import {
   IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
-  IconPlayerPlay, IconVolume, IconMaximize, IconDownload,
+  IconPlayerPlay, IconVolume, IconVolumeOff, IconMaximize, IconDownload,
   IconPlus, IconClock,
 } from "@tabler/icons-react"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
@@ -572,24 +573,6 @@ function MultiImageUpload({ images, uploading, onAdd, onRemove }: {
   )
 }
 
-// ─── Video skeleton ────────────────────────────────────────────────────────────
-
-function VideoSkeleton({ aspect }: { aspect: string }) {
-  const pad: Record<string, string> = {
-    '16:9': '56.25%', '9:16': '177.78%', '1:1': '100%',
-  }
-  return (
-    <div className="relative w-full overflow-hidden rounded-xl bg-[#0d0d0d] border border-[#1e1e1e]" style={{ paddingBottom: pad[aspect] ?? '56.25%' }}>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-[#333] border-t-[#FFFF00]/60 rounded-full animate-spin" />
-          <span className="text-[10px] text-white/25 font-mono">Generating video…</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Justified masonry grid ────────────────────────────────────────────────────
 
 const VGAP = 9
@@ -636,6 +619,7 @@ function VideoGridTile({ video, width, height, onExpand }: {
   const [isHovered, setIsHovered] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [isMuted, setIsMuted] = useState(true)
 
   const handleEnter = () => {
     setIsHovered(true)
@@ -655,6 +639,13 @@ function VideoGridTile({ video, width, height, onExpand }: {
     const { currentTime, duration } = videoRef.current
     if (duration > 0) setProgress((currentTime / duration) * 100)
   }
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!videoRef.current) return
+    const next = !isMuted
+    videoRef.current.muted = next
+    setIsMuted(next)
+  }
 
   return (
     <div
@@ -667,30 +658,44 @@ function VideoGridTile({ video, width, height, onExpand }: {
       <video
         ref={videoRef}
         src={video.url!}
-        muted playsInline loop preload="metadata"
+        muted={isMuted} playsInline loop preload="metadata"
         onLoadedData={handleLoaded}
         onTimeUpdate={handleTimeUpdate}
         className="absolute inset-0 w-full h-full object-cover"
       />
-      {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 z-10">
-        <div className="h-full bg-[#FFFF00] transition-none" style={{ width: `${progress}%` }} />
-      </div>
-      {/* Play icon on hover */}
-      {isHovered && (
+
+      {/* Play icon when idle (not hovered) — hidden while playing */}
+      {!isHovered && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-black/50 border border-white/15 flex items-center justify-center">
             <IconPlayerPlay className="w-4 h-4 fill-white text-white ml-0.5" />
           </div>
         </div>
       )}
-      {/* Expand icon */}
+
+      {/* Progress bar (on hover) */}
+      {isHovered && (
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 z-10">
+          <div className="h-full bg-[#FFFF00] transition-none" style={{ width: `${progress}%` }} />
+        </div>
+      )}
+
+      {/* Mute/unmute button (on hover) */}
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-3 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 w-7 h-7 rounded-full bg-black/60 border border-white/15 flex items-center justify-center text-white hover:bg-black/80"
+      >
+        {isMuted ? <IconVolumeOff className="w-3 h-3" /> : <IconVolume className="w-3 h-3" />}
+      </button>
+
+      {/* Expand icon (on hover) */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-        <div className="w-7 h-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10">
+        <div className="w-7 h-7 rounded-full bg-black/60 border border-white/10 flex items-center justify-center">
           <IconMaximize className="w-3.5 h-3.5 text-white" />
         </div>
       </div>
-      {/* Download */}
+
+      {/* Download (on hover) */}
       <div className="absolute bottom-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
         <a
           href={video.url!} download target="_blank" rel="noreferrer"
@@ -718,33 +723,23 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     return () => ro.disconnect()
   }, [])
 
-  const loading = videos.filter(v => v.loading)
-  const done = videos.filter(v => !v.loading)
-  const targetH = containerW < 480 ? 160 : containerW < 768 ? 220 : 300
-  const rows = useMemo(() => buildVideoRows(done, containerW, targetH), [done, containerW, targetH])
+  // Exclude errored videos — they are shown as toasts, not in the grid
+  const displayVideos = videos.filter(v => !v.error)
+  // +35% taller tiles
+  const targetH = containerW < 480 ? 216 : containerW < 768 ? 297 : 405
+  const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
   return (
     <div ref={containerRef} className="w-full">
-      {/* Loading skeletons first */}
-      {loading.map(v => (
-        <div key={v.id} className="mb-[9px]">
-          <VideoSkeleton aspect={v.aspect} />
-        </div>
-      ))}
-      {/* Justified rows */}
       {rows.map((row) => (
         <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
           {row.videos.map((video, ii) => (
-            video.error ? (
+            video.loading ? (
               <div
                 key={video.id}
-                style={{ width: row.widths[ii], height: row.height, flexShrink: 0, overflow: 'hidden', borderRadius: 8 }}
-                className="relative border border-red-900/40 bg-[#100505]"
+                style={{ width: row.widths[ii], height: row.height, flexShrink: 0, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
               >
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-4">
-                  <div className="text-red-500/80 text-[11px] font-semibold text-center">Generation failed</div>
-                  <div className="text-red-900 text-[9px] text-center font-mono">{video.error}</div>
-                </div>
+                <GenerationAnimation label="Generating video" />
               </div>
             ) : (
               <VideoGridTile
@@ -1173,14 +1168,10 @@ function VideoPageContent() {
         cleanupTask(localId)
         if (reason === 'failed') {
           failTask(dbTaskId)
-          setVideos(prev => prev.map(v => v.id === localId ? { ...v, loading: false, error: errMsg || 'Generation failed' } : v))
-          setActiveTasks(prev => {
-            const m = new Map(prev)
-            const t = m.get(localId)
-            if (t) m.set(localId, { ...t, progress: 100, status: 'error', message: errMsg || 'Generation failed' })
-            return m
-          })
-          setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 5000)
+          // Remove from grid — error shown as toast instead
+          setVideos(prev => prev.filter(v => v.id !== localId))
+          showToast(errMsg || 'Video generation failed')
+          setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m })
         }
       }
 
@@ -1223,14 +1214,9 @@ function VideoPageContent() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Connection error'
       cleanupTask(localId)
-      setVideos(prev => prev.map(v => v.id === localId ? { ...v, loading: false, error: msg } : v))
-      setActiveTasks(prev => {
-        const m = new Map(prev)
-        const t = m.get(localId)
-        if (t) m.set(localId, { ...t, progress: 100, status: 'error', message: msg })
-        return m
-      })
-      setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 5000)
+      setVideos(prev => prev.filter(v => v.id !== localId))
+      showToast(msg)
+      setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m })
     }
   }
 
@@ -2041,7 +2027,7 @@ function VideoPageContent() {
 
       {/* Toast */}
       {toastMsg && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10003] pointer-events-none">
+        <div className="fixed bottom-6 right-6 z-[10003] pointer-events-none">
           <div className={cn(
             "px-5 py-3 rounded-xl text-sm font-medium shadow-2xl border backdrop-blur-xl",
             toastMsg.type === 'error'

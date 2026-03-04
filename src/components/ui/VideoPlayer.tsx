@@ -338,7 +338,7 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
   return createPortal(
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[10002] flex flex-col items-center justify-center bg-black/98"
+      className="fixed inset-0 z-[10002] flex flex-col items-center justify-center bg-black"
       onMouseMove={resetHideTimer}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
@@ -362,7 +362,7 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
 
       {/* Video */}
       <div
-        className="relative w-full max-w-5xl flex items-center justify-center px-4"
+        className="relative w-full max-w-5xl flex items-center justify-center px-4 bg-black"
         style={{ maxHeight: "calc(100vh - 120px)" }}
       >
         <video
