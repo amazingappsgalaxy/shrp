@@ -14,7 +14,7 @@ import type { ModelConfig } from "@/services/models"
 import {
   IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
-  IconPlayerPlay, IconVolume, IconVolumeOff, IconMaximize, IconDownload,
+  IconPlayerPlay, IconVolume, IconVolumeOff, IconDownload,
   IconPlus, IconClock, IconX,
 } from "@tabler/icons-react"
 import { createPortal } from "react-dom"
@@ -283,12 +283,17 @@ function ModelPicker({
   const selectedModel = groups.flatMap(g => g.models).find(m => m.id === selected)
   const totalModels = groups.reduce((s, g) => s + g.models.length, 0)
 
-  // Close on Escape
+  // Lock body scroll + close on Escape when panel is open
   useEffect(() => {
     if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', fn)
-    return () => window.removeEventListener('keydown', fn)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', fn)
+    }
   }, [open])
 
   const panel = (
@@ -772,7 +777,17 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     if (hasLoading) setDisplayCount(prev => Math.max(prev, DISPLAY_BATCH))
   }, [videos])
 
-  // Infinite scroll: load more when sentinel becomes visible
+  // Loading cards always shown; completed capped at displayCount
+  const completedVideos = useMemo(() => videos.filter(v => !v.error && !v.loading), [videos])
+  const loadingVideos = useMemo(() => videos.filter(v => v.loading), [videos])
+  const displayVideos = useMemo(
+    () => [...loadingVideos, ...completedVideos.slice(0, displayCount)],
+    [loadingVideos, completedVideos, displayCount]
+  )
+  const hasMore = completedVideos.length > displayCount
+
+  // Infinite scroll: re-run when hasMore changes so we observe the sentinel
+  // element once it renders (it's conditionally rendered based on hasMore)
   useEffect(() => {
     const sentinel = sentinelRef.current; if (!sentinel) return
     const io = new IntersectionObserver(entries => {
@@ -782,13 +797,7 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     }, { threshold: 0.1 })
     io.observe(sentinel)
     return () => io.disconnect()
-  }, [])
-
-  // Loading cards always shown; completed capped at displayCount
-  const completedVideos = videos.filter(v => !v.error && !v.loading)
-  const loadingVideos = videos.filter(v => v.loading)
-  const displayVideos = [...loadingVideos, ...completedVideos.slice(0, displayCount)]
-  const hasMore = completedVideos.length > displayCount
+  }, [hasMore]) // re-connect observer whenever sentinel mounts/unmounts
 
   // -10% from previous 300/420/540
   const targetH = containerW < 480 ? 270 : containerW < 768 ? 380 : 490

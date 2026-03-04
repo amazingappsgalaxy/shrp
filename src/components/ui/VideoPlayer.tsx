@@ -197,7 +197,17 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
   useEffect(() => {
     if (isOpen && videoRef.current) {
       setIsVideoReady(false)
-      videoRef.current.play().catch(() => {})
+      // Always reset to unmuted on open — state persists between sessions
+      setIsMuted(false)
+      videoRef.current.muted = false
+      // Try unmuted play; fall back to muted if browser blocks it
+      videoRef.current.play().catch(() => {
+        if (videoRef.current) {
+          videoRef.current.muted = true
+          setIsMuted(true)
+          videoRef.current.play().catch(() => {})
+        }
+      })
       setIsPlaying(true)
       setControlsVisible(true)
       // Start auto-hide countdown immediately on open
@@ -213,17 +223,6 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
   }, [isOpen])
-
-  // Escape key
-  useEffect(() => {
-    if (!isOpen) return
-    const fn = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-      if (e.key === " ") { e.preventDefault(); togglePlay() }
-    }
-    window.addEventListener("keydown", fn)
-    return () => window.removeEventListener("keydown", fn)
-  }, [isOpen, onClose]) // eslint-disable-line
 
   // Fullscreen change listener
   useEffect(() => {
@@ -252,6 +251,17 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
     }
     resetHideTimer()
   }, [isPlaying, resetHideTimer])
+
+  // Escape / Space key — declared after togglePlay to avoid stale closure
+  useEffect(() => {
+    if (!isOpen) return
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+      if (e.key === " ") { e.preventDefault(); togglePlay() }
+    }
+    window.addEventListener("keydown", fn)
+    return () => window.removeEventListener("keydown", fn)
+  }, [isOpen, onClose, togglePlay])
 
   const toggleMute = useCallback(() => {
     if (!videoRef.current) return
