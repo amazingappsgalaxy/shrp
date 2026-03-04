@@ -1260,10 +1260,10 @@ function VideoPageContent() {
                     </div>
                     <div>
                       <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Scene Mode</span>
-                      <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-lg gap-0.5">
+                      <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-md gap-0.5">
                         {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
                           <button key={id} onClick={() => setKlingMode(id)}
-                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-md transition-colors",
+                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-sm transition-colors",
                               klingMode === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
                             {label}
                           </button>
@@ -1289,16 +1289,10 @@ function VideoPageContent() {
                     {hasAudio && (
                       <div>
                         <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Sound</span>
-                        <button
-                          onClick={() => setGenAudio(a => !a)}
-                          className={cn(
-                            "w-full flex items-center justify-between px-2.5 py-2 rounded-lg border transition-colors",
-                            genAudio ? "bg-[#FFFF00]/10 border-[#FFFF00]/30" : "bg-[#111111] border-[#1e1e1e] hover:border-[#2e2e2e]"
-                          )}
-                        >
-                          <IconVolume className={cn("w-3.5 h-3.5", genAudio ? "text-[#FFFF00]" : "text-white/50")} />
+                        <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                          <IconVolume className="w-3.5 h-3.5 text-white/55" />
                           <Toggle checked={genAudio} onChange={setGenAudio} />
-                        </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1421,10 +1415,12 @@ function VideoPageContent() {
                             {shotPrompts.length < 6 && totalShotDur <= 12 && (
                               <button
                                 onClick={addShot}
-                                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg border border-dashed border-white/20 hover:border-white/35 hover:bg-white/[0.03] text-white/55 hover:text-white/85 transition-colors"
+                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
                               >
-                                <IconPlus className="w-3.5 h-3.5" />
-                                <span className="text-[11px] font-black uppercase tracking-wider">Add Shot</span>
+                                <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                                  <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
+                                </div>
+                                <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
                               </button>
                             )}
 
