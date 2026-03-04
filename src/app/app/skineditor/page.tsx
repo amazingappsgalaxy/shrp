@@ -444,57 +444,67 @@ function EditorContent() {
       // Let it keep running so the progress bar continues animating toward 96%.
       // We only clear it when the task actually finishes.
 
+      const pollStartTime = Date.now()
+      const MAX_POLL_DURATION_MS = 45 * 60 * 1000 // 45 minutes hard timeout
+      const MAX_CONSECUTIVE_ERRORS = 5
+      let consecutiveErrors = 0
+
+      const stopPoll = (reason: 'success' | 'failed', errMsg?: string) => {
+        clearInterval(pollInterval)
+        pollIntervalsRef.current.delete(taskId)
+        const progressInterval = taskIntervalsRef.current.get(taskId)
+        if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
+        if (reason === 'failed') {
+          setActiveTasks(prev => {
+            const m = new Map(prev)
+            const t = m.get(taskId)
+            if (t) m.set(taskId, { ...t, progress: 100, status: 'error', message: errMsg || 'Enhancement failed' })
+            return m
+          })
+          setTimeout(() => {
+            setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
+            setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
+          }, 4000)
+        }
+      }
+
       const pollInterval = setInterval(async () => {
+        if (Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+          stopPoll('failed', 'Enhancement timed out. Check History for status.')
+          return
+        }
         try {
           const pollRes = await fetch(`/api/enhance-image/poll?taskId=${dbTaskId}`)
           const pollData = await pollRes.json()
+          consecutiveErrors = 0
 
           if (pollData.status === 'success') {
-            // Clear both the poll interval and the smart-progress animation
-            clearInterval(pollInterval)
-            pollIntervalsRef.current.delete(taskId)
-            const progressInterval = taskIntervalsRef.current.get(taskId)
-            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
-
             const outputs = normalizeOutputs(pollData.outputs)
             if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
               setEnhancedOutputs(outputs)
               setSelectedOutputIndex(0)
             }
-
             setActiveTasks(prev => {
               const newMap = new Map(prev)
               const task = newMap.get(taskId)
               if (task) newMap.set(taskId, { ...task, progress: 100, status: 'success', message: 'Done!' })
               return newMap
             })
-
             setTimeout(() => {
               setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
               setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
             }, 4000)
-
+            stopPoll('success')
           } else if (pollData.status === 'failed') {
-            clearInterval(pollInterval)
-            pollIntervalsRef.current.delete(taskId)
-            const progressInterval = taskIntervalsRef.current.get(taskId)
-            if (progressInterval) { clearInterval(progressInterval); taskIntervalsRef.current.delete(taskId) }
-
-            setActiveTasks(prev => {
-              const newMap = new Map(prev)
-              const task = newMap.get(taskId)
-              if (task) newMap.set(taskId, { ...task, progress: 100, status: 'error', message: pollData.error || 'Enhancement failed' })
-              return newMap
-            })
-
-            setTimeout(() => {
-              setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
-              setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
-            }, 4000)
+            stopPoll('failed', pollData.error || 'Enhancement failed')
           }
           // status === 'running': keep polling, progress animation keeps going
         } catch (pollError) {
           console.warn('Poll error (will retry):', pollError)
+          consecutiveErrors++
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            stopPoll('failed', 'Lost connection. Check History for status.')
+          }
         }
       }, 10000)
 

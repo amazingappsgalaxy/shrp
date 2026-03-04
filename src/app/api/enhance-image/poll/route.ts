@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '../../../../lib/config'
@@ -99,8 +99,25 @@ export async function GET(request: NextRequest) {
 
     if (check.status === 'success') {
       const rawUrls = check.outputUrls?.length ? check.outputUrls : (check.outputUrl ? [check.outputUrl] : [])
-      const outputs = normalizeOutputs(rawUrls)
+      const rawOutputs = normalizeOutputs(rawUrls)
       const generationTimeMs = Date.now() - new Date(item.created_at).getTime()
+
+      // Upload all outputs to Bunny CDN synchronously before DB update —
+      // ensures DB always stores permanent URLs (RunningHub URLs expire;
+      // after() is unreliable on serverless and was already removed from video poll for this reason)
+      const outputs = await Promise.all(
+        rawOutputs.map(async (out) => {
+          try {
+            const ext = extFromUrl(out.url) || (out.type === 'video' ? 'mp4' : 'jpg')
+            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), out.url, mimeFromExt(ext))
+            console.log(`✅ Bunny (enhance-poll): uploaded — ${bunnyUrl}`)
+            return { ...out, url: bunnyUrl, original_url: out.url }
+          } catch (err) {
+            console.error(`❌ Bunny (enhance-poll): upload failed for ${out.url}, using provider URL:`, err)
+            return out
+          }
+        })
+      )
 
       // Atomic update: only succeeds if status is still 'processing'
       // This prevents double credit deduction if the scheduled function also completes this task
@@ -117,43 +134,12 @@ export async function GET(request: NextRequest) {
         .select('id')
         .maybeSingle()
 
-      if (won) {
-        // We won the race — deduct credits
-        if (creditsToDeduct > 0) {
-          const deductResult = await UnifiedCreditsService.deductCredits(userId, creditsToDeduct, taskId, 'Image enhancement')
-          if (!deductResult.success) {
-            console.error(
-              `🚨 CRITICAL poll: credit deduction FAILED for user=${userId} task=${taskId} amount=${creditsToDeduct} — ${deductResult.error}`
-            )
-          }
-        }
-
-        // Background: upload outputs to Bunny CDN after response is sent
-        // Replaces url with Bunny CDN URL so history UI shows CDN-hosted images
-        if (outputs.length > 0) {
-          after(async () => {
-            try {
-              const bunnyItems = await Promise.all(
-                outputs.map(async (item) => {
-                  try {
-                    const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
-                    const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), item.url, mimeFromExt(ext))
-                    console.log(`✅ Bunny (poll): output uploaded — ${bunnyUrl}`)
-                    // Replace url with Bunny CDN URL; keep original RunningHub URL as fallback reference
-                    return { ...item, url: bunnyUrl, original_url: item.url }
-                  } catch (err) {
-                    console.error(`❌ Bunny (poll): failed to upload ${item.url}:`, err)
-                    return item // keep original RunningHub url on failure
-                  }
-                })
-              )
-              const supabaseAfter = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
-              await supabaseAfter.from('history_items').update({ output_urls: bunnyItems }).eq('id', taskId)
-              console.log(`✅ Bunny (poll): history updated for task ${taskId}`)
-            } catch (err) {
-              console.error('❌ Bunny (poll): background upload error:', err)
-            }
-          })
+      if (won && creditsToDeduct > 0) {
+        const deductResult = await UnifiedCreditsService.deductCredits(userId, creditsToDeduct, taskId, 'Image enhancement')
+        if (!deductResult.success) {
+          console.error(
+            `🚨 CRITICAL enhance-poll: credit deduction FAILED for user=${userId} task=${taskId} amount=${creditsToDeduct} — ${deductResult.error}`
+          )
         }
       }
 

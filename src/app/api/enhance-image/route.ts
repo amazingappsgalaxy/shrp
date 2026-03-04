@@ -104,6 +104,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Reject data URIs — RunningHub is a remote server and cannot access browser-side data URIs.
+    // The client must upload the image to Bunny CDN first and pass a public HTTPS URL.
+    if (typeof imageUrl !== 'string' || imageUrl.startsWith('data:')) {
+      return NextResponse.json(
+        { error: 'imageUrl must be a public HTTPS URL, not a data URI. Upload the image first.' },
+        { status: 400 }
+      )
+    }
+    try {
+      const parsed = new URL(imageUrl)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error('Invalid protocol')
+      }
+    } catch {
+      return NextResponse.json({ error: 'imageUrl must be a valid HTTP(S) URL' }, { status: 400 })
+    }
+
     console.log('✅ API: Validation passed, using EnhancementService')
 
     // Generate unique task ID using UUID
@@ -270,8 +287,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Store RunningHub task metadata in DB settings for the poll endpoint to use
-    await supabase
+    // Store RunningHub task metadata in DB settings for the poll endpoint and cron to use.
+    // CRITICAL: if this update fails, the cron can never find the RunningHub task ID
+    // and credits won't be deducted — mark the task as failed immediately.
+    const { error: settingsUpdateError } = await supabase
       .from('history_items')
       .update({
         settings: {
@@ -282,6 +301,19 @@ export async function POST(request: NextRequest) {
         }
       })
       .eq('id', taskId)
+
+    if (settingsUpdateError) {
+      console.error(`🚨 enhance-image: failed to store _runningHubTaskId for task=${taskId}:`, settingsUpdateError)
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...historySettings, failure_reason: 'Failed to store task state — please retry' }
+        })
+        .eq('id', taskId)
+      return NextResponse.json({ error: 'Failed to store task state — please retry' }, { status: 500 })
+    }
 
     console.log('✅ API: Task started, returning immediately to client', {
       taskId,
