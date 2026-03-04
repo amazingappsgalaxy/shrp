@@ -385,16 +385,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
 
   return (
     <div className="flex flex-col gap-1.5">
-      {(label || preview) && (
-        <div className="flex items-center justify-between">
-          {label && <span className="text-[10px] font-black text-white uppercase tracking-wider">{label}</span>}
-          {preview && (
-            <button onClick={onClear} className="p-1 text-white/40 hover:text-red-400 transition-colors rounded ml-auto">
-              <IconTrash className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      )}
+      {label && <span className="text-[10px] font-black text-white uppercase tracking-wider">{label}</span>}
 
       <div
         className={cn(
@@ -423,6 +414,13 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
               <IconUpload className="w-5 h-5 text-white" />
               <span className="text-xs text-white font-medium">Replace</span>
             </div>
+            {/* Delete button inside the box */}
+            <button
+              onClick={e => { e.stopPropagation(); onClear() }}
+              className="absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full bg-black/70 border border-white/10 flex items-center justify-center text-white/60 hover:text-red-400 transition-colors"
+            >
+              <IconTrash className="w-3 h-3" />
+            </button>
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -459,19 +457,10 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
 
   return (
     <div className="flex flex-col gap-1.5">
-      {(label || preview) && (
-        <div className="flex items-center justify-between">
-          {label && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>
-              {optional && <span className="text-[9px] text-white/30 italic">(optional)</span>}
-            </div>
-          )}
-          {preview && (
-            <button onClick={onClear} className="p-1 text-white/40 hover:text-red-400 transition-colors rounded ml-auto">
-              <IconTrash className="w-3.5 h-3.5" />
-            </button>
-          )}
+      {label && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>
+          {optional && <span className="text-[9px] text-white/30 italic">(optional)</span>}
         </div>
       )}
 
@@ -496,6 +485,13 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
               <IconCamera className="w-5 h-5 text-white" />
               <span className="text-xs text-white font-medium">Replace</span>
             </div>
+            {/* Delete button inside the box */}
+            <button
+              onClick={e => { e.stopPropagation(); onClear() }}
+              className="absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full bg-black/70 border border-white/10 flex items-center justify-center text-white/60 hover:text-red-400 transition-colors"
+            >
+              <IconTrash className="w-3 h-3" />
+            </button>
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -664,11 +660,11 @@ function VideoGridTile({ video, width, height, onExpand }: {
         className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {/* Play icon when idle (not hovered) — hidden while playing */}
+      {/* Play icon when idle (not hovered) — glass effect */}
       {!isHovered && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="w-10 h-10 rounded-full bg-black/50 border border-white/15 flex items-center justify-center">
-            <IconPlayerPlay className="w-4 h-4 fill-white text-white ml-0.5" />
+          <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg">
+            <IconPlayerPlay className="w-4.5 h-4.5 fill-white text-white ml-0.5" />
           </div>
         </div>
       )}
@@ -680,20 +676,13 @@ function VideoGridTile({ video, width, height, onExpand }: {
         </div>
       )}
 
-      {/* Mute/unmute button (on hover) */}
+      {/* Mute/unmute button (on hover) — glass effect, bottom-left */}
       <button
         onClick={toggleMute}
-        className="absolute bottom-3 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 w-7 h-7 rounded-full bg-black/60 border border-white/15 flex items-center justify-center text-white hover:bg-black/80"
+        className="absolute bottom-3 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 w-7 h-7 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20"
       >
         {isMuted ? <IconVolumeOff className="w-3 h-3" /> : <IconVolume className="w-3 h-3" />}
       </button>
-
-      {/* Expand icon (on hover) */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-        <div className="w-7 h-7 rounded-full bg-black/60 border border-white/10 flex items-center justify-center">
-          <IconMaximize className="w-3.5 h-3.5 text-white" />
-        </div>
-      </div>
 
       {/* Download (on hover) */}
       <div className="absolute bottom-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
@@ -725,8 +714,7 @@ function VideoJustifiedGrid({ videos, onExpand }: {
 
   // Exclude errored videos — they are shown as toasts, not in the grid
   const displayVideos = videos.filter(v => !v.error)
-  // +35% taller tiles
-  const targetH = containerW < 480 ? 216 : containerW < 768 ? 297 : 405
+  const targetH = containerW < 480 ? 300 : containerW < 768 ? 420 : 540
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
   return (
@@ -1361,6 +1349,7 @@ function VideoPageContent() {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                      <span className="text-[9px] text-white/35 font-mono ml-1.5">Min {durationMin}s – Max {durationMax}s</span>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
                       <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} fillFromZero />
@@ -1453,6 +1442,7 @@ function VideoPageContent() {
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                        <span className="text-[9px] text-white/35 font-mono ml-1.5">Min {durationMin}s – Max {durationMax}s</span>
                       </div>
                       <div className="shrink-0" style={{ width: 160 }}>
                         <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} fillFromZero />
@@ -1821,6 +1811,7 @@ function VideoPageContent() {
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                    <span className="text-[9px] text-white/35 font-mono ml-1.5">Min 3s – Max 10s</span>
                   </div>
                   <div className="shrink-0" style={{ width: 160 }}>
                     <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={16} fillFromZero />
@@ -1982,14 +1973,6 @@ function VideoPageContent() {
                   : `${videos.filter(v => !v.loading && v.url).length} video${videos.filter(v => !v.loading && v.url).length !== 1 ? 's' : ''} ready`}
               </p>
             </div>
-            {videos.length > 0 && (
-              <button
-                onClick={() => { setVideos([]); localStorage.removeItem('sharpii_videos') }}
-                className="text-[10px] text-white/35 hover:text-white transition-colors font-mono uppercase tracking-wider"
-              >
-                Clear all
-              </button>
-            )}
           </div>
 
           {/* Empty state */}

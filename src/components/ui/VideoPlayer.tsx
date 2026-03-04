@@ -177,6 +177,7 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
 
   const [isMuted, setIsMuted] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isVideoReady, setIsVideoReady] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -192,18 +193,24 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
 
   useEffect(() => { setMounted(true) }, [])
 
-  // Auto-play when opens
+  // Auto-play when opens; kick off the auto-hide timer so controls disappear after 3s
   useEffect(() => {
     if (isOpen && videoRef.current) {
+      setIsVideoReady(false)
       videoRef.current.play().catch(() => {})
       setIsPlaying(true)
       setControlsVisible(true)
+      // Start auto-hide countdown immediately on open
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+      hideTimer.current = setTimeout(() => setControlsVisible(false), 3000)
     }
     if (!isOpen && videoRef.current) {
       videoRef.current.pause()
       setIsPlaying(false)
+      setIsVideoReady(false)
       setProgress(0)
       setCurrentTime(0)
+      if (hideTimer.current) clearTimeout(hideTimer.current)
     }
   }, [isOpen])
 
@@ -282,6 +289,7 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
   const handleLoaded = useCallback(() => {
     if (!videoRef.current) return
     setDuration(videoRef.current.duration || 0)
+    setIsVideoReady(true)
   }, [])
 
   const seekFromEvent = useCallback((e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
@@ -338,15 +346,14 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
   return createPortal(
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[10002] flex flex-col items-center justify-center bg-black"
+      className="fixed inset-0 z-[10002] flex flex-col bg-black"
       onMouseMove={resetHideTimer}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* Top bar */}
+      {/* Top bar — collapses with controls */}
       <div className={cn(
-        "absolute top-0 left-0 right-0 flex items-center justify-between px-5 py-4 z-10 transition-opacity duration-300",
-        "bg-gradient-to-b from-black/70 to-transparent",
-        controlsVisible ? "opacity-100" : "opacity-0"
+        "flex items-center justify-between px-5 py-3 flex-shrink-0 transition-opacity duration-300",
+        "bg-gradient-to-b from-black/80 to-transparent",
+        controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
       )}>
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-[#FFFF00]" />
@@ -360,10 +367,10 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
         </button>
       </div>
 
-      {/* Video */}
+      {/* Video — fills the space between top bar and controls bar */}
       <div
-        className="relative w-full max-w-5xl flex items-center justify-center px-4 bg-black"
-        style={{ maxHeight: "calc(100vh - 120px)" }}
+        className="flex-1 flex items-center justify-center px-6 min-h-0 relative cursor-pointer"
+        onClick={togglePlay}
       >
         <video
           ref={videoRef}
@@ -375,18 +382,20 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoaded}
           onEnded={() => { if (!isLooping) setIsPlaying(false) }}
-          onClick={togglePlay}
-          className="w-full h-full object-contain rounded-2xl cursor-pointer select-none"
-          style={{ maxHeight: "calc(100vh - 120px)" }}
+          className="max-w-full max-h-full object-contain rounded-xl select-none"
         />
 
-        {/* Center play/pause overlay (briefly shown on click) */}
-        {!isPlaying && (
-          <div
-            className="absolute inset-4 flex items-center justify-center cursor-pointer"
-            onClick={togglePlay}
-          >
-            <div className="w-20 h-20 rounded-full bg-black/60 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl">
+        {/* Loading overlay — shown while video is buffering */}
+        {!isVideoReady && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-12 h-12 rounded-full border-2 border-white/10 border-t-white/60 animate-spin" />
+          </div>
+        )}
+
+        {/* Center play overlay when paused (and video is ready) */}
+        {isVideoReady && !isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl">
               <IconPlayerPlay className="w-9 h-9 text-white fill-white ml-1" />
             </div>
           </div>
@@ -395,9 +404,9 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
 
       {/* Controls bar */}
       <div className={cn(
-        "absolute bottom-0 left-0 right-0 px-5 py-4 flex flex-col gap-3 transition-opacity duration-300",
-        "bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12",
-        controlsVisible ? "opacity-100" : "opacity-0"
+        "px-5 py-4 flex flex-col gap-3 flex-shrink-0 transition-opacity duration-300",
+        "bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-8",
+        controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
       )}>
 
         {/* Progress bar */}
