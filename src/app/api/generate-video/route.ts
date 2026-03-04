@@ -223,8 +223,8 @@ export async function POST(request: NextRequest) {
             })),
           } : {}),
         } : {}),
-        // element_list only supported by kling-o3 (not kling-v3)
-        ...(element_list?.length && modelId === 'kling-o3' ? { element_list: element_list.map(id => ({ element_id: id })) } : {}),
+        // element_list supported by Kling models with elementList capability
+        ...(element_list?.length && modelConfig.controls.elementList ? { element_list: element_list.map(id => ({ element_id: id })) } : {}),
       }
 
       const req: EvolinkVideoRequest = {

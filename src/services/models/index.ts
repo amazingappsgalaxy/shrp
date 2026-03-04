@@ -33,6 +33,8 @@ export interface ModelControls {
   enableUpsample?: boolean
   /** Whether the model supports multi-shot generation (Kling) */
   multiShot?: boolean
+  /** Whether the model supports element_list (Kling subject consistency) */
+  elementList?: boolean
 }
 
 export interface ModelConfig {
@@ -238,6 +240,7 @@ const VIDEO_MODELS: ModelConfig[] = [
       durations: ['3', '5', '10', '15'],
       audioSync: true,
       multiShot: true,
+      elementList: true,
       firstFrameImage: true,
       endFrameImage: true,
     },
@@ -256,6 +259,7 @@ const VIDEO_MODELS: ModelConfig[] = [
       durations: ['3', '5', '10', '15'],
       audioSync: true,
       multiShot: true,
+      elementList: true,
       firstFrameImage: true,
       endFrameImage: true,
     },
