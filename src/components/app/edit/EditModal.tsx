@@ -1073,6 +1073,7 @@ export function EditModal({
   const isDrawingRef = useRef(false)
   const lastPointRef = useRef<Point | null>(null)
   const rectStartRef = useRef<Point | null>(null)
+  const blobUrlsRef = useRef<Set<string>>(new Set()) // Track blob URLs for cleanup
   const [rectPreview, setRectPreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
   const [showBrushCursor, setShowBrushCursor] = useState(false)
 

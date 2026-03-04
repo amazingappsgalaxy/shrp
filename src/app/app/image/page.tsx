@@ -884,7 +884,7 @@ export default function ImagePage() {
       url: "", // Empty URL for loading state
       aspect: "1:1",
       loading: true,
-      prompt: `Editing (${mode})...`,
+      prompt: "", // Hide prompt for edited images
       model: `Edit (${mode})`,
       hasRefs: false,
     }
@@ -907,7 +907,7 @@ export default function ImagePage() {
           url: imageUrl,
           aspect: "1:1",
           loading: false,
-          prompt: prompt,
+          prompt: "", // Hide prompt for edited images
           model: `Edit (${mode})`,
           hasRefs: false,
         }
@@ -922,7 +922,7 @@ export default function ImagePage() {
           url: imageUrl,
           aspect: "1:1",
           loading: false,
-          prompt: prompt,
+          prompt: "", // Hide prompt for edited images
           model: `Edit (${mode})`,
           hasRefs: false,
         }]
