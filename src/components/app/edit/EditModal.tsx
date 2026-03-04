@@ -1257,15 +1257,6 @@ export function EditModal({
     return () => window.removeEventListener('resize', handleResize)
   }, [imageNaturalSize])
 
-  // ── Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen && sourceContext !== 'standalone') {
-      document.body.style.overflow = 'hidden'
-      return () => { document.body.style.overflow = '' }
-    }
-    return undefined
-  }, [isOpen, sourceContext])
-
   // ── Flatten annotations onto canvas for export
   const flattenForExport = useCallback((): string => {
     const src = displayCanvasRef.current
@@ -1600,35 +1591,43 @@ export function EditModal({
     let basePrompt = ''
     const referenceImages: string[] = []
 
-    if (mode === 'edit') {
-      if (bgImageRef.current) {
-        const cleanCanvas = document.createElement('canvas')
-        cleanCanvas.width = bgImageRef.current.naturalWidth
-        cleanCanvas.height = bgImageRef.current.naturalHeight
-        cleanCanvas.getContext('2d')!.drawImage(bgImageRef.current, 0, 0)
-        cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
+    // Wrap canvas operations in try-catch — toDataURL() can throw SecurityError if canvas is tainted
+    try {
+      if (mode === 'edit') {
+        if (bgImageRef.current) {
+          const cleanCanvas = document.createElement('canvas')
+          cleanCanvas.width = bgImageRef.current.naturalWidth
+          cleanCanvas.height = bgImageRef.current.naturalHeight
+          cleanCanvas.getContext('2d')!.drawImage(bgImageRef.current, 0, 0)
+          cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
+        }
+        compositeDataUrl = flattenForExport()
+        const activeLayers = layers.filter(l => l.prompt.trim())
+        basePrompt =
+          'I am providing two images: image 1 is the original clean photo, image 2 is the same photo with semi-transparent colored overlays marking edit regions. ' +
+          activeLayers.map(l => `In the ${l.colorName}-colored overlay region: ${l.prompt.trim()}`).join('. ') +
+          '. Apply the edits to image 1 ONLY — use image 2 purely as a guide for WHERE to make changes. Keep everything outside the colored regions completely identical to image 1.'
+        activeLayers.forEach(l => l.referenceImageUrls.forEach(u => referenceImages.push(u)))
+      } else if (mode === 'relight') {
+        if (bgImageRef.current) {
+          const cleanCanvas = document.createElement('canvas')
+          cleanCanvas.width = bgImageRef.current.naturalWidth
+          cleanCanvas.height = bgImageRef.current.naturalHeight
+          cleanCanvas.getContext('2d')!.drawImage(bgImageRef.current, 0, 0)
+          cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
+        }
+        basePrompt = generateRelightPrompt(lightSettings)
+        setDebugRelightPrompt(basePrompt)
+      } else {
+        compositeDataUrl = flattenForExport()
+        basePrompt = promptText
+        promptRefUrls.forEach(u => referenceImages.push(u))
       }
-      compositeDataUrl = flattenForExport()
-      const activeLayers = layers.filter(l => l.prompt.trim())
-      basePrompt =
-        'I am providing two images: image 1 is the original clean photo, image 2 is the same photo with semi-transparent colored overlays marking edit regions. ' +
-        activeLayers.map(l => `In the ${l.colorName}-colored overlay region: ${l.prompt.trim()}`).join('. ') +
-        '. Apply the edits to image 1 ONLY — use image 2 purely as a guide for WHERE to make changes. Keep everything outside the colored regions completely identical to image 1.'
-      activeLayers.forEach(l => l.referenceImageUrls.forEach(u => referenceImages.push(u)))
-    } else if (mode === 'relight') {
-      if (bgImageRef.current) {
-        const cleanCanvas = document.createElement('canvas')
-        cleanCanvas.width = bgImageRef.current.naturalWidth
-        cleanCanvas.height = bgImageRef.current.naturalHeight
-        cleanCanvas.getContext('2d')!.drawImage(bgImageRef.current, 0, 0)
-        cleanOriginalDataUrl = cleanCanvas.toDataURL('image/png')
-      }
-      basePrompt = generateRelightPrompt(lightSettings)
-      setDebugRelightPrompt(basePrompt)
-    } else {
-      compositeDataUrl = flattenForExport()
-      basePrompt = promptText
-      promptRefUrls.forEach(u => referenceImages.push(u))
+    } catch (prepErr: unknown) {
+      const msg = prepErr instanceof Error ? prepErr.message : 'Failed to prepare image data'
+      console.error('❌ Image data preparation failed:', msg, prepErr)
+      setError(`Failed to prepare image: ${msg}. Try replacing the image.`)
+      return
     }
 
     const VARIATION_SUFFIXES = [
@@ -1723,11 +1722,12 @@ export function EditModal({
   if (!isOpen) return null
 
   const content = (
-    <div className="fixed inset-0 pt-16 bg-[#070707] text-white overflow-y-auto lg:overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 20%) 1.2px, transparent 1.2px)', backgroundSize: '20px 20px' }}>
+    <div className={cn('fixed inset-0 bg-[#070707] text-white overflow-y-auto lg:overflow-hidden', sourceContext === 'standalone' ? 'pt-16' : 'pt-0')} style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 20%) 1.2px, transparent 1.2px)', backgroundSize: '20px 20px' }}>
 
       {/* ── CANVAS WORKSPACE ─────────────────────────────────────────── */}
       <div
-        className="absolute inset-x-0 bottom-0 flex items-center justify-center px-2 lg:px-4" style={{ top: '3rem' }}
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center px-2 lg:px-4"
+        style={{ top: sourceContext === 'standalone' ? '3rem' : '3.5rem' }}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
       >
@@ -2180,7 +2180,7 @@ export function EditModal({
       </div>
 
       {/* ── MODE SWITCHER ──────────────────────── */}
-      <div className="fixed top-[4.6rem] left-1/2 -translate-x-1/2 z-40 px-2">
+      <div className={cn('fixed left-1/2 -translate-x-1/2 z-40 px-2', sourceContext === 'standalone' ? 'top-[4.6rem]' : 'top-4')}>
         <div className="flex bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl p-1 shadow-xl gap-0.5 text-center">
           {([
             { id: 'edit',    label: 'Edit',    Icon: IconPencil  },
@@ -2203,6 +2203,13 @@ export function EditModal({
           ))}
         </div>
       </div>
+
+      {/* ── ERROR BANNER ───────── */}
+      {error && (
+        <div className="fixed bottom-16 lg:bottom-20 left-1/2 -translate-x-1/2 z-40 px-3 lg:px-4 py-2 bg-red-950/95 border border-red-800/70 rounded-xl text-red-300 text-[11px] lg:text-xs font-medium text-center max-w-xs lg:max-w-sm shadow-xl pointer-events-none">
+          {error}
+        </div>
+      )}
 
       {/* ── BOTTOM BAR ───────── */}
       {imageUrl && (

@@ -196,8 +196,9 @@ function ImageModal({
   }, [img?.url])
 
   // Keyboard: Escape, ArrowLeft, ArrowRight
+  // Skip when EditModal is open — it handles its own Escape to prevent double-close
   useEffect(() => {
-    if (index === null) return
+    if (index === null || isEditModalOpen) return
     const fn = (e: KeyboardEvent) => {
       if (e.key === "Escape")      { onClose(); return }
       if (e.key === "ArrowLeft"  && index > 0)               onNavigate(index - 1)
@@ -205,7 +206,7 @@ function ImageModal({
     }
     document.addEventListener("keydown", fn)
     return () => document.removeEventListener("keydown", fn)
-  }, [index, images.length, onClose, onNavigate])
+  }, [index, images.length, onClose, onNavigate, isEditModalOpen])
 
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault()
@@ -886,8 +887,8 @@ export default function ImagePage() {
     e.target.value = ""
   }
 
-  // Add loading placeholder when generation starts
-  function handleAddLoadingImage(historyId: string, mode: string) {
+  // Add loading placeholder when generation starts — stable reference via useCallback
+  const handleAddLoadingImage = useCallback((historyId: string, mode: string) => {
     const newId = `editing-${historyId}`
     const newImage: GridImage = {
       id: newId,
@@ -900,10 +901,10 @@ export default function ImagePage() {
     }
     setImages(prev => [...prev, newImage])
     console.log('📝 Added loading placeholder for', historyId)
-  }
+  }, [])
 
-  // Replace loading placeholder or add edited image to the canvas grid
-  function handleAddEditedImage(imageUrl: string, historyId: string, mode: string, prompt: string) {
+  // Replace loading placeholder or add edited image to the canvas grid — stable reference via useCallback
+  const handleAddEditedImage = useCallback((imageUrl: string, historyId: string, mode: string, prompt: string) => {
     const loadingId = `editing-${historyId}`
 
     // Check if there's a loading placeholder to replace
@@ -942,7 +943,7 @@ export default function ImagePage() {
     setGeneratedIds(prev => new Set([...prev, loadingId]))
     mutate(APP_DATA_KEY) // Refresh credits
     toast.success("Edited image added to canvas")
-  }
+  }, [mutate])
 
   // Each call is fully independent — no busy lock, multiple can run concurrently
   function handleGenerate() {
