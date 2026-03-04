@@ -1097,6 +1097,31 @@ export function EditModal({
     }
   }, [initialImageUrl, isOpen])
 
+  // ── Prevent body scroll when modal is open (non-standalone mode)
+  useEffect(() => {
+    if (sourceContext !== 'standalone' && isOpen) {
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = ''
+      }
+    }
+    return undefined
+  }, [isOpen, sourceContext])
+
+  // ── Escape key handler for modal mode
+  useEffect(() => {
+    if (sourceContext !== 'standalone' && isOpen) {
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          onClose()
+        }
+      }
+      document.addEventListener('keydown', handleEscape)
+      return () => document.removeEventListener('keydown', handleEscape)
+    }
+    return undefined
+  }, [isOpen, sourceContext, onClose])
+
   // ── Canvas rendering
   const renderCanvas = useCallback(() => {
     const canvas = displayCanvasRef.current

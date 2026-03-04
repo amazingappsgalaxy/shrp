@@ -25,7 +25,10 @@ import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bun
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
 
 const normalizeOutputs = (value: unknown): EnhancementOutputItem[] => {
-  const isVideo = (url: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(url)
+  // Match video extensions; also treat Bunny CDN paths with /video/ prefix as video
+  const isVideo = (url: string) =>
+    /\.(mp4|webm|mov|m4v|3gp|flv)(\?.*)?$/i.test(url) ||
+    /\/video\//i.test(new URL(url, 'https://x').pathname)
   const asItem = (url: string): EnhancementOutputItem => ({
     type: isVideo(url) ? 'video' : 'image',
     url
@@ -57,8 +60,23 @@ async function processVideoTask(
   const settings = task.settings || {}
   const providerName = settings._provider as string
   const providerTaskId = settings._providerTaskId as string | undefined
-  const creditsToDeduct: number = settings.creditsToDeduct || 0
+  const creditsToDeduct: number = typeof settings.creditsToDeduct === 'number' ? settings.creditsToDeduct : 0
   const ageMs = Date.now() - new Date(task.created_at).getTime()
+
+  // Validate provider — unknown provider means settings are corrupt; fail the task
+  if (providerName !== 'evolink' && providerName !== 'synvow') {
+    console.error(`process-pending video: unknown provider '${providerName}' for task ${task.id} — marking failed`)
+    await supabase
+      .from('history_items')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+        settings: { ...settings, _failureReason: `Unknown provider: ${providerName}` },
+      })
+      .eq('id', task.id)
+      .eq('status', 'processing')
+    return 'failed'
+  }
 
   // Provider task ID not stored yet — give it 5 minutes to start, then fail
   if (!providerTaskId) {

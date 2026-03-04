@@ -173,12 +173,44 @@ export async function POST(request: NextRequest) {
       clientImageUrls = await Promise.all(clientImageUrls.map(u => ensureOnCdn(u, userId)))
     }
   } catch (err) {
-    console.warn('⚠️ generate-video: CDN upload failed for input, using original:', err)
+    console.error('❌ generate-video: CDN upload failed for input:', err)
+    return NextResponse.json({ error: 'Failed to upload input media. Please try again.' }, { status: 500 })
   }
 
   // ── Create history record ─────────────────────────────────────────────────
   const taskId = uuidv4()
   const now = new Date().toISOString()
+
+  // Build complete settings object — includes all params for audit trail + cron reconstruction
+  const baseSettings: Record<string, unknown> = {
+    prompt: normalizedPrompt,
+    aspect_ratio: aspect_ratio ?? null,
+    duration: duration ?? null,
+    audio_sync: audio_sync ?? null,
+    negative_prompt: negative_prompt ?? null,
+    quality: quality ?? null,
+    creditsToDeduct: creditCost,
+    _provider: primaryProvider,
+    // CDN-ensured input URLs (stored after CDN upload so they're permanent)
+    ...(firstFrameUrl ? { first_frame_url: firstFrameUrl } : {}),
+    ...(endFrameUrl ? { end_frame_url: endFrameUrl } : {}),
+    ...(videoUrl ? { video_url: videoUrl } : {}),
+    ...(targetUrl ? { target_url: targetUrl } : {}),
+    ...(clientImageUrls?.length ? { image_urls: clientImageUrls } : {}),
+    // Kling-specific
+    ...(keep_original_sound !== undefined ? { keep_original_sound } : {}),
+    ...(model_params ? { model_params } : {}),
+    ...(element_list?.length ? { element_list } : {}),
+    ...(multi_shot !== undefined ? { multi_shot } : {}),
+    ...(shot_type ? { shot_type } : {}),
+    ...(multi_prompt?.length ? { multi_prompt } : {}),
+    // Veo-specific
+    ...(enhance_prompt !== undefined ? { enhance_prompt } : {}),
+    ...(enable_upsample !== undefined ? { enable_upsample } : {}),
+    // Seedance-specific
+    ...(camera_fixed !== undefined ? { camera_fixed } : {}),
+    ...(seed !== undefined ? { seed } : {}),
+  }
 
   const { error: insertError } = await supabase.from('history_items').insert({
     id: taskId,
@@ -188,16 +220,7 @@ export async function POST(request: NextRequest) {
     model_name: modelConfig.label,
     page_name: `app/video/${tab}`,
     status: 'processing',
-    settings: {
-      prompt: normalizedPrompt,
-      aspect_ratio: aspect_ratio ?? null,
-      duration: duration ?? null,
-      audio_sync: audio_sync ?? null,
-      negative_prompt: negative_prompt ?? null,
-      creditsToDeduct: creditCost,
-      // Provider info for poll route
-      _provider: primaryProvider,
-    },
+    settings: baseSettings,
     created_at: now,
     updated_at: now,
   })
@@ -290,16 +313,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('history_items')
       .update({
-        settings: {
-          prompt: normalizedPrompt,
-          aspect_ratio: aspect_ratio ?? null,
-          duration: duration ?? null,
-          audio_sync: audio_sync ?? null,
-          negative_prompt: negative_prompt ?? null,
-          creditsToDeduct: creditCost,
-          _provider: primaryProvider,
-          _providerTaskId: providerTaskId,
-        },
+        settings: { ...baseSettings, _providerTaskId: providerTaskId },
         updated_at: new Date().toISOString(),
       })
       .eq('id', taskId)
@@ -313,12 +327,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
-          settings: {
-            prompt: normalizedPrompt,
-            creditsToDeduct: creditCost,
-            _provider: primaryProvider,
-            _failureReason: 'Failed to store provider task ID — please retry',
-          },
+          settings: { ...baseSettings, _failureReason: 'Failed to store provider task ID — please retry' },
         })
         .eq('id', taskId)
       return NextResponse.json({ error: 'Failed to store task state — please retry' }, { status: 500 })
@@ -337,12 +346,7 @@ export async function POST(request: NextRequest) {
       .update({
         status: 'failed',
         updated_at: new Date().toISOString(),
-        settings: {
-          prompt: normalizedPrompt,
-          creditsToDeduct: creditCost,
-          _provider: primaryProvider,
-          _failureReason: errMsg,
-        },
+        settings: { ...baseSettings, _failureReason: errMsg },
       })
       .eq('id', taskId)
 
