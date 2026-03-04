@@ -942,6 +942,16 @@ export function EditModal({
   const { addWatchedTask, resolveTask, failTask } = useTaskManager()
   const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🚀 EditModal mounted/updated', {
+      isOpen,
+      sourceContext,
+      initialImageUrl: initialImageUrl?.substring(0, 50) + '...',
+      hasCallback: !!onGenerationComplete
+    })
+  }, [isOpen, sourceContext, initialImageUrl, onGenerationComplete])
+
   // ── Image state
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null)
@@ -1076,9 +1086,15 @@ export function EditModal({
   // ── Load initial image if provided
   useEffect(() => {
     if (initialImageUrl && isOpen) {
+      console.log('🖼️ EditModal: Loading initial image:', initialImageUrl)
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
+        console.log('✅ EditModal: Image loaded successfully', {
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight,
+          src: initialImageUrl
+        })
         bgImageRef.current = img
         setImageUrl(initialImageUrl)
         const nat = { w: img.naturalWidth, h: img.naturalHeight }
@@ -1086,11 +1102,19 @@ export function EditModal({
         const ds = computeDisplaySize(nat.w, nat.h)
         setDisplaySize(ds)
         const canvas = displayCanvasRef.current
+        console.log('🎨 EditModal: Canvas ref available:', !!canvas)
         if (canvas) {
           canvas.width = nat.w
           canvas.height = nat.h
           const ctx = canvas.getContext('2d')
-          ctx?.drawImage(img, 0, 0)
+          if (ctx) {
+            ctx.drawImage(img, 0, 0)
+            console.log('✅ EditModal: Image drawn on canvas', { canvasWidth: canvas.width, canvasHeight: canvas.height })
+          } else {
+            console.error('❌ EditModal: Failed to get canvas context')
+          }
+        } else {
+          console.error('❌ EditModal: Canvas ref is null')
         }
         // Clear all editor state when loading initial image
         setLayers([])
@@ -1100,12 +1124,15 @@ export function EditModal({
         setActiveLayerId(null)
         setMode('edit')
         setActiveTool('brush')
+        console.log('🧹 EditModal: Editor state cleared')
       }
-      img.onerror = () => {
-        console.error('Failed to load initial image:', initialImageUrl)
+      img.onerror = (e) => {
+        console.error('❌ EditModal: Failed to load initial image:', initialImageUrl, e)
         setError('Failed to load image. Please try again.')
       }
       img.src = initialImageUrl
+    } else {
+      console.log('⏭️ EditModal: Skipping image load', { hasInitialImageUrl: !!initialImageUrl, isOpen })
     }
   }, [initialImageUrl, isOpen])
 
@@ -1162,9 +1189,16 @@ export function EditModal({
   // ── Canvas rendering
   const renderCanvas = useCallback(() => {
     const canvas = displayCanvasRef.current
-    if (!canvas || !bgImageRef.current) return
+    if (!canvas || !bgImageRef.current) {
+      console.log('⏭️ renderCanvas: Skipped', { hasCanvas: !!canvas, hasBgImage: !!bgImageRef.current })
+      return
+    }
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    console.log('🎨 renderCanvas: Drawing', {
+      canvasSize: `${canvas.width}x${canvas.height}`,
+      layerCount: layers.length
+    })
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height)
     for (const layer of layers) {
