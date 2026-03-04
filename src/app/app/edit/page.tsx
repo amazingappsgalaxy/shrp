@@ -2093,7 +2093,7 @@ export default function EditPage() {
 
       {/* ── BOTTOM BAR — only visible when an image is loaded ───────── */}
       {imageUrl && (
-        <div className="fixed bottom-3 lg:bottom-5 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center justify-center gap-1.5 lg:gap-2 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl px-2 lg:px-2.5 py-2 shadow-[0_8px_40px_rgba(0,0,0,0.85)] max-w-[calc(100vw-1rem)]">
+        <div className="fixed bottom-3 lg:bottom-5 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center justify-center gap-1.5 lg:gap-2 max-w-[calc(100vw-1rem)]">
           {/* Replace image */}
           <label className="flex items-center gap-1 lg:gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg lg:rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
             <IconCloudUpload className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
@@ -2130,7 +2130,7 @@ export default function EditPage() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="flex items-center gap-1.5 lg:gap-2 px-4 lg:px-7 py-1.5 lg:py-2 rounded-xl font-black text-xs lg:text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            className="flex items-center gap-1.5 lg:gap-2 px-4 lg:px-7 py-1.5 lg:py-2 rounded-xl font-black text-xs lg:text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             <IconWand className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
             <span className="hidden sm:inline">Generate</span>

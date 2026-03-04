@@ -69,17 +69,24 @@ export class EvolinkProvider {
     const body: Record<string, unknown> = {
       model: apiModelId,
       prompt: req.prompt,
-      duration: req.duration ?? 5,
-      aspect_ratio: req.aspect_ratio ?? '16:9',
       quality: req.quality ?? '720p',
-      sound: req.sound ?? 'off',
     }
 
+    // Only include these when present — some models (kling-o3-video-edit) don't support them
+    if (req.duration !== undefined) body.duration = req.duration
+    if (req.aspect_ratio !== undefined) body.aspect_ratio = req.aspect_ratio
+    if (req.sound !== undefined) body.sound = req.sound
     if (req.negative_prompt) body.negative_prompt = req.negative_prompt
     if (req.callback_url) body.callback_url = req.callback_url
     // image_start / image_end for I2V models (Kling image-to-video)
     if (req.image_start) body.image_start = req.image_start
     if (req.image_end) body.image_end = req.image_end
+    // video_url for edit / reference-to-video models
+    if (req.video_url) body.video_url = req.video_url
+    // keep_original_sound for edit / reference-to-video models
+    if (req.keep_original_sound !== undefined) body.keep_original_sound = req.keep_original_sound
+    // image_urls: up to 4 reference images
+    if (req.image_urls?.length) body.image_urls = req.image_urls
     // model_params is passed as-is — multi_shot, shot_type, multi_prompt, mode, cfg_scale, etc.
     if (req.model_params && Object.keys(req.model_params).length > 0) {
       body.model_params = req.model_params
