@@ -148,13 +148,14 @@ function AspectShape({ aspect, active }: { aspect: Aspect; active: boolean }) {
 
 // ─── Image modal ──────────────────────────────────────────────────────────────
 function ImageModal({
-  images, index, onClose, onNavigate, onAddImage,
+  images, index, onClose, onNavigate, onAddImage, onAddLoadingImage,
 }: {
   images: GridImage[]
   index: number | null
   onClose: () => void
   onNavigate: (index: number) => void
   onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string) => void
+  onAddLoadingImage?: (historyId: string, mode: string) => void
 }) {
   const img = index !== null ? images[index] ?? null : null
 
@@ -348,12 +349,18 @@ function ImageModal({
           onClose={() => setIsEditModalOpen(false)}
           initialImageUrl={img.url}
           sourceContext="image-page"
+          onGenerationStart={(historyId, mode) => {
+            // Add loading placeholder to canvas grid
+            if (onAddLoadingImage) {
+              onAddLoadingImage(historyId, mode)
+            }
+          }}
           onGenerationComplete={(imageUrl, historyId, mode, prompt) => {
-            // Add the edited image to the canvas grid
+            // Replace loading placeholder with actual image
             if (onAddImage) {
               onAddImage(imageUrl, historyId, mode, prompt)
             }
-            setIsEditModalOpen(false)
+            // DON'T close modal - user can see results and continue editing
           }}
         />
       )}
@@ -869,20 +876,60 @@ export default function ImagePage() {
     e.target.value = ""
   }
 
-  // Add edited image to the canvas grid
-  function handleAddEditedImage(imageUrl: string, historyId: string, mode: string, prompt: string) {
-    const newId = `edited-${Date.now()}-${historyId}`
+  // Add loading placeholder when generation starts
+  function handleAddLoadingImage(historyId: string, mode: string) {
+    const newId = `editing-${historyId}`
     const newImage: GridImage = {
       id: newId,
-      url: imageUrl,
-      aspect: "1:1", // Default aspect, will be determined by actual image
-      loading: false,
-      prompt: prompt,
+      url: "", // Empty URL for loading state
+      aspect: "1:1",
+      loading: true,
+      prompt: `Editing (${mode})...`,
       model: `Edit (${mode})`,
       hasRefs: false,
     }
     setImages(prev => [...prev, newImage])
-    setGeneratedIds(prev => new Set([...prev, newId]))
+    console.log('📝 Added loading placeholder for', historyId)
+  }
+
+  // Replace loading placeholder or add edited image to the canvas grid
+  function handleAddEditedImage(imageUrl: string, historyId: string, mode: string, prompt: string) {
+    const loadingId = `editing-${historyId}`
+
+    // Check if there's a loading placeholder to replace
+    setImages(prev => {
+      const loadingIndex = prev.findIndex(img => img.id === loadingId)
+      if (loadingIndex !== -1) {
+        // Replace loading placeholder
+        const updated = [...prev]
+        updated[loadingIndex] = {
+          id: loadingId,
+          url: imageUrl,
+          aspect: "1:1",
+          loading: false,
+          prompt: prompt,
+          model: `Edit (${mode})`,
+          hasRefs: false,
+        }
+        console.log('✅ Replaced loading placeholder with actual image', historyId)
+        return updated
+      } else {
+        // No placeholder found, add new image (shouldn't happen but handle it)
+        const newId = `edited-${Date.now()}-${historyId}`
+        console.log('⚠️ No loading placeholder found, adding new image', historyId)
+        return [...prev, {
+          id: newId,
+          url: imageUrl,
+          aspect: "1:1",
+          loading: false,
+          prompt: prompt,
+          model: `Edit (${mode})`,
+          hasRefs: false,
+        }]
+      }
+    })
+
+    setGeneratedIds(prev => new Set([...prev, loadingId]))
     mutate(APP_DATA_KEY) // Refresh credits
     toast.success("Edited image added to canvas")
   }
@@ -1120,6 +1167,7 @@ export default function ImagePage() {
         onClose={() => setModalIndex(null)}
         onNavigate={setModalIndex}
         onAddImage={handleAddEditedImage}
+        onAddLoadingImage={handleAddLoadingImage}
       />
 
       {/* Pill hover preview — floating image preview above the hovered Image [N] token */}

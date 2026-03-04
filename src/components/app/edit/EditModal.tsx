@@ -65,6 +65,7 @@ export interface EditModalProps {
   onClose: () => void
   initialImageUrl?: string
   sourceContext: 'standalone' | 'image-page' | 'history-page'
+  onGenerationStart?: (historyId: string, mode: string) => void
   onGenerationComplete?: (imageUrl: string, historyId: string, mode: string, prompt: string) => void
 }
 
@@ -937,6 +938,7 @@ export function EditModal({
   onClose,
   initialImageUrl,
   sourceContext,
+  onGenerationStart,
   onGenerationComplete,
 }: EditModalProps) {
   const { addWatchedTask, resolveTask, failTask } = useTaskManager()
@@ -1617,7 +1619,13 @@ export function EditModal({
 
     const historyIds = variations.map(() => uid())
     const modeLabel = mode === 'relight' ? 'Relighting' : mode === 'prompt' ? 'Editing' : 'Editing'
-    historyIds.forEach(hid => addWatchedTask(hid, modeLabel))
+    historyIds.forEach(hid => {
+      addWatchedTask(hid, modeLabel)
+      // Notify parent that generation is starting
+      if (onGenerationStart) {
+        onGenerationStart(hid, mode)
+      }
+    })
 
     await Promise.all(variations.map(async (varIdx) => {
       const historyId = historyIds[varIdx]!
