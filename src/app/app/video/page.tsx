@@ -1193,9 +1193,11 @@ function VideoPageContent() {
                 )}
               </div>
 
-              {/* First frame + End frame — ABOVE prompt */}
-              {(hasFirstFrame || hasEndFrame) && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
+              {/* ── All settings: single block, no internal dividers ── */}
+              <div className="px-5 py-5 space-y-5">
+
+                {/* First frame + End frame */}
+                {(hasFirstFrame || hasEndFrame) && (
                   <div className={cn("grid gap-3", hasEndFrame ? "grid-cols-2" : "grid-cols-1")}>
                     {hasFirstFrame && (
                       <div>
@@ -1220,32 +1222,22 @@ function VideoPageContent() {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Prompt */}
+                <div>
+                  <SectionLabel>Prompt</SectionLabel>
+                  <textarea
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    placeholder="A sweeping cinematic shot of mountains at golden hour, camera slowly rising…"
+                    rows={4}
+                    className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
+                  />
                 </div>
-              )}
 
-              {/* Prompt — below images */}
-              <div className="px-5 pt-4 pb-4 border-b border-white/[0.05]">
-                <SectionLabel>Prompt</SectionLabel>
-                <textarea
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                  placeholder="A sweeping cinematic shot of mountains at golden hour, camera slowly rising…"
-                  rows={4}
-                  className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
-                />
-              </div>
-
-              {/* Aspect ratio — non-Kling only (Kling has it in the compact 3-col row) */}
-              {!isKlingModel && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
-                  <SectionLabel>Aspect Ratio</SectionLabel>
-                  <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
-                </div>
-              )}
-
-              {/* Kling: Duration + Scene Mode in 2-col */}
-              {isKlingModel && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
+                {/* Kling: Duration + Scene Mode */}
+                {isKlingModel && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-2">
@@ -1263,7 +1255,7 @@ function VideoPageContent() {
                       <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-md gap-0.5">
                         {([['std', 'Std'], ['pro', 'Pro']] as const).map(([id, label]) => (
                           <button key={id} onClick={() => setKlingMode(id)}
-                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded-sm transition-colors",
+                            className={cn("flex-1 py-1.5 text-[10px] font-black rounded transition-colors",
                               klingMode === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
                             {label}
                           </button>
@@ -1271,12 +1263,10 @@ function VideoPageContent() {
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Kling: Aspect + Quality + Sound in 3-col */}
-              {isKlingModel && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
+                {/* Kling: Aspect + Quality + Sound */}
+                {isKlingModel && (
                   <div className={cn("grid gap-2.5", hasAudio ? "grid-cols-3" : "grid-cols-2")}>
                     <div>
                       <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
@@ -1296,174 +1286,151 @@ function VideoPageContent() {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Non-Kling: Duration in a constrained layout for consistent pill proportions */}
-              {!isKlingModel && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                        <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
-                      </div>
-                      <div className="flex justify-between mt-0.5">
-                        <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
-                        <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
-                      </div>
-                    </div>
-                    <div className="shrink-0" style={{ width: 160 }}>
-                      <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" segments={16} />
-                    </div>
-                  </div>
-                  {hasAudio && (
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.06]">
-                      <div className="flex items-center gap-2">
-                        <IconVolume className="w-3.5 h-3.5 text-white/55" />
-                        <span className="text-xs font-medium text-white">Audio</span>
-                        <span className="text-[9px] text-white/55">native generation</span>
-                      </div>
-                      <Toggle checked={genAudio} onChange={setGenAudio} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Kling multi-shot */}
-              {isKlingModel && selectedModel?.controls?.multiShot && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
-                  {/* Toggle row */}
-                  <div className="flex items-center justify-between mb-3">
+                {/* Non-Kling: Aspect + Duration + Audio */}
+                {!isKlingModel && (
+                  <>
                     <div>
-                      <span className="text-xs font-black text-white">Multi-Shot</span>
-                      <p className="text-[10px] text-white/50 mt-0.5">Control each scene independently</p>
+                      <SectionLabel>Aspect Ratio</SectionLabel>
+                      <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />
                     </div>
-                    <Toggle checked={multiShot} onChange={setMultiShot} />
-                  </div>
-
-                  {multiShot && (
-                    <div className="space-y-2.5">
-                      {/* Shot type selector */}
-                      <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-lg gap-0.5">
-                        {(isKlingO3
-                          ? [['customize', 'Manual']] as const
-                          : [['customize', 'Manual'], ['intelligence', 'AI Auto']] as const
-                        ).map(([id, label]) => (
-                          <button key={id} onClick={() => setShotType(id)}
-                            className={cn("flex-1 py-2 text-[11px] font-black rounded-md transition-all",
-                              shotType === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
-                            {label}
-                          </button>
-                        ))}
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
+                          <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
+                        </div>
+                        <div className="flex justify-between mt-0.5">
+                          <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
+                          <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
+                        </div>
                       </div>
-
-                      {shotType === 'intelligence' && (
-                        <p className="text-[10px] text-white/45 px-0.5">AI will automatically plan and sequence your shots based on the main prompt.</p>
-                      )}
-
-                      {shotType === 'customize' && (() => {
-                        const totalShotDur = shotDurations.slice(0, shotPrompts.length).reduce((s, d) => s + d, 0)
-                        const overLimit = totalShotDur > 15
-                        return (
-                          <div className="space-y-2">
-                            {shotPrompts.map((sp, i) => {
-                              const shotDur = shotDurations[i] ?? 5
-                              const otherSum = shotDurations.reduce((s, d, j) => j !== i ? s + d : s, 0)
-                              const maxForShot = Math.max(3, Math.min(15, 15 - otherSum))
-                              return (
-                                <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
-                                  {/* Shot label — no divider, just soft header */}
-                                  <div className="flex items-center justify-between px-3 pt-2 pb-0">
-                                    <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
-                                    {shotPrompts.length > 1 && (
-                                      <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
-                                        <IconTrash className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
-                                  {/* Prompt textarea */}
-                                  <textarea
-                                    value={sp}
-                                    onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
-                                    placeholder={`Scene ${i + 1}…`}
-                                    rows={2}
-                                    className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/25 outline-none resize-none leading-relaxed"
-                                  />
-                                  {/* Duration: inline compact row with constrained slider */}
-                                  <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
-                                    <IconClock className="w-3 h-3 text-white/45 shrink-0" />
-                                    <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
-                                    <div className="flex-1" style={{ maxWidth: 150 }}>
-                                      <PremiumSlider
-                                        min={3}
-                                        max={maxForShot}
-                                        step={1}
-                                        value={shotDur}
-                                        onChange={v => adjustShotDuration(i, v)}
-                                        color="#FFFF00"
-                                        segments={16}
-                                      />
-                                    </div>
-                                    <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
-                                  </div>
-                                </div>
-                              )
-                            })}
-
-                            {/* Add shot: horizontal rule with centered label */}
-                            {shotPrompts.length < 6 && totalShotDur <= 12 && (
-                              <button
-                                onClick={addShot}
-                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
-                              >
-                                <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
-                                  <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
-                                </div>
-                                <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
-                              </button>
-                            )}
-
-                            {/* Total duration */}
-                            <div className={cn("flex items-center justify-between text-[9px] px-0.5", overLimit ? "text-red-400" : "text-white/50")}>
-                              <span>Total duration</span>
-                              <span className="font-mono font-bold">{totalShotDur}s / 15s max</span>
-                            </div>
-
-                            {/* Subject elements — for any Kling model with elementList support */}
-                            {selectedModel?.controls?.elementList && (
-                              <div className="pt-1">
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                  <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
-                                  <span className="text-[9px] text-white/50 italic">(optional)</span>
-                                </div>
-                                <div className="flex gap-1.5">
-                                  {[0, 1, 2].map(idx => (
-                                    <input
-                                      key={idx}
-                                      type="number"
-                                      min={1}
-                                      value={elementIds[idx] ?? ''}
-                                      onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
-                                      placeholder={`ID ${idx + 1}`}
-                                      className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/25 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
-                                    />
-                                  ))}
-                                </div>
-                                <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })()}
+                      <div className="shrink-0" style={{ width: 160 }}>
+                        <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" segments={16} />
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+                    {hasAudio && (
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <IconVolume className="w-3.5 h-3.5 text-white/55" />
+                          <span className="text-xs font-medium text-white">Audio</span>
+                          <span className="text-[9px] text-white/55">native generation</span>
+                        </div>
+                        <Toggle checked={genAudio} onChange={setGenAudio} />
+                      </div>
+                    )}
+                  </>
+                )}
 
-              {/* Kling: Prompt Adherence (cfg_scale) — constrained slider for consistent pill look */}
-              {isKlingModel && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
+                {/* Kling: Multi-Shot */}
+                {isKlingModel && selectedModel?.controls?.multiShot && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <span className="text-xs font-black text-white">Multi-Shot</span>
+                        <p className="text-[10px] text-white/50 mt-0.5">Control each scene independently</p>
+                      </div>
+                      <Toggle checked={multiShot} onChange={setMultiShot} />
+                    </div>
+                    {multiShot && (
+                      <div className="space-y-2.5">
+                        <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-md gap-0.5">
+                          {(isKlingO3
+                            ? [['customize', 'Manual']] as const
+                            : [['customize', 'Manual'], ['intelligence', 'AI Auto']] as const
+                          ).map(([id, label]) => (
+                            <button key={id} onClick={() => setShotType(id)}
+                              className={cn("flex-1 py-2 text-[11px] font-black rounded transition-colors",
+                                shotType === id ? "bg-white/[0.09] text-[#FFFF00]" : "text-white/55 hover:text-white")}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        {shotType === 'intelligence' && (
+                          <p className="text-[10px] text-white/45 px-0.5">AI will automatically plan and sequence your shots based on the main prompt.</p>
+                        )}
+                        {shotType === 'customize' && (() => {
+                          const totalShotDur = shotDurations.slice(0, shotPrompts.length).reduce((s, d) => s + d, 0)
+                          const overLimit = totalShotDur > 15
+                          return (
+                            <div className="space-y-2">
+                              {shotPrompts.map((sp, i) => {
+                                const shotDur = shotDurations[i] ?? 5
+                                const otherSum = shotDurations.reduce((s, d, j) => j !== i ? s + d : s, 0)
+                                const maxForShot = Math.max(3, Math.min(15, 15 - otherSum))
+                                return (
+                                  <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
+                                    <div className="flex items-center justify-between px-3 pt-2 pb-0">
+                                      <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
+                                      {shotPrompts.length > 1 && (
+                                        <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
+                                          <IconTrash className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <textarea
+                                      value={sp}
+                                      onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                      placeholder={`Scene ${i + 1}…`}
+                                      rows={2}
+                                      className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/25 outline-none resize-none leading-relaxed"
+                                    />
+                                    <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
+                                      <IconClock className="w-3 h-3 text-white/45 shrink-0" />
+                                      <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
+                                      <div className="flex-1" style={{ maxWidth: 150 }}>
+                                        <PremiumSlider min={3} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} color="#FFFF00" segments={16} />
+                                      </div>
+                                      <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                              {shotPrompts.length < 6 && totalShotDur <= 12 && (
+                                <button
+                                  onClick={addShot}
+                                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
+                                >
+                                  <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                                    <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
+                                  </div>
+                                  <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
+                                </button>
+                              )}
+                              <div className={cn("flex items-center justify-between text-[9px] px-0.5", overLimit ? "text-red-400" : "text-white/50")}>
+                                <span>Total duration</span>
+                                <span className="font-mono font-bold">{totalShotDur}s / 15s max</span>
+                              </div>
+                              {selectedModel?.controls?.elementList && (
+                                <div className="pt-1">
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
+                                    <span className="text-[9px] text-white/50 italic">(optional)</span>
+                                  </div>
+                                  <div className="flex gap-1.5">
+                                    {[0, 1, 2].map(idx => (
+                                      <input key={idx} type="number" min={1}
+                                        value={elementIds[idx] ?? ''}
+                                        onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
+                                        placeholder={`ID ${idx + 1}`}
+                                        className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/25 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                                      />
+                                    ))}
+                                  </div>
+                                  <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Kling: Prompt Adherence */}
+                {isKlingModel && (
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
@@ -1479,36 +1446,34 @@ function VideoPageContent() {
                       <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" segments={16} />
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Veo: enhance prompt + upsample */}
-              {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
-                <div className="px-5 py-4 border-b border-white/[0.05] space-y-2">
-                  {selectedModel?.controls?.enhancePrompt && (
-                    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
-                      <div>
-                        <span className="text-xs font-black text-white">Enhance Prompt</span>
-                        <p className="text-[10px] text-white/50 mt-0.5">Auto-optimize and translate to English</p>
+                {/* Veo: enhance prompt + upsample */}
+                {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
+                  <div className="space-y-2">
+                    {selectedModel?.controls?.enhancePrompt && (
+                      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
+                        <div>
+                          <span className="text-xs font-black text-white">Enhance Prompt</span>
+                          <p className="text-[10px] text-white/50 mt-0.5">Auto-optimize and translate to English</p>
+                        </div>
+                        <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
                       </div>
-                      <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
-                    </div>
-                  )}
-                  {selectedModel?.controls?.enableUpsample && (
-                    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
-                      <div>
-                        <span className="text-xs font-black text-white">Upsample to 1080p</span>
-                        <p className="text-[10px] text-white/50 mt-0.5">Enable resolution upsampling</p>
+                    )}
+                    {selectedModel?.controls?.enableUpsample && (
+                      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
+                        <div>
+                          <span className="text-xs font-black text-white">Upsample to 1080p</span>
+                          <p className="text-[10px] text-white/50 mt-0.5">Enable resolution upsampling</p>
+                        </div>
+                        <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
                       </div>
-                      <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
 
-              {/* Camera fixed (Seedance) */}
-              {isSeedanceModel && (
-                <div className="px-5 py-4 border-b border-white/[0.05]">
+                {/* Seedance: Lock Camera */}
+                {isSeedanceModel && (
                   <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
                     <div className="flex items-center gap-2">
                       <IconCamera className="w-3.5 h-3.5 text-white/55" />
@@ -1516,53 +1481,54 @@ function VideoPageContent() {
                     </div>
                     <Toggle checked={cameraFixed} onChange={setCameraFixed} />
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Advanced (seed) + Negative prompt — grouped into one section */}
-              <div className="px-5 py-4 border-b border-white/[0.05] space-y-3">
-                {hasSeed && (
-                  <div>
-                    <button
-                      onClick={() => setShowAdvanced(p => !p)}
-                      className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
-                    >
-                      <IconMinus className="w-3.5 h-3.5" />
-                      <span>Advanced</span>
-                      <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showAdvanced && "rotate-180")} />
-                    </button>
-                    {showAdvanced && (
-                      <div className="mt-3 space-y-2">
-                        <label className="text-[10px] font-black text-white uppercase tracking-wider">Seed</label>
-                        <input
-                          type="number"
-                          value={seed}
-                          onChange={e => setSeed(e.target.value)}
-                          placeholder="Random"
-                          className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <p className="text-[9px] text-white/50">Same seed reproduces identical results</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button
-                  onClick={() => setShowNegPrompt(p => !p)}
-                  className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
-                >
-                  <IconMinus className="w-3.5 h-3.5" />
-                  <span>Negative Prompt</span>
-                  <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showNegPrompt && "rotate-180")} />
-                </button>
-                {showNegPrompt && (
-                  <textarea
-                    value={genNegPrompt}
-                    onChange={e => setGenNegPrompt(e.target.value)}
-                    placeholder="Describe what to avoid…"
-                    rows={2}
-                    className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
-                  />
-                )}
+                {/* Advanced: seed + negative prompt */}
+                <div className="pt-1 border-t border-white/[0.04] space-y-3">
+                  {hasSeed && (
+                    <div>
+                      <button
+                        onClick={() => setShowAdvanced(p => !p)}
+                        className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
+                      >
+                        <IconMinus className="w-3.5 h-3.5" />
+                        <span>Advanced</span>
+                        <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showAdvanced && "rotate-180")} />
+                      </button>
+                      {showAdvanced && (
+                        <div className="mt-3 space-y-2">
+                          <label className="text-[10px] font-black text-white uppercase tracking-wider">Seed</label>
+                          <input
+                            type="number"
+                            value={seed}
+                            onChange={e => setSeed(e.target.value)}
+                            placeholder="Random"
+                            className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <p className="text-[9px] text-white/50">Same seed reproduces identical results</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowNegPrompt(p => !p)}
+                    className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
+                  >
+                    <IconMinus className="w-3.5 h-3.5" />
+                    <span>Negative Prompt</span>
+                    <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showNegPrompt && "rotate-180")} />
+                  </button>
+                  {showNegPrompt && (
+                    <textarea
+                      value={genNegPrompt}
+                      onChange={e => setGenNegPrompt(e.target.value)}
+                      placeholder="Describe what to avoid…"
+                      rows={2}
+                      className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/20 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
+                    />
+                  )}
+                </div>
+
               </div>
             </>
           )}
