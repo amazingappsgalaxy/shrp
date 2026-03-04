@@ -110,14 +110,14 @@ function playTick() {
 
 // ─── Slider with tick sound ────────────────────────────────────────────────────
 
-function Slider({ value, min, max, step, onChange, segments = 40 }: {
+function Slider({ value, min, max, step, onChange, segments = 40, pillHeight }: {
   value: number; min: number; max: number; step: number
-  onChange: (v: number) => void; segments?: number
+  onChange: (v: number) => void; segments?: number; pillHeight?: number
 }) {
   const lastTickRef = useRef<number | null>(null)
   return (
     <PillRangeSlider
-      value={value} min={min} max={max} step={step} segments={segments}
+      value={value} min={min} max={max} step={step} segments={segments} pillHeight={pillHeight}
       onChange={v => {
         if (v !== lastTickRef.current) { playTick(); lastTickRef.current = v }
         onChange(v)
@@ -1336,7 +1336,7 @@ function VideoPageContent() {
                                       <IconClock className="w-3 h-3 text-white/45 shrink-0" />
                                       <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
                                       <div className="flex-1" style={{ maxWidth: 150 }}>
-                                        <Slider min={3} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} segments={16} />
+                                        <Slider min={3} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} segments={26} pillHeight={13} />
                                       </div>
                                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
                                     </div>
