@@ -944,15 +944,15 @@ export function EditModal({
   const { addWatchedTask, resolveTask, failTask } = useTaskManager()
   const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
-  // Debug logging
+  // Debug logging - removed onGenerationComplete from deps to prevent infinite loops
   useEffect(() => {
     console.log('🚀 EditModal mounted/updated', {
       isOpen,
       sourceContext,
       initialImageUrl: initialImageUrl?.substring(0, 50) + '...',
-      hasCallback: !!onGenerationComplete
+      hasCallbacks: { start: !!onGenerationStart, complete: !!onGenerationComplete }
     })
-  }, [isOpen, sourceContext, initialImageUrl, onGenerationComplete])
+  }, [isOpen, sourceContext, initialImageUrl])
 
   // ── Image state
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -1564,13 +1564,36 @@ export function EditModal({
   const totalCost = creditCost * genCount
 
   const handleGenerate = useCallback(async () => {
-    if (!canGenerate || !imageUrl) return
+    console.log('🎬 handleGenerate called', {
+      canGenerate,
+      hasImageUrl: !!imageUrl,
+      mode,
+      creditBalance,
+      totalCost,
+      creditsLoading,
+      sourceContext,
+    })
+
+    if (!canGenerate) {
+      console.warn('⚠️ Generation blocked: canGenerate is false', { mode, layersCount: layers.length, promptText })
+      return
+    }
+
+    if (!imageUrl) {
+      console.warn('⚠️ Generation blocked: no imageUrl')
+      return
+    }
+
     setError(null)
 
     if (!creditsLoading && totalCost > 0 && creditBalance < totalCost) {
-      setError(`Not enough credits (${creditBalance} available, ${totalCost} required). Top up from the dashboard.`)
+      const errMsg = `Not enough credits (${creditBalance} available, ${totalCost} required). Top up from the dashboard.`
+      console.error('⚠️ Generation blocked: insufficient credits', { creditBalance, totalCost })
+      setError(errMsg)
       return
     }
+
+    console.log('✅ All checks passed, starting generation...')
 
     let compositeDataUrl: string | undefined
     let cleanOriginalDataUrl: string | undefined
@@ -1639,6 +1662,15 @@ export function EditModal({
           : sourceContext === 'history-page' ? 'app/history'
           : 'app/edit'
 
+        console.log(`📤 Sending API request for ${historyId}`, {
+          mode,
+          model: selectedModel,
+          pageName,
+          hasCleanOriginal: !!cleanOriginalDataUrl,
+          hasComposite: !!compositeDataUrl,
+          refImagesCount: referenceImages.length,
+        })
+
         const body: Record<string, unknown> = {
           mode, model: selectedModel,
           historyId,
@@ -1649,25 +1681,37 @@ export function EditModal({
           pageName, // Send page_name so edits appear in correct history
         }
         const res = await fetch('/api/edit-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `HTTP ${res.status}`) }
+
+        console.log(`📥 API response for ${historyId}:`, res.status, res.statusText)
+
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}))
+          console.error(`❌ API error for ${historyId}:`, d)
+          throw new Error(d.error || `HTTP ${res.status}`)
+        }
+
         const data = await res.json()
+        console.log(`✅ Generation successful for ${historyId}`, { outputUrl: data.outputUrl?.substring(0, 60) })
+
         resolveTask(historyId)
         setResults(prev => [{ id: historyId, url: data.outputUrl, mode, timestamp: Date.now(), inputUrl: imageUrl!, prompt: combinedPrompt }, ...prev])
         setResultsDockOpen(true)
 
         // Call completion callback if provided
         if (onGenerationComplete) {
+          console.log(`🔔 Calling onGenerationComplete for ${historyId}`)
           onGenerationComplete(data.outputUrl, historyId, mode, combinedPrompt)
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Generation failed'
+        console.error(`❌ Generation failed for ${historyId}:`, msg, err)
         failTask(historyId, msg)  // Pass error message to task manager
         setError(msg)
       } finally {
         setGeneratingCount(c => c - 1)
       }
     }))
-  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask, creditBalance, creditsLoading, totalCost, addWatchedTask, onGenerationStart, onGenerationComplete])
+  }, [canGenerate, imageUrl, mode, layers, lightSettings, promptText, promptRefUrls, selectedModel, genCount, flattenForExport, resolveTask, failTask, creditBalance, creditsLoading, totalCost, addWatchedTask, sourceContext, onGenerationStart, onGenerationComplete])
 
   const canvasCursor = !bgImageRef.current ? 'default'
     : mode !== 'edit' ? 'default'
