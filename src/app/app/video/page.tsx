@@ -109,10 +109,10 @@ function playTick() {
 
 // ─── PremiumSlider ─────────────────────────────────────────────────────────────
 
-function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', growing = false, segments = 16 }: {
+function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', segments = 20 }: {
   value: number; min: number; max: number; step: number
   onChange: (v: number) => void; color?: string
-  growing?: boolean; segments?: number
+  segments?: number
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const lastTickRef = useRef<number | null>(null)
@@ -130,8 +130,8 @@ function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', gro
   return (
     <div
       ref={trackRef}
-      className="flex items-center gap-[3px] w-full cursor-pointer select-none"
-      style={{ touchAction: 'none', height: 22 }}
+      className="flex items-end gap-px w-full cursor-pointer select-none"
+      style={{ touchAction: 'none', height: 10 }}
       onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); update(e) }}
       onPointerMove={e => { if (e.buttons > 0) update(e) }}
     >
@@ -139,15 +139,14 @@ function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', gro
         const t = i / (segments - 1)
         const isFilled = i < filledCount
         const isEdge = isFilled && i === filledCount - 1
-        const h = growing ? Math.round(6 + t * 16) : 22
         return (
           <div
             key={i}
-            className="flex-1 rounded-full"
+            className="flex-1 rounded-sm"
             style={{
-              height: h,
+              height: 8,
               background: isFilled ? (isEdge ? '#ffffff' : color) : '#282828',
-              opacity: isFilled && !isEdge ? 0.5 + t * 0.5 : 1,
+              opacity: isFilled && !isEdge ? 0.55 + t * 0.45 : 1,
             }}
           />
         )
@@ -206,13 +205,13 @@ function AspectPicker({ ratios, selected, onSelect }: {
   ratios: string[]; selected: string; onSelect: (r: string) => void
 }) {
   return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(ratios.length, 4)}, 1fr)` }}>
+    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(ratios.length, 5)}, 1fr)` }}>
       {ratios.map(r => (
         <button
           key={r}
           onClick={() => onSelect(r)}
           className={cn(
-            "flex flex-col items-center gap-1 py-2 px-1 rounded-md border transition-all",
+            "flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md border transition-all",
             selected === r
               ? "bg-white/[0.05] border-white/20"
               : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10",
@@ -878,7 +877,11 @@ function VideoPageContent() {
   const addShot = useCallback(() => {
     if (shotPrompts.length >= 6) return
     setShotPrompts(p => [...p, ''])
-    setShotDurations(p => [...p, 5])
+    setShotDurations(p => {
+      const totalSoFar = p.reduce((s, d) => s + d, 0)
+      const newDur = Math.max(3, Math.min(5, 15 - totalSoFar))
+      return [...p, newDur]
+    })
   }, [shotPrompts.length])
 
   const removeShot = useCallback((idx: number) => {
@@ -887,8 +890,14 @@ function VideoPageContent() {
     setShotDurations(p => p.filter((_, i) => i !== idx))
   }, [shotPrompts.length])
 
-  const adjustShotDuration = useCallback((idx: number, delta: number) => {
-    setShotDurations(p => { const n = [...p]; n[idx] = Math.min(15, Math.max(3, (n[idx] ?? 5) + delta)); return n })
+  const adjustShotDuration = useCallback((idx: number, newVal: number) => {
+    setShotDurations(p => {
+      const n = [...p]
+      const otherSum = n.reduce((s, d, j) => j !== idx ? s + d : s, 0)
+      const maxVal = Math.max(3, Math.min(15, 15 - otherSum))
+      n[idx] = Math.min(maxVal, Math.max(3, Math.round(newVal)))
+      return n
+    })
   }, [])
 
   const handleGenerate = async () => {
@@ -1130,6 +1139,48 @@ function VideoPageContent() {
                 </div>
               )}
 
+              {/* Prompt — top priority */}
+              <div className="px-5 pt-4 pb-4 border-b border-white/5">
+                <SectionLabel>Prompt</SectionLabel>
+                <textarea
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  placeholder="A sweeping cinematic shot of mountains at golden hour, camera slowly rising…"
+                  rows={4}
+                  className="w-full bg-[#111111] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
+                />
+              </div>
+
+              {/* First frame + End frame — top priority */}
+              {(hasFirstFrame || hasEndFrame) && (
+                <div className="px-5 py-4 border-b border-white/5">
+                  <div className={cn("grid gap-3", hasEndFrame ? "grid-cols-2" : "grid-cols-1")}>
+                    {hasFirstFrame && (
+                      <div>
+                        <SectionLabel>First Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <ImageUploadBox
+                          label="" preview={firstFramePreview} uploading={firstFrameUploading}
+                          hint="Opening frame"
+                          onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
+                          onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
+                        />
+                      </div>
+                    )}
+                    {hasEndFrame && (
+                      <div>
+                        <SectionLabel>End Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <ImageUploadBox
+                          label="" preview={endFramePreview} uploading={endFrameUploading}
+                          hint="Closing frame"
+                          onFile={(f) => uploadImage(f, setEndFramePreview, setEndFrameCdnUrl, setEndFrameUploading)}
+                          onClear={() => { setEndFramePreview(null); setEndFrameCdnUrl(null) }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Aspect ratio */}
               <div className="px-5 py-4 border-b border-white/5">
                 <SectionLabel>Aspect Ratio</SectionLabel>
@@ -1146,8 +1197,8 @@ function VideoPageContent() {
                         <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Duration</span>
                         <span className="font-mono text-[11px] font-bold text-[#FFFF00]">{genDuration}s</span>
                       </div>
-                      <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" growing={false} />
-                      <div className="flex justify-between mt-1.5">
+                      <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" />
+                      <div className="flex justify-between mt-2">
                         <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
                         <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
                       </div>
@@ -1210,7 +1261,7 @@ function VideoPageContent() {
                     <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Duration</span>
                     <span className="font-mono text-[11px] font-bold text-[#FFFF00]">{genDuration}s</span>
                   </div>
-                  <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" growing={false} />
+                  <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" />
                   <div className="flex justify-between mt-1.5 px-0.5">
                     <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
                     <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
@@ -1225,21 +1276,6 @@ function VideoPageContent() {
                       <Toggle checked={genAudio} onChange={setGenAudio} />
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Kling: cfg_scale */}
-              {isKlingModel && (
-                <div className="px-5 py-4 border-b border-white/5">
-                  <div className="flex items-center justify-between mb-3">
-                    <SectionLabel>Prompt Adherence</SectionLabel>
-                    <span className="font-mono text-[11px] text-[#FFFF00] -mt-3">{cfgScale.toFixed(2)}</span>
-                  </div>
-                  <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" growing={false} />
-                  <div className="flex justify-between mt-1.5 px-0.5">
-                    <span className="text-[9px] font-mono text-white/50">Creative</span>
-                    <span className="text-[9px] font-mono text-white/50">Strict</span>
-                  </div>
                 </div>
               )}
 
@@ -1280,44 +1316,57 @@ function VideoPageContent() {
                         const overLimit = totalShotDur > 15
                         return (
                           <div className="space-y-2">
-                            {shotPrompts.map((sp, i) => (
-                              <div key={i} className="rounded-xl bg-[#0d0d0d] border border-white/[0.08] overflow-hidden">
-                                {/* Card header */}
-                                <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-                                  <span className="text-[11px] font-black text-white/65">Shot {i + 1}</span>
-                                  {shotPrompts.length > 1 && (
-                                    <button onClick={() => removeShot(i)} className="p-1 text-white/35 hover:text-red-400 transition-colors">
-                                      <IconTrash className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </div>
-                                {/* Prompt textarea */}
-                                <textarea
-                                  value={sp}
-                                  onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
-                                  placeholder={`Describe scene ${i + 1}…`}
-                                  rows={2}
-                                  className="w-full bg-transparent px-3 pb-2 text-[12px] text-white placeholder:text-white/25 focus:outline-none resize-none leading-relaxed"
-                                />
-                                {/* Card footer */}
-                                <div className="flex items-center justify-between px-3 py-2 border-t border-white/[0.06]">
-                                  <div className="flex items-center gap-2">
-                                    <IconClock className="w-3.5 h-3.5 text-white/50" />
-                                    <div className="flex items-center gap-1">
-                                      <button onClick={() => adjustShotDuration(i, -1)} className="w-5 h-5 flex items-center justify-center text-white/50 hover:text-white transition-colors text-sm font-bold">−</button>
-                                      <span className="text-[12px] font-mono font-bold text-[#FFFF00] w-7 text-center">{shotDurations[i] ?? 5}s</span>
-                                      <button onClick={() => adjustShotDuration(i, 1)} className="w-5 h-5 flex items-center justify-center text-white/50 hover:text-white transition-colors text-sm font-bold">+</button>
+                            {shotPrompts.map((sp, i) => {
+                              const shotDur = shotDurations[i] ?? 5
+                              const otherSum = shotDurations.reduce((s, d, j) => j !== i ? s + d : s, 0)
+                              const maxForShot = Math.max(3, Math.min(15, 15 - otherSum))
+                              return (
+                                <div key={i} className="rounded-xl bg-[#161616] border border-white/[0.18] overflow-hidden">
+                                  {/* Card header */}
+                                  <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-white/[0.1]">
+                                    <span className="text-[11px] font-black text-white">Shot {i + 1}</span>
+                                    {shotPrompts.length > 1 && (
+                                      <button onClick={() => removeShot(i)} className="p-1 text-white/40 hover:text-red-400 transition-colors">
+                                        <IconTrash className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {/* Prompt textarea */}
+                                  <textarea
+                                    value={sp}
+                                    onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                    placeholder={`Scene ${i + 1}: describe what happens…`}
+                                    rows={2}
+                                    className="w-full bg-transparent px-3 py-2.5 text-[12px] text-white placeholder:text-white/30 focus:outline-none resize-none leading-relaxed"
+                                  />
+                                  {/* Duration slider */}
+                                  <div className="px-3 pb-2.5 pt-1 border-t border-white/[0.1]">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <IconClock className="w-3 h-3 text-white/55" />
+                                        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Duration</span>
+                                      </div>
+                                      <span className="font-mono text-[11px] font-bold text-[#FFFF00]">{shotDur}s</span>
+                                    </div>
+                                    <PremiumSlider
+                                      min={3}
+                                      max={maxForShot}
+                                      step={1}
+                                      value={shotDur}
+                                      onChange={v => adjustShotDuration(i, v)}
+                                      color="#FFFF00"
+                                    />
+                                    <div className="flex justify-between mt-1">
+                                      <span className="text-[9px] font-mono text-white/35">3s</span>
+                                      <span className="text-[9px] font-mono text-white/35">{maxForShot}s</span>
                                     </div>
                                   </div>
-                                  {isKlingO3 && (
-                                    <span className="text-[10px] text-white/40 font-mono">@ Elements below</span>
-                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            })}
 
                             {/* Add shot button */}
-                            {shotPrompts.length < 6 && (
+                            {shotPrompts.length < 6 && totalShotDur <= 12 && (
                               <button
                                 onClick={addShot}
                                 className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-white/15 text-[11px] text-white/45 hover:text-white hover:border-white/30 transition-all"
@@ -1361,6 +1410,21 @@ function VideoPageContent() {
                       })()}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Kling: Prompt Adherence (cfg_scale) — less important, shown after main settings */}
+              {isKlingModel && (
+                <div className="px-5 py-4 border-b border-white/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <SectionLabel>Prompt Adherence</SectionLabel>
+                    <span className="font-mono text-[11px] text-[#FFFF00] -mt-3">{cfgScale.toFixed(2)}</span>
+                  </div>
+                  <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" />
+                  <div className="flex justify-between mt-2 px-0.5">
+                    <span className="text-[9px] font-mono text-white/50">Creative</span>
+                    <span className="text-[9px] font-mono text-white/50">Strict</span>
+                  </div>
                 </div>
               )}
 
@@ -1428,36 +1492,6 @@ function VideoPageContent() {
                       <p className="text-[9px] text-white/40">Use the same seed to reproduce identical results</p>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* First frame + End frame (combined when both available) */}
-              {(hasFirstFrame || hasEndFrame) && (
-                <div className="px-5 py-4 border-b border-white/5">
-                  <div className={cn("grid gap-3", hasEndFrame ? "grid-cols-2" : "grid-cols-1")}>
-                    {hasFirstFrame && (
-                      <div>
-                        <SectionLabel>First Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
-                        <ImageUploadBox
-                          label="" preview={firstFramePreview} uploading={firstFrameUploading}
-                          hint="Opening frame"
-                          onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
-                          onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
-                        />
-                      </div>
-                    )}
-                    {hasEndFrame && (
-                      <div>
-                        <SectionLabel>End Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
-                        <ImageUploadBox
-                          label="" preview={endFramePreview} uploading={endFrameUploading}
-                          hint="Closing frame"
-                          onFile={(f) => uploadImage(f, setEndFramePreview, setEndFrameCdnUrl, setEndFrameUploading)}
-                          onClear={() => { setEndFramePreview(null); setEndFrameCdnUrl(null) }}
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
 
@@ -1555,26 +1589,26 @@ function VideoPageContent() {
             </>
           )}
 
-          {/* ── PROMPT (shared) ──────────────────────────────────────────────── */}
-          <div className="px-5 py-5 flex-1">
-            <SectionLabel>
-              {activeTab === 'generate' ? 'Prompt' : activeTab === 'edit' ? 'Effect Description' : 'Motion Guidance'}
-              {activeTab === 'motion' && <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span>}
-            </SectionLabel>
-            <textarea
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              placeholder={
-                activeTab === 'generate'
-                  ? 'A sweeping cinematic shot of mountains at golden hour, camera slowly rising…'
-                  : activeTab === 'edit'
-                  ? 'Apply a dramatic film grain effect with vintage color grading and light leaks…'
-                  : 'A person walking gracefully through a forest…'
-              }
-              rows={5}
-              className="w-full bg-[#0d0d0d] border border-[#222222] rounded-md px-4 py-3 text-sm text-white placeholder:text-[#333] focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
-            />
-          </div>
+          {/* ── PROMPT (edit / motion only — generate tab has prompt at top) ─── */}
+          {activeTab !== 'generate' && (
+            <div className="px-5 py-5 flex-1">
+              <SectionLabel>
+                {activeTab === 'edit' ? 'Effect Description' : 'Motion Guidance'}
+                {activeTab === 'motion' && <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span>}
+              </SectionLabel>
+              <textarea
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                placeholder={
+                  activeTab === 'edit'
+                    ? 'Apply a dramatic film grain effect with vintage color grading and light leaks…'
+                    : 'A person walking gracefully through a forest…'
+                }
+                rows={5}
+                className="w-full bg-[#111111] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
+              />
+            </div>
+          )}
 
           {/* ── FOOTER CTA ───────────────────────────────────────────────────── */}
           <div className="lg:fixed lg:bottom-0 lg:left-0 lg:w-[420px] relative w-full bg-[#0c0c0e] border-t border-white/5 z-40">
