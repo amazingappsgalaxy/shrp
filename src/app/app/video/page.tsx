@@ -1339,20 +1339,11 @@ function VideoPageContent() {
                                       rows={2}
                                       className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/40 outline-none resize-none leading-relaxed"
                                     />
-                                    <div className="px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-3">
-                                      <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                          <span className="text-[9px] font-black text-white/60 uppercase tracking-wider">Duration</span>
-                                          <span className="font-mono text-[9px] font-bold text-[#FFFF00]">{shotDur}s</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span className="text-[8px] font-mono text-white/35">{durationMin}s</span>
-                                          <span className="text-[8px] font-mono text-white/35">{durationMax}s</span>
-                                        </div>
-                                      </div>
-                                      <div className="shrink-0" style={{ width: 110 }}>
-                                        <Slider min={durationMin} max={durationMax} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
-                                      </div>
+                                    <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
+                                      <IconClock className="w-3 h-3 text-white/45 shrink-0" />
+                                      <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
+                                      <Slider min={durationMin} max={durationMax} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
+                                      <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0">{shotDur}s</span>
                                     </div>
                                   </div>
                                 )
