@@ -1339,8 +1339,8 @@ function VideoPageContent() {
                                     <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
                                       <IconClock className="w-3 h-3 text-white/45 shrink-0" />
                                       <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Dur</span>
-                                      <div className="flex-1" style={{ maxWidth: 150 }}>
-                                        <Slider min={durationMin} max={maxForShot} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
+                                      <div className="flex-1">
+                                        <Slider min={durationMin} max={durationMax} step={1} value={shotDur} onChange={v => adjustShotDuration(i, v)} pillHeight={13} autoWidth />
                                       </div>
                                       <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{shotDur}s</span>
                                     </div>
