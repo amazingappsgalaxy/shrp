@@ -828,10 +828,10 @@ function VideoPageContent() {
 
   const openPlansPopup = () => window.dispatchEvent(new CustomEvent('sharpii:open-plans'))
 
-  const showToast = (msg: string, type: 'error' | 'info' = 'error', duration = 5000) => {
+  const showToast = useCallback((msg: string, type: 'error' | 'info' = 'error', duration = 5000) => {
     setToastMsg({ msg, type })
     setTimeout(() => setToastMsg(null), duration)
-  }
+  }, [])
 
   // Image upload
   const uploadImage = useCallback(async (
@@ -1149,20 +1149,19 @@ function VideoPageContent() {
                 <SectionLabel>Model</SectionLabel>
                 <ModelDropdown groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
                 {isVeoVariantGroup && veoVariants.length > 0 && (
-                  <div className="flex bg-[rgb(255_255_255_/_0.04)] border border-[rgb(255_255_255_/_0.04)] p-0.5 rounded-lg gap-0.5 mt-3">
+                  <div className="flex bg-white/[0.04] border border-white/[0.04] p-0.5 rounded-md gap-0.5 mt-3">
                     {veoVariants.map(v => (
                       <button
                         key={v.variantTier}
                         onClick={() => setVeoVariant(v.variantTier!)}
                         className={cn(
-                          "flex-1 flex flex-col items-center py-1.5 px-1 rounded-md transition-all",
+                          "flex-1 py-2 text-[11px] font-black rounded transition-colors",
                           veoVariant === v.variantTier
                             ? "bg-white/[0.09] text-[#FFFF00]"
                             : "text-white/55 hover:text-white"
                         )}
                       >
-                        <span className="text-[9px] font-black uppercase tracking-wider">{v.variantTier}</span>
-                        <span className="text-[8px] font-mono text-current opacity-60">{v.credits}cr</span>
+                        {v.variantTier}
                       </button>
                     ))}
                   </div>
@@ -1257,25 +1256,19 @@ function VideoPageContent() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                          <span className="font-mono text-[10px] font-bold text-[#FFFF00]">{genDuration}s</span>
-                        </div>
-                        <div className="flex justify-between mt-0.5">
-                          <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
-                          <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
-                        </div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
                       </div>
                       <div className="shrink-0" style={{ width: 160 }}>
                         <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} />
                       </div>
+                      <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{genDuration}s</span>
                     </div>
                     {hasAudio && (
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <IconVolume className="w-3.5 h-3.5 text-white/55" />
-                          <span className="text-xs font-medium text-white">Audio</span>
-                          <span className="text-[9px] text-white/55">native generation</span>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider">Audio</span>
+                          <span className="text-[9px] text-white/45">native generation</span>
                         </div>
                         <Toggle checked={genAudio} onChange={setGenAudio} />
                       </div>
@@ -1318,7 +1311,7 @@ function VideoPageContent() {
                               {shotPrompts.map((sp, i) => {
                                 const shotDur = shotDurations[i] ?? 5
                                 const otherSum = shotDurations.reduce((s, d, j) => j !== i ? s + d : s, 0)
-                                const maxForShot = Math.max(3, Math.min(15, 15 - otherSum))
+                                const maxForShot = Math.max(durationMin, Math.min(durationMax, durationMax - otherSum))
                                 return (
                                   <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
                                     <div className="flex items-center justify-between px-3 pt-2 pb-0">
@@ -1390,22 +1383,16 @@ function VideoPageContent() {
 
                 {/* Veo: enhance prompt + upsample */}
                 {isVeoModel && (selectedModel?.controls?.enhancePrompt || selectedModel?.controls?.enableUpsample) && (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {selectedModel?.controls?.enhancePrompt && (
-                      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
-                        <div>
-                          <span className="text-xs font-black text-white">Enhance Prompt</span>
-                          <p className="text-[10px] text-white/50 mt-0.5">Auto-optimize and translate to English</p>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Enhance Prompt</span>
                         <Toggle checked={enhancePrompt} onChange={setEnhancePrompt} />
                       </div>
                     )}
                     {selectedModel?.controls?.enableUpsample && (
-                      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
-                        <div>
-                          <span className="text-xs font-black text-white">Upsample to 1080p</span>
-                          <p className="text-[10px] text-white/50 mt-0.5">Enable resolution upsampling</p>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Upsample to 1080p</span>
                         <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
                       </div>
                     )}
@@ -1414,10 +1401,10 @@ function VideoPageContent() {
 
                 {/* Seedance: Lock Camera */}
                 {isSeedanceModel && (
-                  <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-[#111111] border border-[#1e1e1e] hover:border-[#2e2e2e] transition-colors">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <IconCamera className="w-3.5 h-3.5 text-white/55" />
-                      <span className="text-xs font-black text-white">Lock Camera</span>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Lock Camera</span>
                     </div>
                     <Toggle checked={cameraFixed} onChange={setCameraFixed} />
                   </div>
@@ -1586,7 +1573,9 @@ function VideoPageContent() {
                   <><IconLoader2 className="w-5 h-5 animate-spin" /><span>Starting…</span></>
                 ) : (
                   <>
-                    <IconPlayerPlay className="w-5 h-5 fill-black" />
+                    {activeTab === 'generate' ? <IconSparkles className="w-5 h-5" />
+                      : activeTab === 'edit' ? <IconWand className="w-5 h-5" />
+                      : <IconTransfer className="w-5 h-5" />}
                     <span>
                       {activeTab === 'generate' ? 'Generate Video'
                         : activeTab === 'edit' ? 'Apply Effect'
