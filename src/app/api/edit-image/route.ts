@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
 
     // ── Upload output to Bunny CDN (Synvow URLs expire in ~1 day) ─────────────
     const rawOutputUrl = result.immediateOutput
-    const ext = extFromUrl(rawOutputUrl)
+    const ext = extFromUrl(rawOutputUrl) || 'jpg'
     const outputUrl = await uploadFromUrl(getOutputPath(userId, ext), rawOutputUrl, mimeFromExt(ext))
     const generationMs = Date.now() - startTime
 

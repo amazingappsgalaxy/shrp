@@ -128,7 +128,7 @@ const EXT_MIME: Record<string, string> = {
 export function extFromUrl(url: string): string {
   const base = url.split('?')[0] ?? url
   const m = base.match(/\.(\w+)$/)
-  return (m?.[1] ?? 'jpg').toLowerCase()
+  return (m?.[1] ?? '').toLowerCase()
 }
 
 export function mimeFromExt(ext: string): string {

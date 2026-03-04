@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
@@ -97,7 +97,20 @@ export async function GET(request: NextRequest) {
 
     if (pollStatus === 'SUCCESS' && outputUrl) {
       const generationTimeMs = Date.now() - new Date(item.created_at).getTime()
-      const outputs = [{ type: 'video' as const, url: outputUrl }]
+
+      // Upload to Bunny CDN synchronously before updating DB — ensures the DB
+      // always stores a permanent URL (provider URLs expire; after() is unreliable on serverless)
+      let finalUrl = outputUrl
+      try {
+        const ext = extFromUrl(outputUrl) || 'mp4'
+        const mime = mimeFromExt(ext) || 'video/mp4'
+        finalUrl = await uploadFromUrl(getOutputPath(userId, ext), outputUrl, mime)
+        console.log(`✅ Bunny (video-poll): uploaded — ${finalUrl}`)
+      } catch (err) {
+        console.error('❌ Bunny (video-poll): CDN upload failed, using provider URL:', err)
+      }
+
+      const outputs = [{ type: 'video' as const, url: finalUrl, original_url: outputUrl }]
 
       // Atomic update: only proceeds if status is still 'processing'
       const { data: won } = await supabase
@@ -113,38 +126,18 @@ export async function GET(request: NextRequest) {
         .select('id')
         .maybeSingle()
 
-      if (won) {
-        // We won the race — deduct credits
-        if (creditsToDeduct > 0) {
-          const deductResult = await UnifiedCreditsService.deductCredits(
-            userId,
-            creditsToDeduct,
-            taskId,
-            `Video generation`
+      if (won && creditsToDeduct > 0) {
+        const deductResult = await UnifiedCreditsService.deductCredits(
+          userId,
+          creditsToDeduct,
+          taskId,
+          'Video generation'
+        )
+        if (!deductResult.success) {
+          console.error(
+            `🚨 CRITICAL video-poll: credit deduction FAILED user=${userId} task=${taskId} amount=${creditsToDeduct} — ${deductResult.error}`
           )
-          if (!deductResult.success) {
-            console.error(
-              `🚨 CRITICAL video-poll: credit deduction FAILED user=${userId} task=${taskId} amount=${creditsToDeduct} — ${deductResult.error}`
-            )
-          }
         }
-
-        // Background: upload output video to Bunny CDN
-        after(async () => {
-          try {
-            const ext = extFromUrl(outputUrl!) || 'mp4'
-            const mime = mimeFromExt(ext) || 'video/mp4'
-            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), outputUrl!, mime)
-            console.log(`✅ Bunny (video-poll): uploaded — ${bunnyUrl}`)
-            const supabaseAfter = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
-            await supabaseAfter
-              .from('history_items')
-              .update({ output_urls: [{ type: 'video', url: bunnyUrl, original_url: outputUrl }] })
-              .eq('id', taskId)
-          } catch (err) {
-            console.error('❌ Bunny (video-poll): upload failed:', err)
-          }
-        })
       }
 
       return NextResponse.json({ status: 'success', outputs })
