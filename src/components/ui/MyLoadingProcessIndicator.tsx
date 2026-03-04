@@ -263,7 +263,7 @@ export default function MyLoadingProcessIndicator({
   return (
     <>
       <style>{`@keyframes mlpi-spin { to { transform: rotate(360deg); } }`}</style>
-      <div className="fixed z-[9990] pointer-events-none" style={positionStyle}>
+      <div className="fixed z-[10010] pointer-events-none" style={positionStyle}>
         <motion.div
           style={{ pointerEvents: 'auto' }}
           className={`flex gap-2 ${mode === 'bottom-right' ? 'flex-col items-end' : 'flex-col items-center'}`}
