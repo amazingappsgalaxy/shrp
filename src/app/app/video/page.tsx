@@ -109,7 +109,7 @@ function playTick() {
 
 // ─── PremiumSlider ─────────────────────────────────────────────────────────────
 
-function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', segments = 20 }: {
+function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', segments = 16 }: {
   value: number; min: number; max: number; step: number
   onChange: (v: number) => void; color?: string
   segments?: number
@@ -130,8 +130,8 @@ function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', seg
   return (
     <div
       ref={trackRef}
-      className="flex items-end gap-px w-full cursor-pointer select-none"
-      style={{ touchAction: 'none', height: 10 }}
+      className="flex items-center gap-[3px] w-full cursor-pointer select-none"
+      style={{ touchAction: 'none', height: 22 }}
       onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); update(e) }}
       onPointerMove={e => { if (e.buttons > 0) update(e) }}
     >
@@ -142,11 +142,11 @@ function PremiumSlider({ value, min, max, step, onChange, color = '#FFFF00', seg
         return (
           <div
             key={i}
-            className="flex-1 rounded-sm"
+            className="flex-1 rounded-full"
             style={{
-              height: 8,
-              background: isFilled ? (isEdge ? '#ffffff' : color) : '#282828',
-              opacity: isFilled && !isEdge ? 0.55 + t * 0.45 : 1,
+              height: 22,
+              background: isFilled ? (isEdge ? '#ffffff' : color) : '#222222',
+              opacity: isFilled && !isEdge ? 0.5 + t * 0.5 : 1,
             }}
           />
         )
@@ -177,51 +177,25 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-// ─── Aspect ratio picker (image-page style) ────────────────────────────────────
-
-const VIDEO_ASPECT_LABELS: Record<string, string> = {
-  '16:9': 'Wide', '9:16': 'Story', '1:1': 'Square', '4:3': 'Landscape', '3:4': 'Portrait',
-}
-const VIDEO_ASPECT_RATIO: Record<string, number> = {
-  '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4,
-}
-
-function AspectShape({ ratio, active }: { ratio: string; active: boolean }) {
-  const r = VIDEO_ASPECT_RATIO[ratio] ?? 1
-  const BOX = 24
-  const w = r >= 1 ? BOX : Math.round(BOX * r)
-  const h = r >= 1 ? Math.round(BOX / r) : BOX
-  return (
-    <div style={{ width: BOX + 6, height: BOX + 6 }} className="flex items-center justify-center">
-      <div
-        style={{ width: w, height: h }}
-        className={cn("rounded-[2px] transition-all", active ? "bg-[#FFFF00]" : "bg-white/[0.18] border border-white/25")}
-      />
-    </div>
-  )
-}
+// ─── Aspect ratio picker (compact chips) ──────────────────────────────────────
 
 function AspectPicker({ ratios, selected, onSelect }: {
   ratios: string[]; selected: string; onSelect: (r: string) => void
 }) {
   return (
-    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(ratios.length, 5)}, 1fr)` }}>
+    <div className="flex flex-wrap gap-1.5">
       {ratios.map(r => (
         <button
           key={r}
           onClick={() => onSelect(r)}
           className={cn(
-            "flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-md border transition-all",
+            "px-3 py-1.5 rounded-lg text-[11px] font-black transition-all border",
             selected === r
-              ? "bg-white/[0.05] border-white/20"
-              : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10",
+              ? "bg-[#FFFF00] text-black border-[#FFFF00]"
+              : "bg-white/[0.05] text-white/55 border-white/[0.08] hover:text-white hover:border-white/20"
           )}
         >
-          <AspectShape ratio={r} active={selected === r} />
-          <span className={cn("text-[9px] font-black", selected === r ? "text-[#FFFF00]" : "text-white/40")}>{r}</span>
-          <span className={cn("text-[8px]", selected === r ? "text-[#FFFF00]/50" : "text-white/30")}>
-            {VIDEO_ASPECT_LABELS[r] ?? r}
-          </span>
+          {r}
         </button>
       ))}
     </div>
@@ -347,21 +321,20 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>
-        {preview && (
-          <button
-            onClick={onClear}
-            className="p-1 text-white/40 hover:text-red-400 transition-colors rounded"
-          >
-            <IconTrash className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
+      {(label || preview) && (
+        <div className="flex items-center justify-between">
+          {label && <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>}
+          {preview && (
+            <button onClick={onClear} className="p-1 text-white/40 hover:text-red-400 transition-colors rounded ml-auto">
+              <IconTrash className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       <div
         className={cn(
-          "relative rounded-xl border overflow-hidden transition-all cursor-pointer",
+          "relative rounded-lg border overflow-hidden transition-all cursor-pointer",
           "aspect-video",
           dragging ? "border-[#FFFF00]/50 bg-[#1a1a00]" : "",
           preview
@@ -388,14 +361,9 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
             </div>
           </>
         ) : !uploading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-center group-hover:border-[#3a3a3a] transition-colors">
-              <IconVideo className="w-5 h-5 text-white/40" />
-            </div>
-            <div className="text-center">
-              <p className="text-[11px] text-white/50 font-medium">Click or drag to upload</p>
-              {hint && <p className="text-[9px] text-white/30 mt-0.5">{hint}</p>}
-            </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+            <IconVideo className="w-5 h-5 text-white/25 group-hover:text-white/45 transition-colors" />
+            {hint && <p className="text-[9px] text-white/30">{hint}</p>}
           </div>
         )}
       </div>
@@ -427,21 +395,25 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>
-          {optional && <span className="text-[9px] text-white/30 italic">(optional)</span>}
+      {(label || preview) && (
+        <div className="flex items-center justify-between">
+          {label && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>
+              {optional && <span className="text-[9px] text-white/30 italic">(optional)</span>}
+            </div>
+          )}
+          {preview && (
+            <button onClick={onClear} className="p-1 text-white/40 hover:text-red-400 transition-colors rounded ml-auto">
+              <IconTrash className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
-        {preview && (
-          <button onClick={onClear} className="p-1 text-white/40 hover:text-red-400 transition-colors rounded">
-            <IconTrash className="w-3.5 h-3.5" />
-          </button>
-        )}
-      </div>
+      )}
 
       <div
         className={cn(
-          "relative rounded-xl border overflow-hidden cursor-pointer transition-all group",
+          "relative rounded-lg border overflow-hidden cursor-pointer transition-all group",
           "aspect-video",
           preview ? "border-[#333333] bg-black" : "border-dashed border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#0a0a0a]"
         )}
@@ -462,14 +434,9 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
             </div>
           </>
         ) : !uploading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#141414] border border-[#2a2a2a] flex items-center justify-center group-hover:border-[#3a3a3a] transition-colors">
-              <IconCamera className="w-5 h-5 text-white/40" />
-            </div>
-            <div className="text-center">
-              <p className="text-[11px] text-white/50 font-medium">Click to upload image</p>
-              {hint && <p className="text-[9px] text-white/30 mt-0.5">{hint}</p>}
-            </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+            <IconCamera className="w-5 h-5 text-white/25 group-hover:text-white/45 transition-colors" />
+            {hint && <p className="text-[9px] text-white/30">{hint}</p>}
           </div>
         )}
       </div>
@@ -1147,7 +1114,7 @@ function VideoPageContent() {
                   onChange={e => setPrompt(e.target.value)}
                   placeholder="A sweeping cinematic shot of mountains at golden hour, camera slowly rising…"
                   rows={4}
-                  className="w-full bg-[#111111] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
+                  className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
                 />
               </div>
 
@@ -1160,7 +1127,7 @@ function VideoPageContent() {
                         <SectionLabel>First Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
                         <ImageUploadBox
                           label="" preview={firstFramePreview} uploading={firstFrameUploading}
-                          hint="Opening frame"
+                          hint="First frame"
                           onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
                           onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
                         />
@@ -1171,7 +1138,7 @@ function VideoPageContent() {
                         <SectionLabel>End Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
                         <ImageUploadBox
                           label="" preview={endFramePreview} uploading={endFrameUploading}
-                          hint="Closing frame"
+                          hint="End frame"
                           onFile={(f) => uploadImage(f, setEndFramePreview, setEndFrameCdnUrl, setEndFrameUploading)}
                           onClear={() => { setEndFramePreview(null); setEndFrameCdnUrl(null) }}
                         />
@@ -1261,7 +1228,7 @@ function VideoPageContent() {
                     <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">Duration</span>
                     <span className="font-mono text-[11px] font-bold text-[#FFFF00]">{genDuration}s</span>
                   </div>
-                  <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" />
+                  <PremiumSlider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} color="#FFFF00" segments={28} />
                   <div className="flex justify-between mt-1.5 px-0.5">
                     <span className="text-[9px] font-mono text-white/50">{durationMin}s</span>
                     <span className="text-[9px] font-mono text-white/50">{durationMax}s</span>
@@ -1355,6 +1322,7 @@ function VideoPageContent() {
                                       value={shotDur}
                                       onChange={v => adjustShotDuration(i, v)}
                                       color="#FFFF00"
+                                      segments={24}
                                     />
                                     <div className="flex justify-between mt-1">
                                       <span className="text-[9px] font-mono text-white/35">3s</span>
@@ -1369,7 +1337,7 @@ function VideoPageContent() {
                             {shotPrompts.length < 6 && totalShotDur <= 12 && (
                               <button
                                 onClick={addShot}
-                                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-white/15 text-[11px] text-white/45 hover:text-white hover:border-white/30 transition-all"
+                                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-white/15 text-[11px] text-white/45 hover:text-white hover:border-white/30 transition-all"
                               >
                                 <IconPlus className="w-3.5 h-3.5" />
                                 Add shot
@@ -1420,7 +1388,7 @@ function VideoPageContent() {
                     <SectionLabel>Prompt Adherence</SectionLabel>
                     <span className="font-mono text-[11px] text-[#FFFF00] -mt-3">{cfgScale.toFixed(2)}</span>
                   </div>
-                  <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" />
+                  <PremiumSlider min={0} max={1} step={0.05} value={cfgScale} onChange={setCfgScale} color="#FFFF00" segments={28} />
                   <div className="flex justify-between mt-2 px-0.5">
                     <span className="text-[9px] font-mono text-white/50">Creative</span>
                     <span className="text-[9px] font-mono text-white/50">Strict</span>
@@ -1487,7 +1455,7 @@ function VideoPageContent() {
                         value={seed}
                         onChange={e => setSeed(e.target.value)}
                         placeholder="Random"
-                        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-3 py-2 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <p className="text-[9px] text-white/40">Use the same seed to reproduce identical results</p>
                     </div>
@@ -1511,7 +1479,7 @@ function VideoPageContent() {
                     onChange={e => setGenNegPrompt(e.target.value)}
                     placeholder="Describe what to avoid…"
                     rows={2}
-                    className="w-full mt-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-3 py-2.5 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all resize-none"
+                    className="w-full mt-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-[#333] focus:outline-none focus:border-[#3a3a3a] transition-all resize-none"
                   />
                 )}
               </div>
@@ -1538,7 +1506,7 @@ function VideoPageContent() {
                   label=""
                   preview={editVideoPreview}
                   uploading={editVideoUploading}
-                  hint="MP4, WebM, MOV — max 200 MB"
+                  hint="MP4, WebM, MOV"
                   onFile={(f) => uploadVideo(f, setEditVideoPreview, setEditVideoCdnUrl, setEditVideoUploading)}
                   onClear={() => { setEditVideoPreview(null); setEditVideoCdnUrl(null) }}
                 />
@@ -1568,7 +1536,7 @@ function VideoPageContent() {
               <div className="px-5 py-5 border-b border-white/5">
                 <VideoUploadBox
                   label="Motion Source"
-                  hint="The motion from this video will be applied to your target"
+                  hint="Reference motion"
                   preview={motionSourcePreview}
                   uploading={motionSourceUploading}
                   onFile={(f) => uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)}
@@ -1579,7 +1547,7 @@ function VideoPageContent() {
               <div className="px-5 py-5 border-b border-white/5">
                 <ImageUploadBox
                   label="Target Subject"
-                  hint="This subject will receive the motion pattern"
+                  hint="Target subject"
                   preview={motionTargetPreview}
                   uploading={motionTargetUploading}
                   onFile={(f) => uploadImage(f, setMotionTargetPreview, setMotionTargetCdnUrl, setMotionTargetUploading)}
@@ -1605,7 +1573,7 @@ function VideoPageContent() {
                     : 'A person walking gracefully through a forest…'
                 }
                 rows={5}
-                className="w-full bg-[#111111] border border-[#1e1e1e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
+                className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#333333] transition-all resize-none leading-relaxed"
               />
             </div>
           )}
