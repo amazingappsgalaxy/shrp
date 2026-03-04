@@ -17,6 +17,8 @@ import { config } from '../../../../lib/config'
 import { AIProviderFactory } from '../../../../services/ai-providers/provider-factory'
 import { ProviderType } from '../../../../services/ai-providers/common/types'
 import { RunningHubProvider } from '../../../../services/ai-providers/runninghub/runninghub-provider'
+import { getEvolinkProvider } from '../../../../services/ai-providers/evolink'
+import { getSynvowProvider } from '../../../../services/ai-providers/synvow'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 
@@ -46,6 +48,139 @@ const normalizeOutputs = (value: unknown): EnhancementOutputItem[] => {
   return []
 }
 
+/** Process a video task (Evolink or Synvow provider). */
+async function processVideoTask(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  task: { id: string; user_id: string; settings: any; created_at: string }
+): Promise<'completed' | 'failed' | 'running'> {
+  const settings = task.settings || {}
+  const providerName = settings._provider as string
+  const providerTaskId = settings._providerTaskId as string | undefined
+  const creditsToDeduct: number = settings.creditsToDeduct || 0
+  const ageMs = Date.now() - new Date(task.created_at).getTime()
+
+  // Provider task ID not stored yet — give it 5 minutes to start, then fail
+  if (!providerTaskId) {
+    if (ageMs > 5 * 60 * 1000) {
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...settings, _failureReason: 'Task timed out before provider accepted it' },
+        })
+        .eq('id', task.id)
+        .eq('status', 'processing')
+      return 'failed'
+    }
+    return 'running'
+  }
+
+  // Hard timeout: fail any video task stuck for more than 2 hours
+  if (ageMs > 2 * 60 * 60 * 1000) {
+    await supabase
+      .from('history_items')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+        settings: { ...settings, _failureReason: 'Task exceeded maximum processing time' },
+      })
+      .eq('id', task.id)
+      .eq('status', 'processing')
+    return 'failed'
+  }
+
+  try {
+    let pollStatus: 'SUCCESS' | 'IN_PROGRESS' | 'FAILURE'
+    let outputUrl: string | null = null
+
+    if (providerName === 'evolink') {
+      const provider = getEvolinkProvider()
+      const result = await provider.pollTask(providerTaskId)
+      pollStatus = result.status === 'SUCCESS' ? 'SUCCESS' : result.status === 'FAILURE' ? 'FAILURE' : 'IN_PROGRESS'
+      outputUrl = result.output
+    } else {
+      // Synvow (Veo, Sora, Seedance, etc.)
+      const provider = getSynvowProvider()
+      const result = await provider.pollTask(providerTaskId, 'video')
+      if (result.status === 'SUCCESS') {
+        pollStatus = 'SUCCESS'
+        outputUrl = result.output
+      } else if (['FAILURE', 'FAILED', 'ERROR'].includes(result.status)) {
+        pollStatus = 'FAILURE'
+      } else {
+        pollStatus = 'IN_PROGRESS'
+      }
+    }
+
+    if (pollStatus === 'SUCCESS' && outputUrl) {
+      const generationTimeMs = Date.now() - new Date(task.created_at).getTime()
+
+      // Upload to Bunny CDN
+      let finalUrl = outputUrl
+      try {
+        const ext = extFromUrl(outputUrl) || 'mp4'
+        const mime = mimeFromExt(ext) || 'video/mp4'
+        finalUrl = await uploadFromUrl(getOutputPath(task.user_id, ext), outputUrl, mime)
+        console.log(`✅ Bunny (process-pending video): uploaded — ${finalUrl}`)
+      } catch (err) {
+        console.error('❌ Bunny (process-pending video): upload failed, using provider URL:', err)
+      }
+
+      const outputs = [{ type: 'video' as const, url: finalUrl, original_url: outputUrl }]
+
+      // Atomic update — only wins if status is still 'processing' (prevents race with client poll)
+      const { data: won } = await supabase
+        .from('history_items')
+        .update({
+          status: 'completed',
+          output_urls: outputs,
+          generation_time_ms: generationTimeMs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', task.id)
+        .eq('status', 'processing')
+        .select('id')
+        .maybeSingle()
+
+      if (won && creditsToDeduct > 0) {
+        const deductResult = await UnifiedCreditsService.deductCredits(
+          task.user_id,
+          creditsToDeduct,
+          task.id,
+          'Video generation'
+        )
+        if (!deductResult.success) {
+          console.error(
+            `🚨 CRITICAL process-pending video: credit deduction FAILED for user=${task.user_id} task=${task.id} amount=${creditsToDeduct} — ${deductResult.error}`
+          )
+        }
+      }
+
+      return 'completed'
+    }
+
+    if (pollStatus === 'FAILURE') {
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...settings, _failureReason: 'Video generation failed on provider' },
+        })
+        .eq('id', task.id)
+        .eq('status', 'processing')
+      return 'failed'
+    }
+
+    return 'running'
+  } catch (error) {
+    console.error(`process-pending video: error checking task ${task.id}:`, error)
+    return 'running'
+  }
+}
+
 /** Process a single pending task. Returns 'completed' | 'failed' | 'running' */
 async function processPendingTask(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,6 +189,12 @@ async function processPendingTask(
   task: { id: string; user_id: string; settings: any; created_at: string }
 ): Promise<'completed' | 'failed' | 'running'> {
   const settings = task.settings || {}
+
+  // Route video tasks (Evolink / Synvow) to their own handler
+  if (settings._provider === 'evolink' || settings._provider === 'synvow') {
+    return processVideoTask(supabase, task)
+  }
+
   const runningHubTaskId: string | undefined = settings._runningHubTaskId
   const expectedNodeIds: string[] | undefined = settings._expectedNodeIds
   const creditsToDeduct: number = settings._creditsToDeduct || 0
