@@ -114,7 +114,7 @@ function computeDisplaySize(nw: number, nh: number): { w: number; h: number } {
     ? Math.min(window.innerWidth - 32, 600)  // mobile: full width minus padding
     : Math.min(window.innerWidth - 400, 860)  // desktop: reserve for left panel + gaps
   const maxH = isMobile
-    ? Math.min(window.innerHeight - 280, 500)  // mobile: reserve more space for controls
+    ? Math.min(window.innerHeight * 0.45, 500)  // mobile: use 45% of viewport height
     : Math.min(window.innerHeight - 210, 700)
   let w = nw, h = nh
   if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
@@ -1575,11 +1575,11 @@ export default function EditPage() {
 
   // ── Render
   return (
-    <div className="fixed inset-0 pt-16 bg-[#070707] text-white overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 20%) 1.2px, transparent 1.2px)', backgroundSize: '20px 20px' }}>
+    <div className="fixed inset-0 pt-16 bg-[#070707] text-white overflow-y-auto lg:overflow-hidden" style={{ userSelect: 'none', backgroundImage: 'radial-gradient(circle, rgb(255 255 255 / 20%) 1.2px, transparent 1.2px)', backgroundSize: '20px 20px' }}>
 
       {/* ── CANVAS WORKSPACE ─────────────────────────────────────────── */}
       <div
-        className="absolute inset-x-0 bottom-0 flex items-center justify-center px-4" style={{ top: '3rem' }}
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center px-2 lg:px-4" style={{ top: '3rem' }}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
       >
@@ -1602,7 +1602,7 @@ export default function EditPage() {
           </label>
         ) : (
           /* flex row: left panel + canvas — responsive for mobile */
-          <div className="flex flex-col lg:flex-row items-center gap-4 h-full justify-center">
+          <div className="flex flex-col lg:flex-row items-center gap-3 lg:gap-4 h-full justify-center overflow-y-auto lg:overflow-y-visible">
 
             {/* ── LEFT PANEL: EDIT TOOLS ───────────────────────── */}
             {mode === 'edit' && (
@@ -1683,7 +1683,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: RELIGHT ──────────────────────────── */}
             {mode === 'relight' && (
-              <div className="flex-shrink-0 w-full lg:w-[280px] max-w-[320px] self-center overflow-y-auto rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl order-2 lg:order-1" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
+              <div className="flex-shrink-0 w-full lg:w-[280px] max-w-full lg:max-w-[320px] self-center overflow-y-auto overflow-x-hidden rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl order-2 lg:order-1 max-h-[40vh] lg:max-h-[calc(100vh-13rem)]">
                 <div className="p-4 space-y-4">
 
                   {/* Lighting Style grid */}
@@ -1708,12 +1708,12 @@ export default function EditPage() {
                   <div>
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Light Direction</p>
 
-                    {/* Globe — centered */}
+                    {/* Globe — centered — responsive size */}
                     <div className="flex justify-center">
                       <WireframeSphere
                         azimuth={lightSettings.azimuth} elevation={lightSettings.elevation}
                         lightColor={lightSettings.color} intensity={lightSettings.intensity}
-                        size={180}
+                        size={window.innerWidth < 1024 ? 140 : 180}
                         onAzimuthChange={az => { setLightSettings(p => ({ ...p, azimuth: az })); setActiveLightingStyle(null) }}
                         onElevationChange={el => { setLightSettings(p => ({ ...p, elevation: el })); setActiveLightingStyle(null) }}
                       />
@@ -1878,7 +1878,7 @@ export default function EditPage() {
 
             {/* ── LEFT PANEL: PROMPT ───────────────────────────── */}
             {mode === 'prompt' && (
-              <div className="flex-shrink-0 w-full lg:w-[260px] max-w-[320px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3 order-2 lg:order-1">
+              <div className="flex-shrink-0 w-full lg:w-[260px] max-w-full lg:max-w-[320px] self-center rounded-xl bg-[#0d0d0d] border border-[#2c2c2c] shadow-xl p-4 space-y-3 order-2 lg:order-1 max-h-[40vh] lg:max-h-[calc(100vh-13rem)] overflow-y-auto overflow-x-hidden">
                 {/* Prompt textarea — top */}
                 <textarea
                   value={promptText}
@@ -2093,51 +2093,49 @@ export default function EditPage() {
 
       {/* ── BOTTOM BAR — only visible when an image is loaded ───────── */}
       {imageUrl && (
-        <div className="fixed bottom-3 lg:bottom-5 left-1/2 -translate-x-1/2 z-40 px-2 w-full lg:w-auto max-w-full">
-          <div className="flex flex-wrap items-center justify-center gap-1.5 lg:gap-2 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl px-2 lg:px-2.5 py-2 shadow-[0_8px_40px_rgba(0,0,0,0.85)]">
-              {/* Replace image */}
-              <label className="flex items-center gap-1 lg:gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg lg:rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
-                <IconCloudUpload className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
-                <span className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-wide hidden sm:inline">Replace</span>
-                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-              </label>
+        <div className="fixed bottom-3 lg:bottom-5 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center justify-center gap-1.5 lg:gap-2 bg-[#0c0c0c] border border-[#1e1e1e] rounded-2xl px-2 lg:px-2.5 py-2 shadow-[0_8px_40px_rgba(0,0,0,0.85)] max-w-[calc(100vw-1rem)]">
+          {/* Replace image */}
+          <label className="flex items-center gap-1 lg:gap-1.5 px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg lg:rounded-xl bg-[#141414] border border-[#252525] cursor-pointer hover:border-[#303030] transition-all shrink-0">
+            <IconCloudUpload className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
+            <span className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-wide hidden sm:inline">Replace</span>
+            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+          </label>
 
-              {/* Model selector */}
-              <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
+          {/* Model selector */}
+          <ModelDropdown selectedModel={selectedModel} onSelect={setSelectedModel} />
 
-              <div className="w-px h-3 lg:h-4 bg-[#252525] shrink-0 hidden sm:block" />
+          <div className="w-px h-3 lg:h-4 bg-[#252525] shrink-0 hidden sm:block" />
 
-              {/* Credit cost — matches image page style */}
-              <div className="flex items-center gap-1 lg:gap-1.5 shrink-0">
-                <CreditIcon className="w-4 lg:w-5 h-4 lg:h-5 rounded" iconClassName="w-2 lg:w-2.5 h-2 lg:h-2.5" />
-                <span className="font-mono text-xs lg:text-sm font-medium text-white/70 tabular-nums">{totalCost}</span>
-              </div>
+          {/* Credit cost — matches image page style */}
+          <div className="flex items-center gap-1 lg:gap-1.5 shrink-0">
+            <CreditIcon className="w-4 lg:w-5 h-4 lg:h-5 rounded" iconClassName="w-2 lg:w-2.5 h-2 lg:h-2.5" />
+            <span className="font-mono text-xs lg:text-sm font-medium text-white/70 tabular-nums">{totalCost}</span>
+          </div>
 
-              {/* Generation count — pill segmented control */}
-              <div className="flex bg-[#141414] border border-[#252525] p-0.5 rounded-lg shrink-0">
-                {([1, 2, 4] as const).map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setGenCount(n)}
-                    className={cn(
-                      'px-1.5 lg:px-2 py-1 lg:py-1.5 text-[9px] lg:text-[10.5px] font-black uppercase tracking-wide rounded-md transition-all whitespace-nowrap w-6 lg:w-8',
-                      genCount === n ? 'bg-[#222222] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
-                    )}
-                  >{n}</button>
-                ))}
-              </div>
-
-              {/* Generate CTA */}
+          {/* Generation count — pill segmented control */}
+          <div className="flex bg-[#141414] border border-[#252525] p-0.5 rounded-lg shrink-0">
+            {([1, 2, 4] as const).map(n => (
               <button
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className="flex items-center gap-1.5 lg:gap-2 px-4 lg:px-7 py-1.5 lg:py-2 rounded-xl font-black text-xs lg:text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                <IconWand className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                <span className="hidden sm:inline">Generate</span>
-                <span className="inline sm:hidden">Gen</span>
-              </button>
-        </div>
+                key={n}
+                onClick={() => setGenCount(n)}
+                className={cn(
+                  'px-1.5 lg:px-2 py-1 lg:py-1.5 text-[9px] lg:text-[10.5px] font-black uppercase tracking-wide rounded-md transition-all whitespace-nowrap w-6 lg:w-8',
+                  genCount === n ? 'bg-[#222222] text-[#FFFF00] shadow-sm' : 'text-gray-500 hover:text-white'
+                )}
+              >{n}</button>
+            ))}
+          </div>
+
+          {/* Generate CTA */}
+          <button
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            className="flex items-center gap-1.5 lg:gap-2 px-4 lg:px-7 py-1.5 lg:py-2 rounded-xl font-black text-xs lg:text-sm uppercase tracking-wider bg-[#FFFF00] text-black shadow-[0_0_20px_rgba(255,255,0,0.15)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          >
+            <IconWand className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
+            <span className="hidden sm:inline">Generate</span>
+            <span className="inline sm:hidden">Gen</span>
+          </button>
         </div>
       )}
 

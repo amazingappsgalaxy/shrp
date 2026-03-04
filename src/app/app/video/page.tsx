@@ -870,14 +870,19 @@ function VideoPageContent() {
     }
   }, [videos])
 
-  // Clamp duration when model changes
+  // Clamp duration + reset model-specific state when model changes
   useEffect(() => {
-    const durations = (ALL_VIDEO_MODELS.find(m => m.id === resolvedGenerateModelId)?.controls?.durations ?? ['5', '15']).map(Number)
+    const newModel = ALL_VIDEO_MODELS.find(m => m.id === resolvedGenerateModelId)
+    const durations = (newModel?.controls?.durations ?? ['5', '15']).map(Number)
     const min = durations[0] ?? 5
     const max = durations[durations.length - 1] ?? 15
     setGenDuration(d => Math.max(min, Math.min(max, d)))
-    // kling-o3 doesn't support 'intelligence' shot type
-    if (resolvedGenerateModelId === 'kling-o3') setShotType('customize')
+    // kling-o3 (and O3 family) only support 'customize' shot type
+    if (['kling-o3', 'kling-o3-video-edit', 'kling-o3-reference-to-video'].includes(resolvedGenerateModelId)) {
+      setShotType('customize')
+    }
+    // Reset audio when switching to a model that doesn't support it
+    if (!newModel?.controls?.audioSync) setGenAudio(false)
   }, [resolvedGenerateModelId])
 
   useEffect(() => {
@@ -1068,16 +1073,12 @@ function VideoPageContent() {
       if (activeTab === 'generate') {
         body.aspect_ratio = genAspect
         body.duration = genDuration
-        body.audio_sync = genAudio
-        if (genNegPrompt.trim()) body.negative_prompt = genNegPrompt.trim()
+        if (hasAudio) body.audio_sync = genAudio
+        if (!isKlingO3 && genNegPrompt.trim()) body.negative_prompt = genNegPrompt.trim()
         if (firstFrameCdnUrl) body.first_frame_url = firstFrameCdnUrl
         if (endFrameCdnUrl) body.end_frame_url = endFrameCdnUrl
         if (isEvolinkModel) {
           body.quality = videoQuality
-          const mp: Record<string, unknown> = {}
-
-
-          if (Object.keys(mp).length > 0) body.model_params = mp
           // Multi-shot
           if (isKlingModel && multiShot && selectedModel?.controls?.multiShot) {
             body.multi_shot = true
@@ -1111,11 +1112,10 @@ function VideoPageContent() {
           if (selectedModel?.controls?.multiShot && multiShot) {
             body.multi_shot = true
             body.shot_type = 'customize'
-            if (shotType === 'customize') {
-              body.multi_prompt = shotPrompts.map((p, i) => ({
-                index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
-              }))
-            }
+            // Always send multi_prompt — shot_type is always 'customize' for this model
+            body.multi_prompt = shotPrompts.map((p, i) => ({
+              index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
+            }))
           }
           if (selectedModel?.controls?.elementList) {
             const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
@@ -1131,16 +1131,16 @@ function VideoPageContent() {
         if (motionImgUrls.length) body.image_urls = motionImgUrls
         if (isKlingO3RefToVideo) {
           body.quality = videoQuality
-          body.duration = genDuration
+          // Clamp to model's 3–10s range (genDuration may be set from generate tab)
+          body.duration = Math.max(3, Math.min(10, genDuration))
           body.aspect_ratio = genAspect
           if (selectedModel?.controls?.multiShot && multiShot) {
             body.multi_shot = true
             body.shot_type = 'customize'
-            if (shotType === 'customize') {
-              body.multi_prompt = shotPrompts.map((p, i) => ({
-                index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
-              }))
-            }
+            // Always send multi_prompt — shot_type is always 'customize' for this model
+            body.multi_prompt = shotPrompts.map((p, i) => ({
+              index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
+            }))
           }
           if (selectedModel?.controls?.elementList) {
             const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
@@ -1598,22 +1598,26 @@ function VideoPageContent() {
                       )}
                     </div>
                   )}
-                  <button
-                    onClick={() => setShowNegPrompt(p => !p)}
-                    className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
-                  >
-                    <IconMinus className="w-3.5 h-3.5" />
-                    <span>Negative Prompt</span>
-                    <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showNegPrompt && "rotate-180")} />
-                  </button>
-                  {showNegPrompt && (
-                    <textarea
-                      value={genNegPrompt}
-                      onChange={e => setGenNegPrompt(e.target.value)}
-                      placeholder="Describe what to avoid…"
-                      rows={2}
-                      className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
-                    />
+                  {!isKlingO3 && (
+                    <>
+                      <button
+                        onClick={() => setShowNegPrompt(p => !p)}
+                        className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
+                      >
+                        <IconMinus className="w-3.5 h-3.5" />
+                        <span>Negative Prompt</span>
+                        <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showNegPrompt && "rotate-180")} />
+                      </button>
+                      {showNegPrompt && (
+                        <textarea
+                          value={genNegPrompt}
+                          onChange={e => setGenNegPrompt(e.target.value)}
+                          placeholder="Describe what to avoid…"
+                          rows={2}
+                          className="w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
+                        />
+                      )}
+                    </>
                   )}
                 </div>
 
