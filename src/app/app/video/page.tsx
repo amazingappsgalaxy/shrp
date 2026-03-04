@@ -641,8 +641,11 @@ function buildVideoRows(videos: VideoResult[], containerW: number, targetH: numb
 
   const flush = (last: boolean) => {
     if (rowVids.length === 0) return
-    const scale = last ? 1 : (containerW - VGAP * (rowVids.length - 1)) /
-      rowVids.reduce((s, v) => s + targetH * asp(v), 0)
+    const availableW = containerW - VGAP * (rowVids.length - 1)
+    const totalNatW = rowVids.reduce((s, v) => s + targetH * asp(v), 0)
+    // Last row: left-align at natural size but cap so tiles never overflow the container.
+    // Non-last rows: always scale to fill container width exactly.
+    const scale = last ? Math.min(1, availableW / totalNatW) : availableW / totalNatW
     const height = Math.round(targetH * scale)
     const widths = rowVids.map(v => Math.round(targetH * asp(v) * scale))
     if (!last) {
@@ -804,7 +807,7 @@ function VideoJustifiedGrid({ videos, onExpand }: {
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="w-full overflow-x-hidden">
       {rows.map((row) => (
         <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
           {row.videos.map((video, ii) => (
@@ -2050,7 +2053,7 @@ function VideoPageContent() {
         </div>
 
         {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
-        <div className="relative flex flex-col px-4 pt-2 pb-8 order-1 lg:order-2 lg:overflow-y-auto lg:h-[calc(100vh-4rem)] custom-scrollbar">
+        <div className="relative flex flex-col px-4 pt-2 pb-8 order-1 lg:order-2 lg:overflow-y-auto lg:overflow-x-hidden lg:h-[calc(100vh-4rem)] custom-scrollbar">
 
           {/* Panel header */}
           <div className="flex items-center justify-between py-3 mb-4 border-b border-white/5">
