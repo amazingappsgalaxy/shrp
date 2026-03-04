@@ -15,8 +15,9 @@ import {
   IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
   IconPlayerPlay, IconVolume, IconVolumeOff, IconMaximize, IconDownload,
-  IconPlus, IconClock,
+  IconPlus, IconClock, IconX,
 } from "@tabler/icons-react"
+import { createPortal } from "react-dom"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -266,9 +267,9 @@ function CompactDropdown({ value, options, onChange }: {
   )
 }
 
-// ─── Model dropdown ────────────────────────────────────────────────────────────
+// ─── Model picker (creative full-height panel via portal) ─────────────────────
 
-function ModelDropdown({
+function ModelPicker({
   groups, selected, onSelect,
 }: {
   groups: { label: string; models: ModelConfig[] }[]
@@ -276,23 +277,112 @@ function ModelDropdown({
   onSelect: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const selectedModel = groups.flatMap(g => g.models).find(m => m.id === selected)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
+  const selectedModel = groups.flatMap(g => g.models).find(m => m.id === selected)
+  const totalModels = groups.reduce((s, g) => s + g.models.length, 0)
+
+  // Close on Escape
   useEffect(() => {
     if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', fn)
+    return () => window.removeEventListener('keydown', fn)
   }, [open])
 
+  const panel = (
+    <div className="fixed inset-0 z-[9990] flex" onClick={() => setOpen(false)}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+      {/* Panel — slides in from left */}
+      <div
+        className="relative w-full max-w-sm bg-[#0c0c0e] border-r border-white/[0.08] flex flex-col h-full shadow-2xl animate-[slideInLeft_0.22s_ease-out]"
+        onClick={e => e.stopPropagation()}
+        style={{ animationFillMode: 'both' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] flex-shrink-0">
+          <div>
+            <p className="text-xs font-black text-white uppercase tracking-widest">Choose Model</p>
+            <p className="text-[10px] text-white/35 mt-0.5">{totalModels} models available</p>
+          </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-white/50 hover:text-white transition-all"
+          >
+            <IconX className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Model list */}
+        <div className="flex-1 overflow-y-auto py-4 space-y-5 px-4">
+          {groups.map(group => (
+            <div key={group.label}>
+              <div className="flex items-center gap-2 mb-2.5 px-1">
+                <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{group.label}</span>
+                <div className="flex-1 h-px bg-white/[0.05]" />
+              </div>
+              <div className="space-y-1.5">
+                {group.models.map(model => {
+                  const isActive = selected === model.id
+                  return (
+                    <button
+                      key={model.id}
+                      onClick={() => { onSelect(model.id); setOpen(false) }}
+                      className={cn(
+                        "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
+                        isActive
+                          ? "bg-[#FFFF00]/[0.05] border-[#FFFF00]/25"
+                          : "bg-[#0f0f0f] border-white/[0.05] hover:border-white/[0.15] hover:bg-[#151515]"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-1.5 h-1.5 rounded-full mt-[5px] flex-shrink-0 transition-colors",
+                        isActive ? "bg-[#FFFF00]" : "bg-white/20"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <span className={cn("text-[13px] font-bold leading-tight", isActive ? "text-[#FFFF00]" : "text-white")}>
+                            {model.label}
+                          </span>
+                          {model.tag && (
+                            <span className={cn(
+                              "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
+                              TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
+                            )}>
+                              {model.tag}
+                            </span>
+                          )}
+                        </div>
+                        <p className={cn("text-[10px] leading-relaxed", isActive ? "text-[#FFFF00]/50" : "text-white/35")}>
+                          {model.description}
+                        </p>
+                      </div>
+                      <div className={cn(
+                        "flex-shrink-0 text-[10px] font-mono font-bold mt-0.5",
+                        isActive ? "text-[#FFFF00]/70" : "text-white/30"
+                      )}>
+                        {model.credits}cr
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
   return (
-    <div ref={ref} className="relative">
+    <>
+      {/* Trigger */}
       <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-[#111111] border border-[#222222] hover:border-[#333333] rounded-lg text-left transition-all"
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-[#111111] border border-[#222222] hover:border-[#FFFF00]/20 rounded-xl text-left transition-all group"
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
@@ -308,56 +398,16 @@ function ModelDropdown({
               </span>
             )}
           </div>
-          <span className="text-[10px] text-white/55 truncate block">{selectedModel?.description}</span>
+          <span className="text-[10px] text-white/45 truncate block">{selectedModel?.description}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <IconChevronDown className={cn("w-4 h-4 text-white/35 transition-transform", open && "rotate-180")} />
+          <span className="text-[10px] font-mono text-[#FFFF00]/50">{selectedModel?.credits}cr</span>
+          <IconChevronDown className="w-3.5 h-3.5 text-white/30 group-hover:text-white/60 transition-colors" />
         </div>
       </button>
 
-      {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-[#0c0c0c] border border-[#222222] rounded-lg overflow-hidden z-30 shadow-2xl max-h-72 overflow-y-auto">
-          {groups.map(group => (
-            <div key={group.label}>
-              <div className="px-3 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest border-b border-[#1a1a1a] bg-[#080808]">
-                {group.label}
-              </div>
-              {group.models.map(model => (
-                <button
-                  key={model.id}
-                  onClick={() => { onSelect(model.id); setOpen(false) }}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all",
-                    selected === model.id
-                      ? "bg-[#181818] text-[#FFFF00]"
-                      : "text-white/55 hover:text-white hover:bg-[#141414]"
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold leading-tight">{model.label}</div>
-                    <div className="text-[9px] text-white/30 truncate mt-0.5 leading-tight">{model.description}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {model.tag && (
-                      <span className={cn(
-                        "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded",
-                        TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
-                      )}>
-                        {model.tag}
-                      </span>
-                    )}
-                    <span className="text-[10px] font-mono text-white/30">{model.credits}cr</span>
-                    {selected === model.id && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00]" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      {mounted && open && createPortal(panel, document.body)}
+    </>
   )
 }
 
@@ -660,10 +710,10 @@ function VideoGridTile({ video, width, height, onExpand }: {
         className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {/* Play icon when idle (not hovered) — glass effect */}
+      {/* Play icon when idle (not hovered) — glass effect with black tint */}
       {!isHovered && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg">
+          <div className="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg">
             <IconPlayerPlay className="w-4.5 h-4.5 fill-white text-white ml-0.5" />
           </div>
         </div>
@@ -676,12 +726,12 @@ function VideoGridTile({ video, width, height, onExpand }: {
         </div>
       )}
 
-      {/* Mute/unmute button (on hover) — glass effect, bottom-left */}
+      {/* Mute/unmute button (on hover) — glass effect with black tint, bottom-left */}
       <button
         onClick={toggleMute}
-        className="absolute bottom-3 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 w-7 h-7 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white/20"
+        className="absolute bottom-3 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60"
       >
-        {isMuted ? <IconVolumeOff className="w-3 h-3" /> : <IconVolume className="w-3 h-3" />}
+        {isMuted ? <IconVolumeOff className="w-3.5 h-3.5" /> : <IconVolume className="w-3.5 h-3.5" />}
       </button>
 
       {/* Download (on hover) */}
@@ -698,11 +748,15 @@ function VideoGridTile({ video, width, height, onExpand }: {
   )
 }
 
+const DISPLAY_BATCH = 20
+
 function VideoJustifiedGrid({ videos, onExpand }: {
   videos: VideoResult[]; onExpand: (v: VideoResult) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const [containerW, setContainerW] = useState(0)
+  const [displayCount, setDisplayCount] = useState(DISPLAY_BATCH)
 
   useEffect(() => {
     const el = containerRef.current; if (!el) return
@@ -712,9 +766,32 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     return () => ro.disconnect()
   }, [])
 
-  // Exclude errored videos — they are shown as toasts, not in the grid
-  const displayVideos = videos.filter(v => !v.error)
-  const targetH = containerW < 480 ? 300 : containerW < 768 ? 420 : 540
+  // Reset display count when new videos added (in-flight loading cards stay visible)
+  useEffect(() => {
+    const hasLoading = videos.some(v => v.loading)
+    if (hasLoading) setDisplayCount(prev => Math.max(prev, DISPLAY_BATCH))
+  }, [videos])
+
+  // Infinite scroll: load more when sentinel becomes visible
+  useEffect(() => {
+    const sentinel = sentinelRef.current; if (!sentinel) return
+    const io = new IntersectionObserver(entries => {
+      if (entries[0]?.isIntersecting) {
+        setDisplayCount(prev => prev + 10)
+      }
+    }, { threshold: 0.1 })
+    io.observe(sentinel)
+    return () => io.disconnect()
+  }, [])
+
+  // Loading cards always shown; completed capped at displayCount
+  const completedVideos = videos.filter(v => !v.error && !v.loading)
+  const loadingVideos = videos.filter(v => v.loading)
+  const displayVideos = [...loadingVideos, ...completedVideos.slice(0, displayCount)]
+  const hasMore = completedVideos.length > displayCount
+
+  // -10% from previous 300/420/540
+  const targetH = containerW < 480 ? 270 : containerW < 768 ? 380 : 490
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
   return (
@@ -741,6 +818,10 @@ function VideoJustifiedGrid({ videos, onExpand }: {
           ))}
         </div>
       ))}
+      {/* Scroll sentinel — triggers loading more completed videos */}
+      {hasMore && <div ref={sentinelRef} className="w-full h-8 flex items-center justify-center">
+        <div className="w-4 h-4 border border-white/10 border-t-white/30 rounded-full animate-spin" />
+      </div>}
     </div>
   )
 }
@@ -832,7 +913,7 @@ function VideoPageContent() {
       if (!raw) return []
       const parsed: VideoResult[] = JSON.parse(raw)
       // Only restore completed videos, not loading states
-      return parsed.filter(v => v.url && !v.loading).slice(0, 40)
+      return parsed.filter(v => v.url && !v.loading).slice(0, 50)
     } catch { return [] }
   })
   const [modalVideo, setModalVideo] = useState<VideoResult | null>(null)
@@ -848,7 +929,7 @@ function VideoPageContent() {
     const completed = videos.filter(v => v.url && !v.loading)
     if (completed.length > 0) {
       try {
-        localStorage.setItem('sharpii_videos', JSON.stringify(completed.slice(0, 40)))
+        localStorage.setItem('sharpii_videos', JSON.stringify(completed.slice(0, 50)))
       } catch { /* ignore quota errors */ }
     }
   }, [videos])
@@ -1280,12 +1361,13 @@ function VideoPageContent() {
               {/* Model + optional Veo variant: one unified section */}
               <div className="px-5 pt-5 pb-5 border-b border-white/[0.05]">
                 <SectionLabel>Model</SectionLabel>
-                <ModelDropdown groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
+                <ModelPicker groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
                 {isVeoVariantGroup && veoVariants.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {veoVariants.map(v => (
                       <button
                         key={v.variantTier}
+                        title={v.description}
                         onClick={() => setVeoVariant(v.variantTier!)}
                         className={cn(
                           "px-3 py-1.5 text-[11px] font-black rounded-md transition-colors",
@@ -1348,8 +1430,8 @@ function VideoPageContent() {
                 {isKlingModel && (
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
-                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                      <span className="text-[9px] text-white/35 font-mono ml-1.5">Min {durationMin}s – Max {durationMax}s</span>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider block">Duration</span>
+                      <span className="text-[9px] text-white/35 font-mono block mt-0.5">Min {durationMin}s – Max {durationMax}s</span>
                     </div>
                     <div className="shrink-0" style={{ width: 160 }}>
                       <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} fillFromZero />
@@ -1441,8 +1523,8 @@ function VideoPageContent() {
                     {/* Duration row */}
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                        <span className="text-[9px] text-white/35 font-mono ml-1.5">Min {durationMin}s – Max {durationMax}s</span>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider block">Duration</span>
+                        <span className="text-[9px] text-white/35 font-mono block mt-0.5">Min {durationMin}s – Max {durationMax}s</span>
                       </div>
                       <div className="shrink-0" style={{ width: 160 }}>
                         <Slider min={durationMin} max={durationMax} step={1} value={genDuration} onChange={setGenDuration} segments={16} fillFromZero />
@@ -1810,8 +1892,8 @@ function VideoPageContent() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider">Duration</span>
-                    <span className="text-[9px] text-white/35 font-mono ml-1.5">Min 3s – Max 10s</span>
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider block">Duration</span>
+                    <span className="text-[9px] text-white/35 font-mono block mt-0.5">Min 3s – Max 10s</span>
                   </div>
                   <div className="shrink-0" style={{ width: 160 }}>
                     <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={16} fillFromZero />
