@@ -195,7 +195,7 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                         <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0c0c0e] flex flex-col lg:h-full h-1/2 overflow-hidden">
                             <div className="p-6 border-b border-white/5 space-y-4">
                                 <div>
-                                    <h2 className="text-xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">{item.modelName || "Enhancement"}</h2>
+                                    <h2 className="text-xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">{item.modelName || ''}</h2>
                                     <div className="flex items-center gap-2 mt-2 text-xs text-white/50">
                                         <span className="bg-white/5 px-2 py-0.5 rounded border border-white/5">{new Date(item.createdAt).toLocaleDateString()}</span>
                                         <span>•</span>

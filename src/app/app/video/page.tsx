@@ -270,58 +270,13 @@ function CompactDropdown({ value, options, onChange }: {
   )
 }
 
-// ─── Provider logo SVGs ────────────────────────────────────────────────────────
+// ─── Provider logos (webp — public/images/) ────────────────────────────────────
 
-function GoogleLogo({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-  )
-}
-
-function KlingLogo({ size = 20 }: { size?: number }) {
-  // Kuaishou (Kling's parent) brand: orange
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="4" fill="#1a1a1a"/>
-      {/* Stylised K mark — two diagonal strokes off a vertical bar */}
-      <rect x="6" y="5" width="2.5" height="14" rx="1" fill="#FF6B00"/>
-      <path d="M9 12 L17 5.5" stroke="#FF6B00" strokeWidth="2.5" strokeLinecap="round"/>
-      <path d="M9 12 L17 18.5" stroke="#FF6B00" strokeWidth="2.5" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function OpenAILogo({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="6" fill="#10a37f"/>
-      <path d="M19.28 10.2a5.1 5.1 0 0 0-.44-4.18 5.14 5.14 0 0 0-5.54-2.47 5.1 5.1 0 0 0-3.84-1.71A5.15 5.15 0 0 0 4.54 5a5.1 5.1 0 0 0-3.4 2.47 5.14 5.14 0 0 0 .63 6.04 5.1 5.1 0 0 0 .44 4.18 5.14 5.14 0 0 0 5.54 2.47 5.1 5.1 0 0 0 3.84 1.71 5.15 5.15 0 0 0 4.92-3.57 5.1 5.1 0 0 0 3.4-2.47 5.14 5.14 0 0 0-.63-6.04zm-7.74 10.84a3.82 3.82 0 0 1-2.45-.89l.12-.07 4.07-2.35a.67.67 0 0 0 .33-.58V11.3l1.72 1a.06.06 0 0 1 .03.04v4.75a3.83 3.83 0 0 1-3.82 3.83zM3.06 15.57a3.82 3.82 0 0 1-.46-2.57l.12.07 4.06 2.35a.67.67 0 0 0 .66 0l4.97-2.87v1.99a.06.06 0 0 1-.03.05l-4.11 2.37a3.83 3.83 0 0 1-5.21-1.4zM2 8.93a3.82 3.82 0 0 1 2.01-1.68v4.84a.67.67 0 0 0 .33.58l4.95 2.86-1.72 1a.06.06 0 0 1-.06 0L3.4 14.15A3.83 3.83 0 0 1 2 8.93zm14.13 3.28-4.96-2.87 1.72-1a.06.06 0 0 1 .06 0l4.11 2.37a3.83 3.83 0 0 1-.58 6.91V13a.67.67 0 0 0-.35-.57zm1.71-2.58-.12-.07-4.06-2.35a.67.67 0 0 0-.67 0L8.02 10.08V8.1a.06.06 0 0 1 .02-.05l4.11-2.37a3.83 3.83 0 0 1 5.69 3.97zM7.1 13.17 5.38 12.2a.06.06 0 0 1-.03-.05V7.4a3.83 3.83 0 0 1 6.28-2.94l-.12.07-4.07 2.35a.67.67 0 0 0-.33.58zm.93-2.01 2.21-1.28 2.21 1.28v2.55l-2.21 1.28-2.21-1.28z" fill="white" transform="scale(0.72) translate(2.3, 2.3)"/>
-    </svg>
-  )
-}
-
-function ByteDanceLogo({ size = 20 }: { size?: number }) {
-  // ByteDance corporate: dark background, red accent — distinct from TikTok's teal/black
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="4" fill="#1a1a1a"/>
-      {/* Flame / spark icon — ByteDance's corporate motif */}
-      <path d="M12 4C12 4 15.5 7.5 15.5 11C15.5 12.2 15.1 13.3 14.4 14.1C14.7 13.4 14.8 12.7 14.6 12C14.1 10 11.5 9.5 11.2 7.2C10.4 9.5 11.5 11 10.8 13C10.3 14.3 9.2 15.2 7.8 15.5C8.7 14.6 9 13.3 8.5 12C7.8 9.5 9.5 7 12 4Z" fill="#E8320A"/>
-      <path d="M10.5 14C10.5 14 9.5 12.8 10 11.5C10.5 13 12 13.5 12.5 15C12.9 16.1 12.5 17.5 11.5 18.5C11.8 17.8 11.8 17 11.5 16.3C10.8 14.8 10.5 14 10.5 14Z" fill="#E8320A" opacity="0.7"/>
-    </svg>
-  )
-}
-
-const GROUP_LOGOS: Record<string, React.FC<{ size?: number }>> = {
-  'Kling': KlingLogo,
-  'Google Veo': GoogleLogo,
-  'OpenAI Sora': OpenAILogo,
-  'ByteDance': ByteDanceLogo,
+const GROUP_LOGOS: Record<string, string> = {
+  'Kling':       '/images/kling_logo.webp',
+  'Google Veo':  '/images/google_logo.webp',
+  'OpenAI Sora': '/images/openai_sora.webp',
+  'ByteDance':   '/images/bytedance_logo.webp',
 }
 
 // ─── Model picker (premium side-panel via portal) ──────────────────────────────
@@ -338,9 +293,9 @@ function ModelPicker({
   useEffect(() => { setMounted(true) }, [])
 
   const selectedModel = groups.flatMap(g => g.models).find(m => m.id === selected)
-  // Find which group the selected model belongs to
-  const selectedGroup = groups.find(g => g.models.some(m => m.id === selected))
-  const SelectedLogo = selectedGroup ? GROUP_LOGOS[selectedGroup.label] : null
+  const selectedGroupLogo = groups.find(g => g.models.some(m => m.id === selected))
+    ? GROUP_LOGOS[groups.find(g => g.models.some(m => m.id === selected))!.label]
+    : null
 
   // Lock body scroll + close on Escape when panel is open
   useEffect(() => {
@@ -368,9 +323,7 @@ function ModelPicker({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-6 pb-5 flex-shrink-0">
-          <div>
-            <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em]">Select Model</p>
-          </div>
+          <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em]">Select Model</p>
           <button
             onClick={() => setOpen(false)}
             className="w-7 h-7 rounded-md bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-white/40 hover:text-white transition-all"
@@ -380,21 +333,15 @@ function ModelPicker({
         </div>
 
         {/* Model list */}
-        <div className="flex-1 overflow-y-auto px-3 pb-6 space-y-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3 pb-6 space-y-5 custom-scrollbar">
           {groups.map(group => {
-            const Logo = GROUP_LOGOS[group.label]
+            const logoSrc = GROUP_LOGOS[group.label]
             return (
               <div key={group.label}>
-                {/* Group header with provider logo */}
-                <div className="flex items-center gap-2.5 mb-3 px-2">
-                  {Logo && (
-                    <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
-                      <Logo size={16} />
-                    </div>
-                  )}
-                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">{group.label}</span>
-                  <div className="flex-1 h-px bg-white/[0.06]" />
-                  <span className="text-[9px] text-white/20 font-mono">{group.models.length}</span>
+                {/* Group header — label + divider only, no logo, no count */}
+                <div className="flex items-center gap-2.5 mb-2 px-1">
+                  <span className="text-[10px] font-black text-white/35 uppercase tracking-widest shrink-0">{group.label}</span>
+                  <div className="flex-1 h-px bg-white/[0.05]" />
                 </div>
 
                 {/* Model cards */}
@@ -406,18 +353,21 @@ function ModelPicker({
                         key={model.id}
                         onClick={() => { onSelect(model.id); setOpen(false) }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-3 rounded-lg border transition-all text-left group/card",
+                          "w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left",
                           isActive
-                            ? "bg-[#FFFF00]/[0.06] border-[#FFFF00]/20"
-                            : "bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/[0.08]"
+                            ? "bg-[#FFFF00] border-[#FFFF00]"
+                            : "bg-transparent border-transparent hover:bg-[#131313] hover:border-white/[0.08]"
                         )}
                       >
                         {/* Provider logo badge */}
                         <div className={cn(
-                          "w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all",
-                          isActive ? "bg-[#FFFF00]/10" : "bg-white/[0.04] group-hover/card:bg-white/[0.07]"
+                          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden",
+                          isActive ? "bg-black/[0.12]" : "bg-[#0e0e0e]"
                         )}>
-                          {Logo ? <Logo size={18} /> : <div className="w-2 h-2 rounded-full bg-white/30" />}
+                          {logoSrc
+                            ? <img src={logoSrc} alt={group.label} className="w-6 h-6 object-contain" />
+                            : <div className="w-2 h-2 rounded-full bg-white/30" />
+                          }
                         </div>
 
                         {/* Info */}
@@ -425,14 +375,16 @@ function ModelPicker({
                           <div className="flex items-center gap-1.5 mb-0.5">
                             <span className={cn(
                               "text-[13px] font-bold leading-tight truncate",
-                              isActive ? "text-[#FFFF00]" : "text-white"
+                              isActive ? "text-black" : "text-white"
                             )}>
                               {model.label}
                             </span>
                             {model.tag && (
                               <span className={cn(
                                 "text-[7px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded flex-shrink-0",
-                                TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
+                                isActive
+                                  ? "bg-black/[0.12] text-black"
+                                  : TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
                               )}>
                                 {model.tag}
                               </span>
@@ -440,15 +392,15 @@ function ModelPicker({
                           </div>
                           <p className={cn(
                             "text-[10px] leading-snug truncate",
-                            isActive ? "text-[#FFFF00]/45" : "text-white/30"
+                            isActive ? "text-black/60" : "text-white/25"
                           )}>
                             {model.description}
                           </p>
                         </div>
 
-                        {/* Active check */}
+                        {/* Active indicator */}
                         {isActive && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00] flex-shrink-0" />
+                          <div className="w-2 h-2 rounded-full bg-black/40 flex-shrink-0" />
                         )}
                       </button>
                     )
@@ -464,20 +416,22 @@ function ModelPicker({
 
   return (
     <>
-      {/* Trigger — premium pill button */}
+      {/* Trigger button — shows logo, model name + tag, and description */}
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#0f0f11] border border-white/[0.07] hover:border-white/[0.15] rounded-lg text-left transition-all group"
+        className="w-full flex items-center gap-3 px-3 py-3 bg-[#0f0f11] border border-white/[0.08] hover:border-white/[0.18] rounded-xl text-left transition-all group"
       >
         {/* Provider logo */}
-        <div className="w-8 h-8 rounded-md bg-white/[0.05] flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {SelectedLogo ? <SelectedLogo size={18} /> : <div className="w-2 h-2 rounded-full bg-white/30" />}
+        <div className="w-10 h-10 rounded-xl bg-[#161616] flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {selectedGroupLogo
+            ? <img src={selectedGroupLogo} alt="" className="w-7 h-7 object-contain" />
+            : <div className="w-2 h-2 rounded-full bg-white/30" />
+          }
         </div>
 
         {/* Model info */}
         <div className="flex-1 min-w-0">
-          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.15em] mb-0.5">Model</p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-[13px] font-bold text-white truncate leading-none">
               {selectedModel?.label ?? 'Select Model'}
             </span>
@@ -490,9 +444,14 @@ function ModelPicker({
               </span>
             )}
           </div>
+          {selectedModel?.description && (
+            <p className="text-[10px] text-white/35 truncate leading-snug">
+              {selectedModel.description}
+            </p>
+          )}
         </div>
 
-        <IconChevronDown className="w-3.5 h-3.5 text-white/25 group-hover:text-white/50 transition-colors flex-shrink-0" />
+        <IconChevronDown className="w-3.5 h-3.5 text-white/25 group-hover:text-white/50 transition-colors flex-shrink-0 shrink-0" />
       </button>
 
       {mounted && open && createPortal(panel, document.body)}
@@ -863,13 +822,12 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     if (hasLoading) setDisplayCount(prev => Math.max(prev, DISPLAY_BATCH))
   }, [videos])
 
-  // All videos (loading + completed) flow through the same masonry grid
   const completedVideos = useMemo(() => videos.filter(v => !v.error && !v.loading), [videos])
   const loadingVideos = useMemo(() => videos.filter(v => v.loading), [videos])
-  // Loading tiles first so they appear at top; completed capped at displayCount
+  // Only completed videos go into the justified grid
   const displayVideos = useMemo(
-    () => [...loadingVideos, ...completedVideos.slice(0, displayCount)],
-    [loadingVideos, completedVideos, displayCount]
+    () => completedVideos.slice(0, displayCount),
+    [completedVideos, displayCount]
   )
   const hasMore = completedVideos.length > displayCount
 
@@ -889,27 +847,38 @@ function VideoJustifiedGrid({ videos, onExpand }: {
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
   return (
-    <div ref={containerRef} className="w-full overflow-x-hidden">
-      {/* Unified justified masonry — loading + completed tiles together */}
+    <div ref={containerRef} className="w-full">
+      {/* Loading placeholders — compact fixed-size row at top */}
+      {loadingVideos.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {loadingVideos.map(v => {
+            const asp = VIDEO_ASPECT_NUM[v.aspect] ?? (16 / 9)
+            const h = 110
+            const w = Math.round(h * asp)
+            return (
+              <div
+                key={v.id}
+                style={{ width: w, height: h, borderRadius: 10, position: 'relative', overflow: 'hidden', flexShrink: 0 }}
+                className="border border-white/[0.06]"
+              >
+                <GenerationAnimation size="sm" label="Generating video" />
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Completed videos — justified masonry grid */}
       {rows.map((row) => (
         <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
           {row.videos.map((video, ii) => (
-            video.loading ? (
-              <div
-                key={video.id}
-                style={{ width: row.widths[ii], height: row.height, flexShrink: 0, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
-              >
-                <GenerationAnimation label="Generating video" />
-              </div>
-            ) : (
-              <VideoGridTile
-                key={video.id}
-                video={video}
-                width={row.widths[ii]!}
-                height={row.height}
-                onExpand={() => onExpand(video)}
-              />
-            )
+            <VideoGridTile
+              key={video.id}
+              video={video}
+              width={row.widths[ii]!}
+              height={row.height}
+              onExpand={() => onExpand(video)}
+            />
           ))}
         </div>
       ))}
@@ -1455,7 +1424,7 @@ function VideoPageContent() {
       <div className="flex-1 pt-16 w-full grid grid-cols-1 lg:grid-cols-[420px_1fr] items-start">
 
         {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
-        <div className="flex flex-col border-r border-white/5 bg-[#0c0c0e] z-20 relative min-h-[calc(100vh-4rem)] lg:pb-28 order-2 lg:order-1">
+        <div className="flex flex-col border-r border-white/5 bg-[#0c0c0e] z-20 relative min-h-[calc(100vh-4rem)] lg:pb-28 order-1">
 
           {/* Mode tabs */}
           <div className="px-5 pt-5 pb-5 border-b border-white/5">
@@ -2162,7 +2131,7 @@ function VideoPageContent() {
         </div>
 
         {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
-        <div className="relative flex flex-col min-h-0 px-4 pt-2 pb-8 order-1 lg:order-2 lg:overflow-y-auto lg:overflow-x-hidden lg:h-[calc(100vh-4rem)] custom-scrollbar">
+        <div className="relative flex flex-col min-h-0 px-4 pt-2 pb-8 order-2 lg:order-2 lg:overflow-y-auto lg:h-[calc(100vh-4rem)] custom-scrollbar">
 
           {/* Panel header */}
           <div className="flex items-center justify-between py-3 mb-4 border-b border-white/5">
