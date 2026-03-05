@@ -218,9 +218,9 @@ const VIDEO_MODELS: ModelConfig[] = [
   // ── Kling models (Evolink) ─────────────────────────────────────────────────
   {
     id: 'kling-3',
-    label: 'Kling 3.0',
+    label: 'Kling 3.0 Pro',
     type: 'video',
-    description: 'Kuaishou Kling 3.0 — multi-shot cinematic video generation',
+    description: 'Kuaishou Kling 3.0 Pro — multi-shot cinematic video generation',
     credits: 300,
     costUsd: 0.30,
     tag: 'Premium',
@@ -237,9 +237,9 @@ const VIDEO_MODELS: ModelConfig[] = [
   },
   {
     id: 'kling-o3',
-    label: 'Kling O3',
+    label: 'Kling O3 OMNI',
     type: 'video',
-    description: 'Kuaishou Kling O3 — advanced video generation with superior motion',
+    description: 'Kuaishou Kling O3 OMNI — advanced video generation with superior motion',
     credits: 350,
     costUsd: 0.35,
     tag: 'Advanced',

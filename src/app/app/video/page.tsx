@@ -353,17 +353,18 @@ function ModelPicker({
                         key={model.id}
                         onClick={() => { onSelect(model.id); setOpen(false) }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left",
+                          "w-full flex items-center gap-3 px-3 py-3 rounded-[9px] transition-all text-left",
                           isActive
-                            ? "bg-[#FFFF00] border-[#FFFF00]"
-                            : "bg-transparent border-transparent hover:bg-[#131313] hover:border-white/[0.08]"
+                            ? "border-2 border-[#FFFF00]/70"
+                            : "border border-transparent hover:border-white/[0.07] hover:bg-white/[0.03]"
                         )}
+                        style={isActive ? {
+                          background: 'linear-gradient(135deg, rgba(255,255,0,0.07) 0%, rgba(255,255,0,0.02) 60%, transparent 100%)',
+                          boxShadow: '0 0 0 0px rgba(255,255,0,0.15), inset 0 1px 0 rgba(255,255,0,0.08)',
+                        } : undefined}
                       >
                         {/* Provider logo badge */}
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden",
-                          isActive ? "bg-black/[0.12]" : "bg-[#0e0e0e]"
-                        )}>
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden bg-[#0e0e0e]">
                           {logoSrc
                             ? <img src={logoSrc} alt={group.label} className="w-6 h-6 object-contain" />
                             : <div className="w-2 h-2 rounded-full bg-white/30" />
@@ -375,16 +376,14 @@ function ModelPicker({
                           <div className="flex items-center gap-1.5 mb-0.5">
                             <span className={cn(
                               "text-[13px] font-bold leading-tight truncate",
-                              isActive ? "text-black" : "text-white"
+                              isActive ? "text-[#FFFF00]" : "text-white/85"
                             )}>
                               {model.label}
                             </span>
                             {model.tag && (
                               <span className={cn(
                                 "text-[7px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded flex-shrink-0",
-                                isActive
-                                  ? "bg-black/[0.12] text-black"
-                                  : TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
+                                TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
                               )}>
                                 {model.tag}
                               </span>
@@ -392,15 +391,15 @@ function ModelPicker({
                           </div>
                           <p className={cn(
                             "text-[10px] leading-snug truncate",
-                            isActive ? "text-black/60" : "text-white/25"
+                            isActive ? "text-white/40" : "text-white/20"
                           )}>
                             {model.description}
                           </p>
                         </div>
 
-                        {/* Active indicator */}
+                        {/* Active check dot */}
                         {isActive && (
-                          <div className="w-2 h-2 rounded-full bg-black/40 flex-shrink-0" />
+                          <div className="w-2 h-2 rounded-full bg-[#FFFF00]/60 flex-shrink-0" />
                         )}
                       </button>
                     )
@@ -673,6 +672,18 @@ const VGAP = 9
 const VIDEO_ASPECT_NUM: Record<string, number> = {
   '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:3': 4 / 3, '3:4': 3 / 4,
 }
+
+/** Snap actual video pixel dimensions to the nearest known aspect-ratio label. */
+function detectAspectLabel(vw: number, vh: number): string | null {
+  if (!vw || !vh) return null
+  const ratio = vw / vh
+  let best = '', diff = Infinity
+  for (const [key, val] of Object.entries(VIDEO_ASPECT_NUM)) {
+    const d = Math.abs(ratio - val)
+    if (d < diff) { diff = d; best = key }
+  }
+  return diff < 0.15 ? best : null
+}
 interface VJRow { videos: VideoResult[]; height: number; widths: number[] }
 
 function buildVideoRows(videos: VideoResult[], containerW: number, targetH: number): VJRow[] {
@@ -709,8 +720,9 @@ function buildVideoRows(videos: VideoResult[], containerW: number, targetH: numb
   return rows
 }
 
-function VideoGridTile({ video, width, height, onExpand }: {
+function VideoGridTile({ video, width, height, onExpand, onAspectCorrect }: {
   video: VideoResult; width: number; height: number; onExpand: () => void
+  onAspectCorrect?: (id: string, aspect: string) => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isHovered, setIsHovered] = useState(false)
@@ -730,6 +742,12 @@ function VideoGridTile({ video, width, height, onExpand }: {
   const handleLoaded = () => {
     setIsLoaded(true)
     if (isHovered && videoRef.current) videoRef.current.play().catch(() => {})
+    // Detect real aspect ratio from video dimensions and correct if it differs from stored value
+    const el = videoRef.current
+    if (el && onAspectCorrect) {
+      const detected = detectAspectLabel(el.videoWidth, el.videoHeight)
+      if (detected && detected !== video.aspect) onAspectCorrect(video.id, detected)
+    }
   }
   const handleTimeUpdate = () => {
     if (!videoRef.current) return
@@ -800,8 +818,9 @@ function VideoGridTile({ video, width, height, onExpand }: {
 
 const DISPLAY_BATCH = 20
 
-function VideoJustifiedGrid({ videos, onExpand }: {
+function VideoJustifiedGrid({ videos, onExpand, onAspectCorrect }: {
   videos: VideoResult[]; onExpand: (v: VideoResult) => void
+  onAspectCorrect?: (id: string, aspect: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -878,6 +897,7 @@ function VideoJustifiedGrid({ videos, onExpand }: {
               width={row.widths[ii]!}
               height={row.height}
               onExpand={() => onExpand(video)}
+              onAspectCorrect={onAspectCorrect}
             />
           ))}
         </div>
@@ -2171,6 +2191,7 @@ function VideoPageContent() {
             <VideoJustifiedGrid
               videos={videos}
               onExpand={(video) => { setModalVideo(video); setIsModalOpen(true) }}
+              onAspectCorrect={(id, aspect) => setVideos(prev => prev.map(v => v.id === id ? { ...v, aspect } : v))}
             />
           )}
 
