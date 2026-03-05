@@ -61,6 +61,9 @@ export interface EvolinkTaskResponse {
     estimated_time?: number
     video_duration?: number
   }
+  /** Completed task output URLs — API returns results[0] as the video URL */
+  results?: string[]
+  /** Legacy / fallback result shape (if ever used) */
   result?: EvolinkTaskResult
   usage?: {
     credits_reserved?: number

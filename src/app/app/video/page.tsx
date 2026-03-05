@@ -21,6 +21,7 @@ import {
 import { createPortal } from "react-dom"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
 import { generateMediaFilename, downloadMedia } from "@/lib/media-filename"
+import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2220,6 +2221,18 @@ function VideoPageContent() {
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setModalVideo(null) }}
         prompt={modalVideo?.prompt}
+      />
+
+      {/* Generation progress indicator — done sound + done popup */}
+      <MyLoadingProcessIndicator
+        isVisible={activeTasks.size > 0}
+        tasks={Array.from(activeTasks.values()).map(t => ({
+          id: t.id,
+          progress: t.progress,
+          status: t.status,
+          message: t.message,
+        }))}
+        onCloseTask={id => setActiveTasks(prev => { const m = new Map(prev); m.delete(id); return m })}
       />
     </div>
   )

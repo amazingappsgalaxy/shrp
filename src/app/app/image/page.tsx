@@ -762,8 +762,17 @@ export default function ImagePage() {
 
         const resolvedIds = new Set([...completedItems, ...failedItems].map(i => i.id))
 
-        // Build new images and success notifications outside setImages
+        // IMPORTANT: compute notifications BEFORE calling setImages.
+        // React state updater callbacks run asynchronously after setImages() returns,
+        // so any push() inside the updater would not be visible to code that runs after.
         const notifications: { id: string; status: 'success' | 'error'; message: string }[] = []
+        for (const item of completedItems) {
+          const urlCount = item.outputUrls.filter(out => !!(typeof out === 'string' ? out : out.url)).length
+          notifications.push({ id: `poll-ok-${item.id}`, status: 'success', message: urlCount > 1 ? `${urlCount} images ready` : 'Image ready' })
+        }
+        for (const item of failedItems) {
+          notifications.push({ id: `poll-err-${item.id}`, status: 'error', message: 'Generation failed' })
+        }
 
         setImages(prev => {
           const updated = [...prev]
@@ -788,7 +797,6 @@ export default function ImagePage() {
             if (placeholderIdxs.length > 0 && newImgs.length > 0) {
               // Remove extra placeholders from end→beginning first (preserves earlier indices),
               // then replace the first placeholder with all resolved images.
-              // The naive shift-based approach was wrong for count=4 (j>=2 used a stale shift).
               for (let j = placeholderIdxs.length - 1; j >= 1; j--) {
                 updated.splice(placeholderIdxs[j]!, 1)
               }
@@ -796,9 +804,6 @@ export default function ImagePage() {
             } else if (newImgs.length > 0) {
               updated.push(...newImgs)
             }
-
-            const label = newImgs.length > 1 ? `${newImgs.length} images ready` : 'Image ready'
-            notifications.push({ id: `poll-ok-${item.id}`, status: 'success', message: label })
           }
 
           // Remove loading placeholders for failed tasks
@@ -806,7 +811,6 @@ export default function ImagePage() {
             for (let i = updated.length - 1; i >= 0; i--) {
               if (updated[i]!.taskId === item.id) updated.splice(i, 1)
             }
-            notifications.push({ id: `poll-err-${item.id}`, status: 'error', message: 'Generation failed' })
           }
 
           return updated

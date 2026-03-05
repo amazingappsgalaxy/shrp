@@ -137,7 +137,9 @@ export class EvolinkProvider {
       case 'completed':
         return {
           status: 'SUCCESS',
-          output: data.result?.video_url ?? null,
+          // API returns results: string[] — first element is the video URL.
+          // data.result?.video_url is a legacy fallback (not used by current API).
+          output: data.results?.[0] ?? data.result?.video_url ?? null,
           raw: data,
         }
       case 'failed':
