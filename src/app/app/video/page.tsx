@@ -1,10 +1,11 @@
 "use client"
 import React, { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react"
+import { useSWRConfig } from "swr"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
-import { useTaskManager } from "@/components/providers/TaskManagerProvider"
 import { useCredits } from "@/lib/hooks/use-credits"
+import { APP_DATA_KEY } from "@/lib/hooks/use-app-data"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { VideoModal } from "@/components/ui/VideoPlayer"
 import { GenerationAnimation } from "@/components/ui/GenerationAnimation"
@@ -267,7 +268,66 @@ function CompactDropdown({ value, options, onChange }: {
   )
 }
 
-// ─── Model picker (creative full-height panel via portal) ─────────────────────
+// ─── Provider logo SVGs ────────────────────────────────────────────────────────
+
+function GoogleLogo({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+function KlingLogo({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="url(#kling-grad)"/>
+      <defs>
+        <linearGradient id="kling-grad" x1="0" y1="0" x2="24" y2="24">
+          <stop offset="0%" stopColor="#FF3CAC"/>
+          <stop offset="100%" stopColor="#784BA0"/>
+        </linearGradient>
+      </defs>
+      <text x="12" y="17" textAnchor="middle" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="15" fill="white">K</text>
+    </svg>
+  )
+}
+
+function OpenAILogo({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#10a37f"/>
+      <path d="M19.28 10.2a5.1 5.1 0 0 0-.44-4.18 5.14 5.14 0 0 0-5.54-2.47 5.1 5.1 0 0 0-3.84-1.71A5.15 5.15 0 0 0 4.54 5a5.1 5.1 0 0 0-3.4 2.47 5.14 5.14 0 0 0 .63 6.04 5.1 5.1 0 0 0 .44 4.18 5.14 5.14 0 0 0 5.54 2.47 5.1 5.1 0 0 0 3.84 1.71 5.15 5.15 0 0 0 4.92-3.57 5.1 5.1 0 0 0 3.4-2.47 5.14 5.14 0 0 0-.63-6.04zm-7.74 10.84a3.82 3.82 0 0 1-2.45-.89l.12-.07 4.07-2.35a.67.67 0 0 0 .33-.58V11.3l1.72 1a.06.06 0 0 1 .03.04v4.75a3.83 3.83 0 0 1-3.82 3.83zM3.06 15.57a3.82 3.82 0 0 1-.46-2.57l.12.07 4.06 2.35a.67.67 0 0 0 .66 0l4.97-2.87v1.99a.06.06 0 0 1-.03.05l-4.11 2.37a3.83 3.83 0 0 1-5.21-1.4zM2 8.93a3.82 3.82 0 0 1 2.01-1.68v4.84a.67.67 0 0 0 .33.58l4.95 2.86-1.72 1a.06.06 0 0 1-.06 0L3.4 14.15A3.83 3.83 0 0 1 2 8.93zm14.13 3.28-4.96-2.87 1.72-1a.06.06 0 0 1 .06 0l4.11 2.37a3.83 3.83 0 0 1-.58 6.91V13a.67.67 0 0 0-.35-.57zm1.71-2.58-.12-.07-4.06-2.35a.67.67 0 0 0-.67 0L8.02 10.08V8.1a.06.06 0 0 1 .02-.05l4.11-2.37a3.83 3.83 0 0 1 5.69 3.97zM7.1 13.17 5.38 12.2a.06.06 0 0 1-.03-.05V7.4a3.83 3.83 0 0 1 6.28-2.94l-.12.07-4.07 2.35a.67.67 0 0 0-.33.58zm.93-2.01 2.21-1.28 2.21 1.28v2.55l-2.21 1.28-2.21-1.28z" fill="white" transform="scale(0.72) translate(2.3, 2.3)"/>
+    </svg>
+  )
+}
+
+function ByteDanceLogo({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="url(#bd-grad)"/>
+      <defs>
+        <linearGradient id="bd-grad" x1="0" y1="0" x2="24" y2="24">
+          <stop offset="0%" stopColor="#00C6FF"/>
+          <stop offset="100%" stopColor="#0072FF"/>
+        </linearGradient>
+      </defs>
+      <text x="12" y="17" textAnchor="middle" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="11" fill="white">BD</text>
+    </svg>
+  )
+}
+
+const GROUP_LOGOS: Record<string, React.FC<{ size?: number }>> = {
+  'Kling': KlingLogo,
+  'Google Veo': GoogleLogo,
+  'OpenAI Sora': OpenAILogo,
+  'ByteDance': ByteDanceLogo,
+}
+
+// ─── Model picker (premium side-panel via portal) ──────────────────────────────
 
 function ModelPicker({
   groups, selected, onSelect,
@@ -281,7 +341,9 @@ function ModelPicker({
   useEffect(() => { setMounted(true) }, [])
 
   const selectedModel = groups.flatMap(g => g.models).find(m => m.id === selected)
-  const totalModels = groups.reduce((s, g) => s + g.models.length, 0)
+  // Find which group the selected model belongs to
+  const selectedGroup = groups.find(g => g.models.some(m => m.id === selected))
+  const SelectedLogo = selectedGroup ? GROUP_LOGOS[selectedGroup.label] : null
 
   // Lock body scroll + close on Escape when panel is open
   useEffect(() => {
@@ -299,84 +361,105 @@ function ModelPicker({
   const panel = (
     <div className="fixed inset-0 z-[9990] flex" onClick={() => setOpen(false)}>
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
 
       {/* Panel — slides in from left */}
       <div
-        className="relative w-full max-w-sm bg-[#0c0c0e] border-r border-white/[0.08] flex flex-col h-full shadow-2xl animate-[slideInLeft_0.22s_ease-out]"
+        className="relative w-full max-w-[340px] bg-[#080809] flex flex-col h-full shadow-2xl animate-[slideInLeft_0.2s_cubic-bezier(0.22,1,0.36,1)]"
         onClick={e => e.stopPropagation()}
         style={{ animationFillMode: 'both' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between px-5 pt-6 pb-5 flex-shrink-0">
           <div>
-            <p className="text-xs font-black text-white uppercase tracking-widest">Choose Model</p>
-            <p className="text-[10px] text-white/35 mt-0.5">{totalModels} models available</p>
+            <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em]">Select Model</p>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-white/50 hover:text-white transition-all"
+            className="w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-white/40 hover:text-white transition-all"
           >
             <IconX className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Model list */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-5 px-4">
-          {groups.map(group => (
-            <div key={group.label}>
-              <div className="flex items-center gap-2 mb-2.5 px-1">
-                <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{group.label}</span>
-                <div className="flex-1 h-px bg-white/[0.05]" />
-              </div>
-              <div className="space-y-1.5">
-                {group.models.map(model => {
-                  const isActive = selected === model.id
-                  return (
-                    <button
-                      key={model.id}
-                      onClick={() => { onSelect(model.id); setOpen(false) }}
-                      className={cn(
-                        "w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
-                        isActive
-                          ? "bg-[#FFFF00]/[0.05] border-[#FFFF00]/25"
-                          : "bg-[#0f0f0f] border-white/[0.05] hover:border-white/[0.15] hover:bg-[#151515]"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-1.5 h-1.5 rounded-full mt-[5px] flex-shrink-0 transition-colors",
-                        isActive ? "bg-[#FFFF00]" : "bg-white/20"
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                          <span className={cn("text-[13px] font-bold leading-tight", isActive ? "text-[#FFFF00]" : "text-white")}>
-                            {model.label}
-                          </span>
-                          {model.tag && (
-                            <span className={cn(
-                              "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
-                              TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
-                            )}>
-                              {model.tag}
-                            </span>
-                          )}
+        <div className="flex-1 overflow-y-auto px-3 pb-6 space-y-6 custom-scrollbar">
+          {groups.map(group => {
+            const Logo = GROUP_LOGOS[group.label]
+            return (
+              <div key={group.label}>
+                {/* Group header with provider logo */}
+                <div className="flex items-center gap-2.5 mb-3 px-2">
+                  {Logo && (
+                    <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                      <Logo size={16} />
+                    </div>
+                  )}
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">{group.label}</span>
+                  <div className="flex-1 h-px bg-white/[0.06]" />
+                  <span className="text-[9px] text-white/20 font-mono">{group.models.length}</span>
+                </div>
+
+                {/* Model cards */}
+                <div className="space-y-1">
+                  {group.models.map(model => {
+                    const isActive = selected === model.id
+                    return (
+                      <button
+                        key={model.id}
+                        onClick={() => { onSelect(model.id); setOpen(false) }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left group/card",
+                          isActive
+                            ? "bg-[#FFFF00]/[0.06] border-[#FFFF00]/20"
+                            : "bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/[0.08]"
+                        )}
+                      >
+                        {/* Provider logo badge */}
+                        <div className={cn(
+                          "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
+                          isActive ? "bg-[#FFFF00]/10" : "bg-white/[0.04] group-hover/card:bg-white/[0.07]"
+                        )}>
+                          {Logo ? <Logo size={18} /> : <div className="w-2 h-2 rounded-full bg-white/30" />}
                         </div>
-                        <p className={cn("text-[10px] leading-relaxed", isActive ? "text-[#FFFF00]/50" : "text-white/35")}>
-                          {model.description}
-                        </p>
-                      </div>
-                      <div className={cn(
-                        "flex-shrink-0 text-[10px] font-mono font-bold mt-0.5",
-                        isActive ? "text-[#FFFF00]/70" : "text-white/30"
-                      )}>
-                        {model.credits}cr
-                      </div>
-                    </button>
-                  )
-                })}
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className={cn(
+                              "text-[13px] font-bold leading-tight truncate",
+                              isActive ? "text-[#FFFF00]" : "text-white"
+                            )}>
+                              {model.label}
+                            </span>
+                            {model.tag && (
+                              <span className={cn(
+                                "text-[7px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded flex-shrink-0",
+                                TAG_COLORS[model.tag] ?? "bg-white/10 text-gray-400"
+                              )}>
+                                {model.tag}
+                              </span>
+                            )}
+                          </div>
+                          <p className={cn(
+                            "text-[10px] leading-snug truncate",
+                            isActive ? "text-[#FFFF00]/45" : "text-white/30"
+                          )}>
+                            {model.description}
+                          </p>
+                        </div>
+
+                        {/* Active check */}
+                        {isActive && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#FFFF00] flex-shrink-0" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
@@ -384,31 +467,35 @@ function ModelPicker({
 
   return (
     <>
-      {/* Trigger */}
+      {/* Trigger — premium pill button */}
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-[#111111] border border-[#222222] hover:border-[#FFFF00]/20 rounded-xl text-left transition-all group"
+        className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#0f0f11] border border-white/[0.07] hover:border-white/[0.15] rounded-xl text-left transition-all group"
       >
+        {/* Provider logo */}
+        <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {SelectedLogo ? <SelectedLogo size={18} /> : <div className="w-2 h-2 rounded-full bg-white/30" />}
+        </div>
+
+        {/* Model info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-sm font-bold text-white truncate">
+          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.15em] mb-0.5">Model</p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-white truncate leading-none">
               {selectedModel?.label ?? 'Select Model'}
             </span>
             {selectedModel?.tag && (
               <span className={cn(
-                "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
+                "text-[7px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded flex-shrink-0",
                 TAG_COLORS[selectedModel.tag] ?? "bg-white/10 text-gray-400"
               )}>
                 {selectedModel.tag}
               </span>
             )}
           </div>
-          <span className="text-[10px] text-white/45 truncate block">{selectedModel?.description}</span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-[10px] font-mono text-[#FFFF00]/50">{selectedModel?.credits}cr</span>
-          <IconChevronDown className="w-3.5 h-3.5 text-white/30 group-hover:text-white/60 transition-colors" />
-        </div>
+
+        <IconChevronDown className="w-3.5 h-3.5 text-white/25 group-hover:text-white/50 transition-colors flex-shrink-0" />
       </button>
 
       {mounted && open && createPortal(panel, document.body)}
@@ -852,7 +939,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function VideoPageContent() {
   const { user, isLoading, isDemo } = useAuth()
-  const { addWatchedTask, resolveTask, failTask } = useTaskManager()
+  const { mutate } = useSWRConfig()
   const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
   const [activeTab, setActiveTab] = useState<VideoTab>('generate')
@@ -924,8 +1011,9 @@ function VideoPageContent() {
       const raw = localStorage.getItem('sharpii_videos')
       if (!raw) return []
       const parsed: VideoResult[] = JSON.parse(raw)
-      // Only restore completed videos, not loading states
-      return parsed.filter(v => v.url && !v.loading).slice(0, 50)
+      // Restore completed videos + in-progress tasks that have a DB taskId
+      // (loading tasks without a taskId were not yet submitted and should be discarded)
+      return parsed.filter(v => (v.url && !v.loading) || (v.loading && v.taskId)).slice(0, 50)
     } catch { return [] }
   })
   const [modalVideo, setModalVideo] = useState<VideoResult | null>(null)
@@ -936,12 +1024,14 @@ function VideoPageContent() {
   const taskIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
   const pollIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
 
-  // Persist completed videos to localStorage
+  // Persist completed + in-progress (with DB taskId) videos to localStorage
   useEffect(() => {
     const completed = videos.filter(v => v.url && !v.loading)
-    if (completed.length > 0) {
+    const inProgress = videos.filter(v => v.loading && v.taskId)
+    const toSave = [...inProgress, ...completed].slice(0, 50)
+    if (toSave.length > 0) {
       try {
-        localStorage.setItem('sharpii_videos', JSON.stringify(completed.slice(0, 50)))
+        localStorage.setItem('sharpii_videos', JSON.stringify(toSave))
       } catch { /* ignore quota errors */ }
     }
   }, [videos])
@@ -966,6 +1056,19 @@ function VideoPageContent() {
       taskIntervalsRef.current.forEach(clearInterval)
       pollIntervalsRef.current.forEach(clearInterval)
     }
+  }, [])
+
+  // Resume polling for any in-progress tasks that were restored from localStorage on refresh
+  useEffect(() => {
+    videos
+      .filter(v => v.loading && v.taskId && !pollIntervalsRef.current.has(v.id))
+      .forEach(v => {
+        const progressInterval = startSmartProgress(v.id, VIDEO_TASK_DURATION_SECS, setActiveTasks)
+        taskIntervalsRef.current.set(v.id, progressInterval)
+        startVideoPoll(v.id, v.taskId!)
+      })
+  // Only run on mount — startVideoPoll is stable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const openPlansPopup = () => window.dispatchEvent(new CustomEvent('sharpii:open-plans'))
@@ -1075,6 +1178,61 @@ function VideoPageContent() {
   const removeLoadingCard = (id: string) => {
     setVideos(prev => prev.filter(v => v.id !== id))
   }
+
+  // Start polling for a video task. Returns immediately; interval runs in background.
+  const startVideoPoll = useCallback((localId: string, dbTaskId: string, startTime = Date.now()) => {
+    const MAX_POLL_DURATION_MS = 45 * 60 * 1000
+    const MAX_CONSECUTIVE_ERRORS = 5
+    let consecutiveErrors = 0
+
+    const stopPoll = (reason: 'success' | 'failed', errMsg?: string) => {
+      const pi = pollIntervalsRef.current.get(localId)
+      if (pi) { clearInterval(pi); pollIntervalsRef.current.delete(localId) }
+      cleanupTask(localId)
+      if (reason === 'success') {
+        mutate(APP_DATA_KEY) // refresh credits
+      } else {
+        setVideos(prev => prev.filter(v => v.id !== localId))
+        showToast(errMsg || 'Video generation failed')
+        setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m })
+      }
+    }
+
+    const interval = setInterval(async () => {
+      if (Date.now() - startTime > MAX_POLL_DURATION_MS) {
+        stopPoll('failed', 'Generation timed out. Check History for status.')
+        return
+      }
+      try {
+        const pollRes = await fetch(`/api/generate-video/poll?taskId=${dbTaskId}`)
+        const pollData = await pollRes.json()
+        consecutiveErrors = 0
+
+        if (pollData.status === 'success') {
+          const videoUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url ? pollData.outputs[0].url : null
+          setVideos(prev => prev.map(v => v.id === localId ? { ...v, url: videoUrl, loading: false } : v))
+          setActiveTasks(prev => {
+            const m = new Map(prev)
+            const t = m.get(localId)
+            if (t) m.set(localId, { ...t, progress: 100, status: 'success', message: 'Done!' })
+            return m
+          })
+          setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 4000)
+          stopPoll('success')
+        } else if (pollData.status === 'failed') {
+          stopPoll('failed', pollData.error || 'Generation failed')
+        }
+      } catch {
+        consecutiveErrors++
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          stopPoll('failed', 'Lost connection. Check History for status.')
+        }
+      }
+    }, 8000)
+
+    pollIntervalsRef.current.set(localId, interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mutate, showToast])
 
   // Derived shot count
   const shotCount = shotPrompts.length
@@ -1235,63 +1393,8 @@ function VideoPageContent() {
       if (!res.ok) throw new Error(data?.error || 'Generation failed')
 
       const dbTaskId: string = data.taskId
-      addWatchedTask(dbTaskId, 'Video generating')
       setVideos(prev => prev.map(v => v.id === localId ? { ...v, taskId: dbTaskId } : v))
-
-      const pollStartTime = Date.now()
-      const MAX_POLL_DURATION_MS = 45 * 60 * 1000 // 45 minutes hard timeout
-      const MAX_CONSECUTIVE_ERRORS = 5
-      let consecutiveErrors = 0
-
-      const stopPoll = (reason: 'success' | 'failed', errMsg?: string) => {
-        clearInterval(pollInterval)
-        pollIntervalsRef.current.delete(localId)
-        cleanupTask(localId)
-        if (reason === 'failed') {
-          failTask(dbTaskId)
-          // Remove from grid — error shown as toast instead
-          setVideos(prev => prev.filter(v => v.id !== localId))
-          showToast(errMsg || 'Video generation failed')
-          setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m })
-        }
-      }
-
-      const pollInterval = setInterval(async () => {
-        // Hard timeout — stop polling and let cron handle it
-        if (Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
-          stopPoll('failed', 'Generation timed out. Check History for status.')
-          return
-        }
-        try {
-          const pollRes = await fetch(`/api/generate-video/poll?taskId=${dbTaskId}`)
-          const pollData = await pollRes.json()
-          consecutiveErrors = 0 // reset on any successful HTTP response
-
-          if (pollData.status === 'success') {
-            const videoUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url ? pollData.outputs[0].url : null
-            setVideos(prev => prev.map(v => v.id === localId ? { ...v, url: videoUrl, loading: false } : v))
-            resolveTask(dbTaskId)
-            setActiveTasks(prev => {
-              const m = new Map(prev)
-              const t = m.get(localId)
-              if (t) m.set(localId, { ...t, progress: 100, status: 'success', message: 'Done!' })
-              return m
-            })
-            setTimeout(() => setActiveTasks(prev => { const m = new Map(prev); m.delete(localId); return m }), 4000)
-            stopPoll('success')
-          } else if (pollData.status === 'failed') {
-            stopPoll('failed', pollData.error || 'Generation failed')
-          }
-        } catch {
-          consecutiveErrors++
-          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            // Network is broken — stop polling, let cron finish the task
-            stopPoll('failed', 'Lost connection. Check History for status.')
-          }
-        }
-      }, 8000)
-
-      pollIntervalsRef.current.set(localId, pollInterval)
+      startVideoPoll(localId, dbTaskId)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Connection error'
       cleanupTask(localId)

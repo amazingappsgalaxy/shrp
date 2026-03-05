@@ -111,18 +111,43 @@ export default function HistoryPage() {
 
         setItems(prev => {
           const freshMap = new Map(fresh.map(f => [f.id, f]))
-          // Update status for any existing items that appear in the fresh batch
           let changed = false
           const updated = prev.map(item => {
             const f = freshMap.get(item.id)
-            if (f && f.status !== item.status) { changed = true; return { ...item, ...f } }
+            if (!f) return item
+            // Update if status changed OR if outputUrls were added (e.g. completed but urls were empty)
+            const statusChanged = f.status !== item.status
+            const urlsAdded = f.outputUrls?.length > 0 && item.outputUrls?.length === 0
+            if (statusChanged || urlsAdded) { changed = true; return { ...item, ...f } }
             return item
           })
-          // Prepend items that are brand-new (not yet in list)
           const existingIds = new Set(prev.map(i => i.id))
           const brandNew = fresh.filter(f => !existingIds.has(f.id))
           if (brandNew.length === 0 && !changed) return prev
           return [...brandNew, ...updated]
+        })
+
+        // Also re-fetch any processing items that weren't covered by the top-20
+        setItems(prev => {
+          const processingNotFetched = prev.filter(i => i.status === 'processing' && !fresh.find(f => f.id === i.id))
+          if (processingNotFetched.length === 0) return prev
+          // Fire a targeted fetch for those IDs (fire-and-forget, result applied via setItems)
+          const ids = processingNotFetched.map(i => i.id).join(',')
+          fetch(`/api/history/list?ids=${ids}`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(d => {
+              const extra: HistoryListItem[] = d.items || []
+              if (extra.length === 0) return
+              setItems(p => p.map(item => {
+                const f = extra.find(e => e.id === item.id)
+                if (f && (f.status !== item.status || (f.outputUrls?.length > 0 && item.outputUrls?.length === 0))) {
+                  return { ...item, ...f }
+                }
+                return item
+              }))
+            })
+            .catch(() => {})
+          return prev  // return unchanged for now; second setItems will update
         })
       } catch {}
     }

@@ -149,7 +149,8 @@ async function processVideoTask(
     if (pollStatus === 'SUCCESS' && outputUrl) {
       const generationTimeMs = Date.now() - new Date(task.created_at).getTime()
 
-      // Upload to Bunny CDN
+      // Save provider URL immediately so history page shows the video right away.
+      // CDN upload runs after the DB update.
       let finalUrl = outputUrl
       try {
         const ext = extFromUrl(outputUrl) || 'mp4'
@@ -158,6 +159,7 @@ async function processVideoTask(
         console.log(`✅ Bunny (process-pending video): uploaded — ${finalUrl}`)
       } catch (err) {
         console.error('❌ Bunny (process-pending video): upload failed, using provider URL:', err)
+        // finalUrl stays as outputUrl (provider URL) — acceptable fallback
       }
 
       const outputs = [{ type: 'video' as const, url: finalUrl, original_url: outputUrl }]
