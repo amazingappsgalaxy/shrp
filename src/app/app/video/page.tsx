@@ -780,12 +780,12 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     if (hasLoading) setDisplayCount(prev => Math.max(prev, DISPLAY_BATCH))
   }, [videos])
 
-  // Loading cards always shown; completed capped at displayCount
+  // Loading cards shown separately (compact); completed capped at displayCount
   const completedVideos = useMemo(() => videos.filter(v => !v.error && !v.loading), [videos])
   const loadingVideos = useMemo(() => videos.filter(v => v.loading), [videos])
   const displayVideos = useMemo(
-    () => [...loadingVideos, ...completedVideos.slice(0, displayCount)],
-    [loadingVideos, completedVideos, displayCount]
+    () => completedVideos.slice(0, displayCount),
+    [completedVideos, displayCount]
   )
   const hasMore = completedVideos.length > displayCount
 
@@ -806,27 +806,39 @@ function VideoJustifiedGrid({ videos, onExpand }: {
   const targetH = containerW < 480 ? 270 : containerW < 768 ? 380 : 490
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
+  // Loading tile height is fixed/compact regardless of video count
+  const LOADING_H = 160
+
   return (
     <div ref={containerRef} className="w-full overflow-x-hidden">
-      {rows.map((row) => (
-        <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
-          {row.videos.map((video, ii) => (
-            video.loading ? (
+      {/* Loading tiles — compact fixed-height section at top */}
+      {loadingVideos.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: VGAP, marginBottom: VGAP }}>
+          {loadingVideos.map((video) => {
+            const w = Math.round(LOADING_H * (VIDEO_ASPECT_NUM[video.aspect] ?? (16 / 9)))
+            return (
               <div
                 key={video.id}
-                style={{ width: row.widths[ii], height: row.height, flexShrink: 0, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
+                style={{ width: w, height: LOADING_H, flexShrink: 0, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
               >
                 <GenerationAnimation label="Generating video" />
               </div>
-            ) : (
-              <VideoGridTile
-                key={video.id}
-                video={video}
-                width={row.widths[ii]!}
-                height={row.height}
-                onExpand={() => onExpand(video)}
-              />
             )
+          })}
+        </div>
+      )}
+
+      {/* Completed videos — justified masonry */}
+      {rows.map((row) => (
+        <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
+          {row.videos.map((video, ii) => (
+            <VideoGridTile
+              key={video.id}
+              video={video}
+              width={row.widths[ii]!}
+              height={row.height}
+              onExpand={() => onExpand(video)}
+            />
           ))}
         </div>
       ))}
@@ -2053,7 +2065,7 @@ function VideoPageContent() {
         </div>
 
         {/* ── RIGHT PANEL ──────────────────────────────────────────────────── */}
-        <div className="relative flex flex-col px-4 pt-2 pb-8 order-1 lg:order-2 lg:overflow-y-auto lg:overflow-x-hidden lg:h-[calc(100vh-4rem)] custom-scrollbar">
+        <div className="relative flex flex-col min-h-0 px-4 pt-2 pb-8 order-1 lg:order-2 lg:overflow-y-auto lg:overflow-x-hidden lg:h-[calc(100vh-4rem)] custom-scrollbar">
 
           {/* Panel header */}
           <div className="flex items-center justify-between py-3 mb-4 border-b border-white/5">
