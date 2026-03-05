@@ -283,16 +283,14 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 }
 
 function KlingLogo({ size = 20 }: { size?: number }) {
+  // Kuaishou (Kling's parent) brand: orange
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="6" fill="url(#kling-grad)"/>
-      <defs>
-        <linearGradient id="kling-grad" x1="0" y1="0" x2="24" y2="24">
-          <stop offset="0%" stopColor="#FF3CAC"/>
-          <stop offset="100%" stopColor="#784BA0"/>
-        </linearGradient>
-      </defs>
-      <text x="12" y="17" textAnchor="middle" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="15" fill="white">K</text>
+      <rect width="24" height="24" rx="4" fill="#1a1a1a"/>
+      {/* Stylised K mark — two diagonal strokes off a vertical bar */}
+      <rect x="6" y="5" width="2.5" height="14" rx="1" fill="#FF6B00"/>
+      <path d="M9 12 L17 5.5" stroke="#FF6B00" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M9 12 L17 18.5" stroke="#FF6B00" strokeWidth="2.5" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -307,16 +305,13 @@ function OpenAILogo({ size = 20 }: { size?: number }) {
 }
 
 function ByteDanceLogo({ size = 20 }: { size?: number }) {
+  // ByteDance corporate: dark background, red accent — distinct from TikTok's teal/black
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="6" fill="url(#bd-grad)"/>
-      <defs>
-        <linearGradient id="bd-grad" x1="0" y1="0" x2="24" y2="24">
-          <stop offset="0%" stopColor="#00C6FF"/>
-          <stop offset="100%" stopColor="#0072FF"/>
-        </linearGradient>
-      </defs>
-      <text x="12" y="17" textAnchor="middle" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="11" fill="white">BD</text>
+      <rect width="24" height="24" rx="4" fill="#1a1a1a"/>
+      {/* Flame / spark icon — ByteDance's corporate motif */}
+      <path d="M12 4C12 4 15.5 7.5 15.5 11C15.5 12.2 15.1 13.3 14.4 14.1C14.7 13.4 14.8 12.7 14.6 12C14.1 10 11.5 9.5 11.2 7.2C10.4 9.5 11.5 11 10.8 13C10.3 14.3 9.2 15.2 7.8 15.5C8.7 14.6 9 13.3 8.5 12C7.8 9.5 9.5 7 12 4Z" fill="#E8320A"/>
+      <path d="M10.5 14C10.5 14 9.5 12.8 10 11.5C10.5 13 12 13.5 12.5 15C12.9 16.1 12.5 17.5 11.5 18.5C11.8 17.8 11.8 17 11.5 16.3C10.8 14.8 10.5 14 10.5 14Z" fill="#E8320A" opacity="0.7"/>
     </svg>
   )
 }
@@ -377,7 +372,7 @@ function ModelPicker({
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="w-7 h-7 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-white/40 hover:text-white transition-all"
+            className="w-7 h-7 rounded-md bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-white/40 hover:text-white transition-all"
           >
             <IconX className="w-3.5 h-3.5" />
           </button>
@@ -410,7 +405,7 @@ function ModelPicker({
                         key={model.id}
                         onClick={() => { onSelect(model.id); setOpen(false) }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-all text-left group/card",
+                          "w-full flex items-center gap-3 px-3 py-3 rounded-lg border transition-all text-left group/card",
                           isActive
                             ? "bg-[#FFFF00]/[0.06] border-[#FFFF00]/20"
                             : "bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/[0.08]"
@@ -418,7 +413,7 @@ function ModelPicker({
                       >
                         {/* Provider logo badge */}
                         <div className={cn(
-                          "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
+                          "w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 transition-all",
                           isActive ? "bg-[#FFFF00]/10" : "bg-white/[0.04] group-hover/card:bg-white/[0.07]"
                         )}>
                           {Logo ? <Logo size={18} /> : <div className="w-2 h-2 rounded-full bg-white/30" />}
@@ -471,10 +466,10 @@ function ModelPicker({
       {/* Trigger — premium pill button */}
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#0f0f11] border border-white/[0.07] hover:border-white/[0.15] rounded-xl text-left transition-all group"
+        className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#0f0f11] border border-white/[0.07] hover:border-white/[0.15] rounded-lg text-left transition-all group"
       >
         {/* Provider logo */}
-        <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <div className="w-8 h-8 rounded-md bg-white/[0.05] flex items-center justify-center flex-shrink-0 overflow-hidden">
           {SelectedLogo ? <SelectedLogo size={18} /> : <div className="w-2 h-2 rounded-full bg-white/30" />}
         </div>
 
