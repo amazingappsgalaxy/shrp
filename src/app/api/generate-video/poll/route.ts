@@ -7,6 +7,7 @@ import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import { getEvolinkProvider } from '@/services/ai-providers/evolink'
 import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
+import { generateMediaFilename } from '@/lib/media-filename'
 
 /**
  * GET /api/generate-video/poll?taskId=<uuid>
@@ -151,7 +152,8 @@ export async function GET(request: NextRequest) {
         try {
           const ext = extFromUrl(outputUrl) || 'mp4'
           const mime = mimeFromExt(ext) || 'video/mp4'
-          const cdnUrl = await uploadFromUrl(getOutputPath(userId, ext), outputUrl, mime)
+          const prompt = (settings.prompt as string | undefined) || undefined
+          const cdnUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), outputUrl, mime)
           await supabase
             .from('history_items')
             .update({

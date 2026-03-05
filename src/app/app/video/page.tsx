@@ -20,6 +20,7 @@ import {
 } from "@tabler/icons-react"
 import { createPortal } from "react-dom"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
+import { generateMediaFilename, downloadMedia } from "@/lib/media-filename"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -831,13 +832,12 @@ function VideoGridTile({ video, width, height, onExpand }: {
 
       {/* Download (on hover) */}
       <div className="absolute bottom-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-        <a
-          href={video.url!} download target="_blank" rel="noreferrer"
-          onClick={e => e.stopPropagation()}
+        <button
+          onClick={e => { e.stopPropagation(); downloadMedia(video.url!, generateMediaFilename('mp4', video.prompt)) }}
           className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-all shadow-lg"
         >
           <IconDownload className="w-3.5 h-3.5" />
-        </a>
+        </button>
       </div>
     </div>
   )
@@ -2224,6 +2224,7 @@ function VideoPageContent() {
         url={modalVideo?.url ?? ''}
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setModalVideo(null) }}
+        prompt={modalVideo?.prompt}
       />
     </div>
   )

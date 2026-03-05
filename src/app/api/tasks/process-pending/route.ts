@@ -21,6 +21,7 @@ import { getEvolinkProvider } from '../../../../services/ai-providers/evolink'
 import { getSynvowProvider } from '../../../../services/ai-providers/synvow'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
+import { generateMediaFilename } from '@/lib/media-filename'
 
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
 
@@ -155,7 +156,8 @@ async function processVideoTask(
       try {
         const ext = extFromUrl(outputUrl) || 'mp4'
         const mime = mimeFromExt(ext) || 'video/mp4'
-        finalUrl = await uploadFromUrl(getOutputPath(task.user_id, ext), outputUrl, mime)
+        const videoPrompt = (settings.prompt as string | undefined) || undefined
+        finalUrl = await uploadFromUrl(getOutputPath(task.user_id, ext, generateMediaFilename(ext, videoPrompt)), outputUrl, mime)
         console.log(`✅ Bunny (process-pending video): uploaded — ${finalUrl}`)
       } catch (err) {
         console.error('❌ Bunny (process-pending video): upload failed, using provider URL:', err)
@@ -264,7 +266,8 @@ async function processPendingTask(
         outputs.map(async (item) => {
           try {
             const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
-            const bunnyUrl = await uploadFromUrl(getOutputPath(task.user_id, ext), item.url, mimeFromExt(ext))
+            const taskPrompt = (settings.prompt as string | undefined) || undefined
+            const bunnyUrl = await uploadFromUrl(getOutputPath(task.user_id, ext, generateMediaFilename(ext, taskPrompt)), item.url, mimeFromExt(ext))
             console.log(`✅ Bunny: output uploaded — ${bunnyUrl}`)
             // Replace url with Bunny CDN URL; keep original RunningHub URL as fallback reference
             return { ...item, url: bunnyUrl, original_url: item.url }

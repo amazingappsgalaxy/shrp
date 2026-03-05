@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Download, Maximize2, Sparkles, AlertCircle } from "lucide-react";
+import { generateMediaFilename, downloadMedia } from "@/lib/media-filename";
 import { IconWand } from '@tabler/icons-react';
 import { cn } from "@/lib/utils";
 import { EditModal } from '@/components/app/edit/EditModal';
@@ -217,13 +218,8 @@ export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModal
                                         <button
                                             onClick={() => {
                                                 if (!currentOutput) return;
-                                                const link = document.createElement('a');
-                                                link.href = currentOutput.url;
-                                                link.download = `sharpii-${item.id}`;
-                                                link.target = "_blank";
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
+                                                const ext = currentOutput.type === 'video' ? 'mp4' : (currentOutput.url.match(/\.(\w+)(?:\?|$)/)?.[1]?.toLowerCase() || 'jpg');
+                                                downloadMedia(currentOutput.url, generateMediaFilename(ext, item.settings?.prompt));
                                             }}
                                             className="w-full bg-white text-black font-semibold h-10 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm"
                                         >

@@ -8,6 +8,7 @@ import {
   IconRepeat, IconRepeatOff,
 } from "@tabler/icons-react"
 import { createPortal } from "react-dom"
+import { generateMediaFilename } from "@/lib/media-filename"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -167,9 +168,10 @@ interface VideoModalProps {
   isOpen: boolean
   onClose: () => void
   onDownload?: () => void
+  prompt?: string
 }
 
-export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps) {
+export function VideoModal({ url, isOpen, onClose, onDownload, prompt }: VideoModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const volumeRef = useRef<HTMLDivElement>(null)
@@ -337,19 +339,20 @@ export function VideoModal({ url, isOpen, onClose, onDownload }: VideoModalProps
   const handleDownload = useCallback(async () => {
     if (!url) return
     if (onDownload) { onDownload(); return }
+    const filename = generateMediaFilename('mp4', prompt)
     try {
       const res = await fetch(url)
       const blob = await res.blob()
       const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = blobUrl; a.download = `sharpii-video-${Date.now()}.mp4`
+      a.href = blobUrl; a.download = filename
       document.body.appendChild(a); a.click()
       URL.revokeObjectURL(blobUrl); document.body.removeChild(a)
     } catch {
       const a = document.createElement("a")
-      a.href = url; a.download = `sharpii-video-${Date.now()}.mp4`; a.click()
+      a.href = url; a.download = filename; a.click()
     }
-  }, [url, onDownload])
+  }, [url, onDownload, prompt])
 
   if (!isOpen || !mounted) return null
 

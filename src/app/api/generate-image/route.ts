@@ -9,6 +9,7 @@ import { getModel } from '@/services/models'
 import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import type { SynvowGenerateRequest } from '@/services/ai-providers/synvow'
 import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
+import { generateMediaFilename } from '@/lib/media-filename'
 
 /**
  * POST /api/generate-image
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
             const base64 = match[2]!
             const buf = Buffer.from(base64, 'base64')
             const ext = mime.includes('png') ? 'png' : 'jpg'
-            finalUrl = await uploadBuffer(getOutputPath(userId, ext), buf, mime)
+            finalUrl = await uploadBuffer(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), buf, mime)
             console.log(`✅ Bunny (generate-image): base64 output uploaded — ${finalUrl}`)
           }
         }
@@ -267,7 +268,7 @@ export async function POST(request: NextRequest) {
           if (isOurCdn(item.url)) return item
           try {
             const ext = extFromUrl(item.url) || 'jpg'
-            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), item.url, mimeFromExt(ext))
+            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), item.url, mimeFromExt(ext))
             console.log(`✅ Bunny (generate-image): output uploaded — ${bunnyUrl}`)
             return { ...item, url: bunnyUrl, original_url: item.url }
           } catch (err) {

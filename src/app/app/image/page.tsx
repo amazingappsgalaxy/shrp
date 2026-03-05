@@ -12,6 +12,7 @@ import {
 import { getImageModels } from "@/services/models"
 import { uploadImageToCdn } from "@/lib/upload-image"
 import { APP_DATA_KEY } from "@/lib/hooks/use-app-data"
+import { generateMediaFilename, downloadMedia } from "@/lib/media-filename"
 import { useSWRConfig } from "swr"
 import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
 import { EditModal } from '@/components/app/edit/EditModal'
@@ -349,10 +350,11 @@ function ImageModal({
             >
               <IconWand size={13} /> Edit Image
             </button>
-            <a href={img.url} download target="_blank" rel="noreferrer"
+            <button
+              onClick={() => downloadMedia(img.url, generateMediaFilename('jpg', img.prompt))}
               className="flex items-center justify-center gap-2 w-full h-11 bg-[#FFFF00] text-black text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#e6e600] transition-all">
               <IconDownload size={13} /> Download
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -479,11 +481,12 @@ function JustifiedGrid({
                             <IconRefresh size={11} />
                           </button>
                         )}
-                        <a href={img.url} download target="_blank" rel="noreferrer"
-                          onClick={e => e.stopPropagation()} title="Download"
+                        <button
+                          onClick={e => { e.stopPropagation(); downloadMedia(img.url, generateMediaFilename('jpg', img.prompt)) }}
+                          title="Download"
                           className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-all shadow-lg">
                           <IconDownload size={11} />
-                        </a>
+                        </button>
                       </div>
                     </div>
                   </>

@@ -39,9 +39,14 @@ export function getInputPath(userId: string, ext: string): string {
   return `inputs/${todayUtc()}/${userId}/${uuidv4()}.${ext}`
 }
 
-/** Bunny storage path for an output file */
-export function getOutputPath(userId: string, ext: string): string {
-  return `outputs/${todayUtc()}/${userId}/${uuidv4()}.${ext}`
+/**
+ * Bunny storage path for an output file.
+ * Pass `filename` (e.g. from generateMediaFilename) to use a human-readable name
+ * instead of a random UUID. The ext param is ignored when filename is provided.
+ */
+export function getOutputPath(userId: string, ext: string, filename?: string): string {
+  const name = filename ?? `${uuidv4()}.${ext}`
+  return `outputs/${todayUtc()}/${userId}/${name}`
 }
 
 /** Full Bunny CDN URL from a storage path */

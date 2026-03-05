@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { HistoryListItem } from "@/app/app/history/page"; // We'll need to export this or redefine
 import { ProcessingGradient } from "./ProcessingGradient";
 import { Download, Play, MoreVertical, Trash2, Maximize2, AlertCircle } from "lucide-react";
+import { generateMediaFilename, downloadMedia } from "@/lib/media-filename";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { motion } from "framer-motion";
 
@@ -112,13 +113,8 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
                             className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform shadow-lg cursor-pointer z-20"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                const link = document.createElement('a');
-                                link.href = primary;
-                                link.download = `sharpii-${item.id}`;
-                                link.target = "_blank";
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
+                                const ext = primary.match(/\.(\w+)(?:\?|$)/)?.[1]?.toLowerCase() || 'jpg';
+                                downloadMedia(primary, generateMediaFilename(ext));
                             }}
                         >
                             <Download className="w-4 h-4" />
