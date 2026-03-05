@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
             const mime = match[1]!
             const base64 = match[2]!
             const buf = Buffer.from(base64, 'base64')
-            const ext = mime.includes('png') ? 'png' : 'jpg'
+            const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg'
             finalUrl = await uploadBuffer(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), buf, mime)
             console.log(`✅ Bunny (generate-image): base64 output uploaded — ${finalUrl}`)
           }

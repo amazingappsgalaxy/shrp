@@ -351,7 +351,7 @@ function ImageModal({
               <IconWand size={13} /> Edit Image
             </button>
             <button
-              onClick={() => downloadMedia(img.url, generateMediaFilename('jpg', img.prompt))}
+              onClick={() => { const ext = img.url.split('?')[0]?.match(/\.(\w+)$/)?.[1]?.toLowerCase() || 'jpg'; downloadMedia(img.url, generateMediaFilename(ext, img.prompt)) }}
               className="flex items-center justify-center gap-2 w-full h-11 bg-[#FFFF00] text-black text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#e6e600] transition-all">
               <IconDownload size={13} /> Download
             </button>
@@ -482,7 +482,7 @@ function JustifiedGrid({
                           </button>
                         )}
                         <button
-                          onClick={e => { e.stopPropagation(); downloadMedia(img.url, generateMediaFilename('jpg', img.prompt)) }}
+                          onClick={e => { e.stopPropagation(); const ext = img.url.split('?')[0]?.match(/\.(\w+)$/)?.[1]?.toLowerCase() || 'jpg'; downloadMedia(img.url, generateMediaFilename(ext, img.prompt)) }}
                           title="Download"
                           className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-all shadow-lg">
                           <IconDownload size={11} />
