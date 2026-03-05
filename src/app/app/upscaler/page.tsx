@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useRef, useEffect, Suspense } from "react"
+import React, { useState, useRef, useEffect, Suspense, useMemo } from "react"
 import { useSWRConfig } from "swr"
 import {
   IconUpload,
@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
+import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
 import { useCredits } from "@/lib/hooks/use-credits"
 import { APP_DATA_KEY } from "@/lib/hooks/use-app-data"
 import { ExpandViewModal } from "@/components/ui/expand-view-modal"
@@ -95,6 +96,11 @@ function UpscalerContent() {
   // Multi-task tracking
   const [activeTasks, setActiveTasks] = useState<Map<string, TaskEntry>>(new Map())
   const [dismissedTaskIds, setDismissedTaskIds] = useState<Set<string>>(new Set())
+
+  const visibleTasks = useMemo(() => {
+    const items = Array.from(activeTasks.values()).filter(task => !dismissedTaskIds.has(task.id))
+    return items.sort((a, b) => b.createdAt - a.createdAt)
+  }, [activeTasks, dismissedTaskIds])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const latestImageRef = useRef(uploadedImage)
@@ -739,6 +745,13 @@ function UpscalerContent() {
           onDownload={handleDownload}
         />
       )}
+
+      {/* Task progress indicator — circular ring while upscaling, done pop-up + sound on success */}
+      <MyLoadingProcessIndicator
+        isVisible={visibleTasks.length > 0}
+        tasks={visibleTasks}
+        onCloseTask={taskId => setDismissedTaskIds(prev => { const s = new Set(prev); s.add(taskId); return s })}
+      />
 
     </div>
   )
