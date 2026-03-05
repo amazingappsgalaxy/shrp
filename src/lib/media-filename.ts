@@ -36,12 +36,12 @@ export function generateMediaFilename(
     hint = prompt
       .trim()
       .split(/\s+/)
-      .slice(0, 3)
+      .slice(0, 2)
       .map(w => w.replace(/[^a-zA-Z0-9]/g, ''))
       .filter(Boolean)
       .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join('')
-      .slice(0, 18) // cap so filename doesn't get too long
+      .slice(0, 12) // hard cap — keeps filenames short regardless of prompt length
     if (hint) hint = `_${hint}`
   }
 
