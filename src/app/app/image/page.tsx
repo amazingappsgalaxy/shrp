@@ -786,12 +786,13 @@ export default function ImagePage() {
             }
 
             if (placeholderIdxs.length > 0 && newImgs.length > 0) {
-              // Replace first placeholder with all resolved images, remove the rest
-              updated.splice(placeholderIdxs[0]!, 1, ...newImgs)
-              const shift = newImgs.length - 1
-              for (let j = 1; j < placeholderIdxs.length; j++) {
-                updated.splice(placeholderIdxs[j]! + shift, 1)
+              // Remove extra placeholders from end→beginning first (preserves earlier indices),
+              // then replace the first placeholder with all resolved images.
+              // The naive shift-based approach was wrong for count=4 (j>=2 used a stale shift).
+              for (let j = placeholderIdxs.length - 1; j >= 1; j--) {
+                updated.splice(placeholderIdxs[j]!, 1)
               }
+              updated.splice(placeholderIdxs[0]!, 1, ...newImgs)
             } else if (newImgs.length > 0) {
               updated.push(...newImgs)
             }
