@@ -353,15 +353,17 @@ function ModelPicker({
                         key={model.id}
                         onClick={() => { onSelect(model.id); setOpen(false) }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-3 rounded-[9px] transition-all text-left",
+                          "w-full flex items-center gap-3 px-3 py-3 transition-all text-left border border-transparent",
                           isActive
-                            ? "border-2 border-[#FFFF00]/70"
-                            : "border border-transparent hover:border-white/[0.07] hover:bg-white/[0.03]"
+                            ? "hover:bg-white/[0.03]"
+                            : "hover:border-white/[0.07] hover:bg-white/[0.03]"
                         )}
-                        style={isActive ? {
-                          background: 'linear-gradient(135deg, rgba(255,255,0,0.07) 0%, rgba(255,255,0,0.02) 60%, transparent 100%)',
-                          boxShadow: '0 0 0 0px rgba(255,255,0,0.15), inset 0 1px 0 rgba(255,255,0,0.08)',
-                        } : undefined}
+                        style={{
+                          borderRadius: 14,
+                          ...(isActive ? {
+                            background: 'linear-gradient(135deg, rgba(255,255,0,0.07) 0%, rgba(255,255,0,0.02) 60%, transparent 100%)',
+                          } : {}),
+                        }}
                       >
                         {/* Provider logo badge */}
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden bg-[#0e0e0e]">
@@ -397,10 +399,6 @@ function ModelPicker({
                           </p>
                         </div>
 
-                        {/* Active check dot */}
-                        {isActive && (
-                          <div className="w-2 h-2 rounded-full bg-[#FFFF00]/60 flex-shrink-0" />
-                        )}
                       </button>
                     )
                   })}
@@ -950,6 +948,8 @@ function VideoPageContent() {
   // Veo-specific
   const [enhancePrompt, setEnhancePrompt] = useState(false)
   const [enableUpsample, setEnableUpsample] = useState(false)
+  // Sora Pro-specific
+  const [hdMode, setHdMode] = useState(false)
   // Kling multi-shot
   const [multiShot, setMultiShot] = useState(false)
   const [shotType, setShotType] = useState<'customize' | 'intelligence'>('customize')
@@ -1031,6 +1031,11 @@ function VideoPageContent() {
     }
     // Reset audio when switching to a model that doesn't support it
     if (!newModel?.controls?.audioSync) setGenAudio(false)
+    // Reset aspect ratio if current selection isn't supported by the new model
+    const supportedAspects = newModel?.controls?.aspectRatios
+    if (supportedAspects && supportedAspects.length > 0) {
+      setGenAspect(prev => supportedAspects.includes(prev) ? prev : (supportedAspects[0] ?? '16:9'))
+    }
   }, [resolvedGenerateModelId])
 
   useEffect(() => {
@@ -1278,6 +1283,11 @@ function VideoPageContent() {
       if (!motionSourceCdnUrl) { showToast('Please upload a reference video.'); return }
       // Style reference image is optional for kling-o3-reference-to-video
     }
+    // Sora requires an input image (images[] is a required API field)
+    if (activeTab === 'generate' && imageRequired && !firstFrameCdnUrl) {
+      showToast('Please upload a reference image — Sora requires one to generate video.')
+      return
+    }
 
     setIsSubmitting(true)
     const localId = `vtask-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
@@ -1328,6 +1338,8 @@ function VideoPageContent() {
           if (enhancePrompt) body.enhance_prompt = true
           if (enableUpsample) body.enable_upsample = true
         }
+        // Sora-specific
+        if (isSoraModel && hasHd && hdMode) body.hd = true
       } else if (activeTab === 'edit') {
         body.video_url = editVideoCdnUrl
         body.keep_original_sound = keepOriginalSound
@@ -1422,7 +1434,10 @@ function VideoPageContent() {
   const isEvolinkModel = selectedModel?.providers[0] === 'evolink'
   const isSeedanceModel = selectedModelId.startsWith('doubao')
   const isVeoModel = selectedModelId.startsWith('veo')
+  const isSoraModel = selectedModelId.startsWith('sora')
   const hasSeed = isSeedanceModel || isVeoModel
+  const hasHd = selectedModel?.controls?.hd === true
+  const imageRequired = selectedModel?.controls?.requiresImage === true
   // Veo variant group: the picker model chosen by user (before variant resolution)
   const baseGenerateModel = ALL_VIDEO_MODELS.find(m => m.id === generateModel)
   const isVeoVariantGroup = !!baseGenerateModel?.variantGroupId
@@ -1498,10 +1513,16 @@ function VideoPageContent() {
                   <div className={cn("grid gap-3", hasEndFrame ? "grid-cols-2" : "grid-cols-1")}>
                     {hasFirstFrame && (
                       <div>
-                        <SectionLabel>First Frame <span className="text-white/40 normal-case font-normal text-[9px] ml-1">(optional)</span></SectionLabel>
+                        <SectionLabel>
+                          {imageRequired ? 'Input Image' : 'First Frame'}
+                          {' '}
+                          <span className={cn("normal-case font-normal text-[9px] ml-1", imageRequired ? "text-amber-400" : "text-white/40")}>
+                            {imageRequired ? '(required)' : '(optional)'}
+                          </span>
+                        </SectionLabel>
                         <ImageUploadBox
                           label="" preview={firstFramePreview} uploading={firstFrameUploading}
-                          hint="First frame"
+                          hint={imageRequired ? 'Upload source image' : 'First frame'}
                           onFile={(f) => uploadImage(f, setFirstFramePreview, setFirstFrameCdnUrl, setFirstFrameUploading)}
                           onClear={() => { setFirstFramePreview(null); setFirstFrameCdnUrl(null) }}
                         />
@@ -1620,8 +1641,26 @@ function VideoPageContent() {
                         </div>
                       </div>
                     )}
-                    {/* Sora and others: full-width aspect dropdown */}
-                    {!isVeoModel && !isSeedanceModel && (
+                    {/* Sora: Aspect + HD toggle */}
+                    {isSoraModel && (
+                      <div className={cn("grid gap-2.5", hasHd ? "grid-cols-2" : "grid-cols-1")}>
+                        <div>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
+                          <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} compact={true} />
+                        </div>
+                        {hasHd && (
+                          <div>
+                            <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">HD Mode</span>
+                            <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                              <IconSparkles className="w-3.5 h-3.5 text-white/55" />
+                              <Toggle checked={hdMode} onChange={setHdMode} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Others: full-width aspect dropdown */}
+                    {!isVeoModel && !isSeedanceModel && !isSoraModel && (
                       <div>
                         <SectionLabel>Aspect Ratio</SectionLabel>
                         <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} />

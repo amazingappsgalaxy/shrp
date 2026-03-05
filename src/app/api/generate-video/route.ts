@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
     keep_original_sound?: boolean
     /** Reference image URLs for kling-o3-video-edit / kling-o3-reference-to-video (up to 4) */
     image_urls?: string[]
+    /** Sora 2 Pro: high-definition output */
+    hd?: boolean
   }
   try {
     body = await request.json()
@@ -122,6 +124,7 @@ export async function POST(request: NextRequest) {
     enable_upsample,
     keep_original_sound,
   } = body
+  const hd = body.hd
   let clientImageUrls = body.image_urls?.filter(u => typeof u === 'string' && u.length > 0)
 
   if (!modelId) {
@@ -305,6 +308,9 @@ export async function POST(request: NextRequest) {
         ...(seed !== undefined ? { seed } : {}),
         ...(enhance_prompt ? { enhance_prompt: true } : {}),
         ...(enable_upsample ? { enable_upsample: true } : {}),
+        ...(hd !== undefined ? { hd } : {}),
+        // Sora: always suppress watermark
+        ...(modelId.startsWith('sora') ? { watermark: false } : {}),
       }
       const result = await provider.submitTask(req)
       providerTaskId = result.taskId

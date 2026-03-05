@@ -57,6 +57,10 @@ export interface SynvowGenerateRequest {
   enable_upsample?: boolean
   /** CDN URL for end-frame video seeding (Kling) */
   end_frame?: string
+  /** High-definition output — Sora 2 Pro exclusive */
+  hd?: boolean
+  /** Suppress watermark on output (Sora) */
+  watermark?: boolean
 }
 
 export type SynvowTaskStatus =

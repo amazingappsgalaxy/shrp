@@ -37,6 +37,10 @@ export interface ModelControls {
   elementList?: boolean
   /** Whether the model supports keep_original_sound (preserve input video audio) */
   keepOriginalSound?: boolean
+  /** Whether the model supports hd (high-definition) output (Sora 2 Pro) */
+  hd?: boolean
+  /** Whether the first-frame image is required (not just optional) */
+  requiresImage?: boolean
 }
 
 export interface ModelConfig {
@@ -393,13 +397,15 @@ const VIDEO_MODELS: ModelConfig[] = [
     id: 'sora-2',
     label: 'Sora 2',
     type: 'video',
-    description: 'OpenAI Sora 2 — stunning cinematic video generation',
+    description: 'OpenAI Sora 2 — cinematic image-to-video generation',
     credits: 500,
     costUsd: 0.50,
     tag: 'OpenAI',
     controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '10', '15'],
+      aspectRatios: ['16:9', '9:16'],   // API only supports 16:9 and 9:16
+      durations: ['4', '15'],           // 4–15s range (valid: 4,8,10,12,15)
+      firstFrameImage: true,            // images[] is REQUIRED by the API
+      requiresImage: true,
     },
     providers: ['synvow'],
   },
@@ -407,13 +413,16 @@ const VIDEO_MODELS: ModelConfig[] = [
     id: 'sora-2-pro',
     label: 'Sora 2 Pro',
     type: 'video',
-    description: 'OpenAI Sora 2 Pro — highest quality with extended duration',
+    description: 'OpenAI Sora 2 Pro — highest quality, up to 25s, HD support',
     credits: 700,
     costUsd: 0.70,
     tag: 'OpenAI',
     controls: {
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '10', '15', '20'],
+      aspectRatios: ['16:9', '9:16'],   // API only supports 16:9 and 9:16
+      durations: ['4', '25'],           // 4–25s range (25s is Pro-only)
+      firstFrameImage: true,            // images[] is REQUIRED by the API
+      requiresImage: true,
+      hd: true,                         // HD mode exclusive to sora-2-pro
     },
     providers: ['synvow'],
   },
@@ -428,8 +437,9 @@ const VIDEO_MODELS: ModelConfig[] = [
     tag: 'ByteDance',
     controls: {
       aspectRatios: ['16:9', '9:16', '1:1'],
-      durations: ['5', '10'],
+      durations: ['4', '12'],           // 4–12s range per API docs
       firstFrameImage: true,
+      audioSync: true,                  // generate_audio is exclusive to 1.5 Pro
     },
     providers: ['synvow'],
   },

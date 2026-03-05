@@ -396,7 +396,8 @@ export class SynvowProvider {
     }
     if (req.aspect_ratio) body.aspect_ratio = req.aspect_ratio
     if (req.quality) body.quality = req.quality
-    if (req.duration !== undefined) body.duration = req.duration
+    // Sora API requires duration as a string ("4", "10", etc.); other models accept numbers
+    if (req.duration !== undefined) body.duration = req.model.startsWith('sora') ? String(req.duration) : req.duration
     if (req.audio_sync !== undefined) body.audio_sync = req.audio_sync
     if (req.negative_prompt) body.negative_prompt = req.negative_prompt
     if (req.camera_fixed !== undefined) body.camera_fixed = req.camera_fixed
@@ -404,6 +405,8 @@ export class SynvowProvider {
     if (req.enhance_prompt) body.enhance_prompt = true
     if (req.enable_upsample) body.enable_upsample = true
     if (req.end_frame) body.end_frame = req.end_frame
+    if (req.hd !== undefined) body.hd = req.hd
+    if (req.watermark !== undefined) body.watermark = req.watermark
 
     // Video input (for kling-effects, kling-video-motion-control)
     if (req.video_url) body.video_url = req.video_url
