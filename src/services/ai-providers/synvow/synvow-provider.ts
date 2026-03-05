@@ -432,10 +432,12 @@ export class SynvowProvider {
       body: JSON.stringify(body),
     })
 
-    const data = (await res.json()) as SynvowRawTaskResponse & { error?: { message?: string } }
+    const data = (await res.json()) as SynvowRawTaskResponse & { error?: { message?: string }; message?: string; code?: string }
 
     if (!res.ok) {
-      throw new Error(data.error?.message ?? `Video API error ${res.status}`)
+      // Synvow returns errors either as { error: { message } } or flat { message, code }
+      const errMsg = data.error?.message ?? data.message ?? `Video API error ${res.status}`
+      throw new Error(errMsg)
     }
 
     const taskId = data.task_id

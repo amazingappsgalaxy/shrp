@@ -864,28 +864,25 @@ function VideoJustifiedGrid({ videos, onExpand, onAspectCorrect }: {
   const maxTHFor169 = Math.max(120, Math.floor((containerW - VGAP) / 2 * 9 / 16))
   const targetH = Math.min(containerW < 480 ? 220 : containerW < 768 ? 280 : 340, maxTHFor169)
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
+  // Loading tiles use same layout algorithm as completed tiles so sizes match exactly
+  const loadingRows = useMemo(() => buildVideoRows(loadingVideos, containerW, targetH), [loadingVideos, containerW, targetH])
 
   return (
     <div ref={containerRef} className="w-full">
-      {/* Loading placeholders — compact fixed-size row at top */}
-      {loadingVideos.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {loadingVideos.map(v => {
-            const asp = VIDEO_ASPECT_NUM[v.aspect] ?? (16 / 9)
-            const h = 110
-            const w = Math.round(h * asp)
-            return (
-              <div
-                key={v.id}
-                style={{ width: w, height: h, borderRadius: 10, position: 'relative', overflow: 'hidden', flexShrink: 0 }}
-                className="border border-white/[0.06]"
-              >
-                <GenerationAnimation size="sm" label="Generating video" />
-              </div>
-            )
-          })}
+      {/* Loading placeholders — same justified grid layout as completed tiles */}
+      {loadingRows.map((row) => (
+        <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
+          {row.videos.map((video, ii) => (
+            <div
+              key={video.id}
+              style={{ width: row.widths[ii]!, height: row.height, borderRadius: 8, position: 'relative', overflow: 'hidden', flexShrink: 0 }}
+              className="border border-white/[0.06]"
+            >
+              <GenerationAnimation size="sm" label="Generating video" />
+            </div>
+          ))}
         </div>
-      )}
+      ))}
 
       {/* Completed videos — justified masonry grid */}
       {rows.map((row) => (
