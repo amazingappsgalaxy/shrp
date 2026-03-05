@@ -47,6 +47,7 @@ export default function HistoryPage() {
   const [hasMore, setHasMore] = useState(true)
   const [selected, setSelected] = useState<HistoryDetail | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [detailsLoading, setDetailsLoading] = useState(false)
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null)
 
   const loadHistory = async (reset = false) => {
@@ -159,20 +160,41 @@ export default function HistoryPage() {
   }, [user])
 
   const openDetail = async (id: string) => {
-    setLoadingItemId(id)
+    // Open modal immediately with data we already have
+    const basicItem = items.find(i => i.id === id)
+    if (basicItem) {
+      setSelected({
+        id: basicItem.id,
+        taskId: '',
+        outputUrls: basicItem.outputUrls,
+        modelName: '',
+        pageName: '',
+        status: basicItem.status,
+        generationTimeMs: null,
+        settings: {},
+        createdAt: basicItem.createdAt,
+      })
+      setModalOpen(true)
+      setDetailsLoading(true)
+    } else {
+      setLoadingItemId(id)
+    }
+
+    // Load full details in background
     try {
       const res = await fetch(`/api/history/item?id=${id}`, { cache: 'no-store' })
       if (!res.ok) {
-        toast.error('Failed to load details')
+        if (!basicItem) toast.error('Failed to load details')
         return
       }
       const data = await res.json()
       setSelected(data)
-      setModalOpen(true)
+      if (!basicItem) setModalOpen(true)
     } catch (error) {
       console.error('Failed to open detail:', error)
-      toast.error('Connection error')
+      if (!basicItem) toast.error('Connection error')
     } finally {
+      setDetailsLoading(false)
       setLoadingItemId(null)
     }
   }
@@ -244,8 +266,9 @@ export default function HistoryPage() {
 
       <HistoryDetailModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setDetailsLoading(false) }}
         item={selected}
+        detailsLoading={detailsLoading}
       />
     </div>
   )

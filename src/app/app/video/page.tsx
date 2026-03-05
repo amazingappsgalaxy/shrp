@@ -2233,17 +2233,19 @@ function VideoPageContent() {
         prompt={modalVideo?.prompt}
       />
 
-      {/* Generation progress indicator — done sound + done popup */}
-      <MyLoadingProcessIndicator
-        isVisible={activeTasks.size > 0}
-        tasks={Array.from(activeTasks.values()).map(t => ({
-          id: t.id,
-          progress: t.progress,
-          status: t.status,
-          message: t.message,
-        }))}
-        onCloseTask={id => setActiveTasks(prev => { const m = new Map(prev); m.delete(id); return m })}
-      />
+      {/* Done/error popup only — spinner hidden during generation */}
+      {(() => {
+        const doneTasks = Array.from(activeTasks.values())
+          .filter(t => t.status === 'success' || t.status === 'error')
+          .map(t => ({ id: t.id, progress: t.progress, status: t.status, message: t.message }))
+        return (
+          <MyLoadingProcessIndicator
+            isVisible={doneTasks.length > 0}
+            tasks={doneTasks}
+            onCloseTask={id => setActiveTasks(prev => { const m = new Map(prev); m.delete(id); return m })}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -35,9 +35,10 @@ interface HistoryDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     item: HistoryDetail | null;
+    detailsLoading?: boolean;
 }
 
-export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModalProps) {
+export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: HistoryDetailModalProps) {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [meta, setMeta] = useState<{ width?: number; height?: number; size?: string }>({});
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -240,42 +241,53 @@ export function HistoryDetailModal({ isOpen, onClose, item }: HistoryDetailModal
                                         </p>
                                     </div>
                                 )}
-                                {/* Settings Group */}
-                                <div className="space-y-3">
-                                    <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles className="w-3 h-3" /> configuration
-                                    </h3>
-                                    <div className="grid gap-3">
-                                        {/* Image generation fields */}
-                                        <DetailRow label="Prompt" value={item.settings?.prompt} />
-                                        <DetailRow label="Aspect Ratio" value={item.settings?.aspect_ratio} />
-                                        <DetailRow label="Count" value={item.settings?.count} />
-                                        {/* Editor / upscaler fields */}
-                                        <DetailRow label="Style" value={item.settings?.style} />
-                                        <DetailRow label="Mode" value={item.settings?.mode} />
-                                        <DetailRow label="Texture Size" value={item.settings?.skinTextureSize} />
-                                        <DetailRow label="Detail Level" value={item.settings?.detailLevel} />
-                                        <DetailRow label="Strength" value={item.settings?.transformationStrength} />
-                                    </div>
-                                </div>
 
-                                {/* Metadata Group */}
-                                <div className="space-y-3 pt-4 border-t border-white/5">
-                                    <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest">Metadata</h3>
-                                    <div className="grid gap-3">
-                                        <div className="grid gap-3">
-                                            <DetailRow label="Task ID" value={item.taskId} mono />
-                                            <DetailRow label="Time" value={item.generationTimeMs ? `${(item.generationTimeMs / 1000).toFixed(2)}s` : null} />
-                                            <DetailRow label="Source" value={item.pageName} />
-                                            {meta.width && meta.height && (
-                                                <DetailRow label="Dimensions" value={`${meta.width} x ${meta.height}`} mono />
-                                            )}
-                                            {meta.size && (
-                                                <DetailRow label="File Size" value={meta.size} mono />
-                                            )}
-                                        </div>
+                                {detailsLoading ? (
+                                    <div className="space-y-3">
+                                        <div className="h-3 w-24 bg-white/[0.07] rounded animate-pulse" />
+                                        {[1,2,3,4].map(i => (
+                                            <div key={i} className="flex justify-between items-center">
+                                                <div className="h-2.5 bg-white/[0.05] rounded w-20 animate-pulse" />
+                                                <div className="h-2.5 bg-white/[0.08] rounded w-28 animate-pulse" />
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
+                                ) : (
+                                    <>
+                                        {/* Settings Group */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                                                <Sparkles className="w-3 h-3" /> configuration
+                                            </h3>
+                                            <div className="grid gap-3">
+                                                <DetailRow label="Prompt" value={item.settings?.prompt} />
+                                                <DetailRow label="Aspect Ratio" value={item.settings?.aspect_ratio} />
+                                                <DetailRow label="Count" value={item.settings?.count} />
+                                                <DetailRow label="Style" value={item.settings?.style} />
+                                                <DetailRow label="Mode" value={item.settings?.mode} />
+                                                <DetailRow label="Texture Size" value={item.settings?.skinTextureSize} />
+                                                <DetailRow label="Detail Level" value={item.settings?.detailLevel} />
+                                                <DetailRow label="Strength" value={item.settings?.transformationStrength} />
+                                            </div>
+                                        </div>
+
+                                        {/* Metadata Group */}
+                                        <div className="space-y-3 pt-4 border-t border-white/5">
+                                            <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest">Metadata</h3>
+                                            <div className="grid gap-3">
+                                                <DetailRow label="Task ID" value={item.taskId} mono />
+                                                <DetailRow label="Time" value={item.generationTimeMs ? `${(item.generationTimeMs / 1000).toFixed(2)}s` : null} />
+                                                <DetailRow label="Source" value={item.pageName} />
+                                                {meta.width && meta.height && (
+                                                    <DetailRow label="Dimensions" value={`${meta.width} x ${meta.height}`} mono />
+                                                )}
+                                                {meta.size && (
+                                                    <DetailRow label="File Size" value={meta.size} mono />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
