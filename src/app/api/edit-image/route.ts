@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
       page_name: pageNameToUse,
       status: 'processing',
       generation_time_ms: null,
-      settings: { model, creditCost, mode },
+      // _type marker so process-pending knows to use edit timeout (not RunningHub timeout)
+      settings: { model, creditCost, mode, _type: 'edit-generation' },
     })
 
     // ── Build reference images array ──────────────────────────────────────────

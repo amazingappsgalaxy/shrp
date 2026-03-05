@@ -533,12 +533,13 @@ function parseHistItems(items: HistoryItem[]): { images: GridImage[]; pendingIds
           aspect,
           loading: false,
           prompt: item.settings?.prompt,
-          model: item.modelName ?? undefined
+          model: item.modelName ?? undefined,
+          taskId: item.id,
         })
       })
     } else if (item.status === 'processing') {
       pendingIds.push(item.id)
-      images.push({ id: `hist-proc-${item.id}`, url: '', aspect, loading: true })
+      images.push({ id: `hist-proc-${item.id}`, url: '', aspect, loading: true, taskId: item.id })
     }
   }
   return { images, pendingIds }
@@ -756,26 +757,75 @@ export default function ImagePage() {
         const data = await r.json() as HistoryApiResp
         if (!data.items?.length) return
         const completedItems = data.items.filter(i => i.status === 'completed')
-        if (completedItems.length === 0) return
-        const completedIds = new Set(completedItems.map(i => i.id))
+        const failedItems    = data.items.filter(i => i.status === 'failed')
+        if (completedItems.length === 0 && failedItems.length === 0) return
+
+        const resolvedIds = new Set([...completedItems, ...failedItems].map(i => i.id))
+
+        // Build new images and success notifications outside setImages
+        const notifications: { id: string; status: 'success' | 'error'; message: string }[] = []
+
         setImages(prev => {
           const updated = [...prev]
+
           for (const item of completedItems) {
             const rawAspect = item.settings?.aspect_ratio
             const aspect: Aspect = (ASPECTS as readonly string[]).includes(rawAspect ?? '') ? rawAspect as Aspect : '1:1'
-            const idx = updated.findIndex(img => img.id === `hist-proc-${item.id}`)
+            // Build resolved images with index-based keys (matches parseHistItems format)
             const newImgs: GridImage[] = []
-            for (const out of item.outputUrls) {
+            item.outputUrls.forEach((out, urlIdx) => {
               const url = typeof out === 'string' ? out : out.url
-              if (!url) continue
-              newImgs.push({ id: `hist-${item.id}-${url.slice(-12)}`, url, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined })
+              if (!url) return
+              newImgs.push({ id: `hist-${item.id}-${urlIdx}`, url, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined, taskId: item.id })
+            })
+
+            // Find ALL placeholder images linked to this taskId
+            const placeholderIdxs: number[] = []
+            for (let i = 0; i < updated.length; i++) {
+              if (updated[i]!.taskId === item.id) placeholderIdxs.push(i)
             }
-            if (idx !== -1 && newImgs.length > 0) updated.splice(idx, 1, ...newImgs)
-            else if (newImgs.length > 0) updated.push(...newImgs)
+
+            if (placeholderIdxs.length > 0 && newImgs.length > 0) {
+              // Replace first placeholder with all resolved images, remove the rest
+              updated.splice(placeholderIdxs[0]!, 1, ...newImgs)
+              const shift = newImgs.length - 1
+              for (let j = 1; j < placeholderIdxs.length; j++) {
+                updated.splice(placeholderIdxs[j]! + shift, 1)
+              }
+            } else if (newImgs.length > 0) {
+              updated.push(...newImgs)
+            }
+
+            const label = newImgs.length > 1 ? `${newImgs.length} images ready` : 'Image ready'
+            notifications.push({ id: `poll-ok-${item.id}`, status: 'success', message: label })
           }
+
+          // Remove loading placeholders for failed tasks
+          for (const item of failedItems) {
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i]!.taskId === item.id) updated.splice(i, 1)
+            }
+            notifications.push({ id: `poll-err-${item.id}`, status: 'error', message: 'Generation failed' })
+          }
+
           return updated
         })
-        setProcessingDbIds(prev => prev.filter(id => !completedIds.has(id)))
+
+        // Show notifications and refresh credits for completed tasks
+        for (const n of notifications) {
+          setGenTasks(prev => [...prev, { id: n.id, status: n.status, progress: n.status === 'success' ? 100 : 0, message: n.message }])
+          setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== n.id)), n.status === 'success' ? 4000 : 6000)
+        }
+        if (completedItems.length > 0) {
+          setGeneratedIds(prev => {
+            const next = new Set(prev)
+            completedItems.forEach(item => item.outputUrls.forEach((_, idx) => next.add(`hist-${item.id}-${idx}`)))
+            return next
+          })
+          mutate(APP_DATA_KEY)
+        }
+
+        setProcessingDbIds(prev => prev.filter(id => !resolvedIds.has(id)))
       } catch { /* ignore — retry next tick */ }
     }, 15000)
     return () => clearInterval(timer)
@@ -996,51 +1046,21 @@ export default function ImagePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reqBody),
     })
-      .then(r => r.json() as Promise<{ success?: boolean; outputUrls?: string[]; taskId?: string; error?: string; _debug?: Array<{ request?: unknown; response?: unknown }> }>)
+      .then(r => r.json() as Promise<{ success?: boolean; taskId?: string; status?: string; error?: string }>)
       .then(data => {
-        if (!data.outputUrls?.length) throw new Error(data.error ?? "Generation failed")
-
-        // Update debug entry with provider-level request/response
-        setDebugEntries(prev => prev.map(e => e.id === indicatorId ? {
-          ...e,
-          label,
-          requests: data._debug?.length ? data._debug.map(d => d.request) : e.requests,
-          responses: data._debug?.length ? data._debug.map(d => d.response) : [],
-        } : e))
-
-        const newIds = new Set<string>()
-        const resolveTs = Date.now()
-        setImages(prev => {
-          const updated = [...prev]
-          let urlIdx = 0
-          for (let i = 0; i < updated.length; i++) {
-            const pi = placeholders.findIndex(p => p.id === updated[i]!.id)
-            if (pi !== -1) {
-              const url = data.outputUrls![urlIdx]
-              if (url) {
-                const newId = `gen-${resolveTs}-${pi}`
-                newIds.add(newId)
-                updated[i] = { id: newId, url, aspect, loading: false, prompt: fullPrompt, model: activeModel.label, taskId: data.taskId, hasRefs: referenceUrls.length > 0 }
-                urlIdx++
-              } else {
-                updated.splice(i, 1); i--
-              }
-            }
-          }
-          return updated
-        })
-        setGeneratedIds(prev => new Set([...prev, ...newIds]))
-        mutate(APP_DATA_KEY)
-        // Push done notification — auto-dismiss after 4 s
-        setGenTasks(prev => [...prev, { id: indicatorId, status: 'success', progress: 100, message: label }])
-        setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== indicatorId)), 4000)
+        if (!data.taskId) throw new Error(data.error ?? "Generation failed — no task ID returned")
+        // Task is now processing in the background. Link placeholders to taskId so the
+        // 15s poller can resolve them when the generation completes.
+        setImages(prev => prev.map(img =>
+          placeholders.some(p => p.id === img.id) ? { ...img, taskId: data.taskId! } : img
+        ))
+        setProcessingDbIds(prev => [...new Set([...prev, data.taskId!])])
       })
       .catch(err => {
         const msg = err instanceof Error ? err.message : "Generation failed"
         setImages(prev => prev.filter(img => !placeholders.some(p => p.id === img.id)))
         setGenTasks(prev => [...prev, { id: indicatorId, status: 'error', progress: 0, message: msg }])
         setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== indicatorId)), 6000)
-        // Update debug entry label to show failure
         setDebugEntries(prev => prev.map(e => e.id === indicatorId ? { ...e, label: `${activeModel.label} — failed` } : e))
       })
       .finally(() => setInFlightCount(c => c - 1))
@@ -1061,20 +1081,14 @@ export default function ImagePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: modelId, prompt: fullPrompt, aspect_ratio: img.aspect, count: 1 }),
     })
-      .then(r => r.json() as Promise<{ outputUrls?: string[]; taskId?: string; error?: string }>)
+      .then(r => r.json() as Promise<{ taskId?: string; status?: string; error?: string }>)
       .then(data => {
-        const url = data.outputUrls?.[0]
-        if (!url) throw new Error(data.error ?? "No output")
-        const newId = `gen-vary-${Date.now()}`
-        setGeneratedIds(prev => new Set([...prev, newId]))
+        if (!data.taskId) throw new Error(data.error ?? "No task ID returned")
+        // Link the variation placeholder to the taskId for the poller to resolve
         setImages(prev => prev.map(i =>
-          i.id === placeholder.id
-            ? { id: newId, url, aspect: img.aspect, loading: false, prompt: fullPrompt, model: activeModel.label, taskId: data.taskId, hasRefs: false }
-            : i
+          i.id === placeholder.id ? { ...i, taskId: data.taskId! } : i
         ))
-        mutate(APP_DATA_KEY)
-        setGenTasks(prev => [...prev, { id: indicatorId, status: 'success', progress: 100, message: 'Variation ready' }])
-        setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== indicatorId)), 4000)
+        setProcessingDbIds(prev => [...new Set([...prev, data.taskId!])])
       })
       .catch(err => {
         setImages(prev => prev.filter(i => i.id !== placeholder.id))

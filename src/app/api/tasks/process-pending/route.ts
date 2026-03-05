@@ -222,13 +222,34 @@ async function processPendingTask(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   provider: RunningHubProvider,
-  task: { id: string; user_id: string; settings: any; created_at: string }
+  task: { id: string; user_id: string; settings: any; created_at: string; page_name?: string }
 ): Promise<'completed' | 'failed' | 'running'> {
   const settings = task.settings || {}
 
   // Route video tasks (Evolink / Synvow) to their own handler
   if (settings._provider === 'evolink' || settings._provider === 'synvow') {
     return processVideoTask(supabase, task)
+  }
+
+  // Sync generation tasks (image/edit): these complete via after() in their API routes.
+  // If still processing after 15 min they likely failed silently — mark them as such.
+  if (settings._type === 'image-generation' || settings._type === 'edit-generation') {
+    const ageMs = Date.now() - new Date(task.created_at).getTime()
+    if (ageMs > 15 * 60 * 1000) {
+      await supabase
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: { ...settings, _failureReason: 'Task timed out — generation did not complete in time' },
+        })
+        .eq('id', task.id)
+        .eq('status', 'processing')
+      console.warn(`process-pending: timed out ${settings._type} task ${task.id} (age=${Math.round(ageMs / 60000)}min)`)
+      return 'failed'
+    }
+    // Still within timeout window — wait for the after() handler to complete it
+    return 'running'
   }
 
   const runningHubTaskId: string | undefined = settings._runningHubTaskId
@@ -366,7 +387,7 @@ export async function POST(request: NextRequest) {
   // Include tasks without _runningHubTaskId so we can detect and expire stale ones
   const { data: pendingTasks, error: fetchError } = await supabase
     .from('history_items')
-    .select('id, user_id, settings, created_at')
+    .select('id, user_id, settings, created_at, page_name')
     .eq('status', 'processing')
     .order('created_at', { ascending: true })
     .limit(50) // Process at most 50 per run to stay within timeout

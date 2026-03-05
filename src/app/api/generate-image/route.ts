@@ -14,11 +14,12 @@ import { generateMediaFilename } from '@/lib/media-filename'
 /**
  * POST /api/generate-image
  *
- * Synchronous image generation via the Synvow provider.
+ * Asynchronous image generation via the Synvow provider.
  * Flow:
  *   auth → credit check → ensure all refs on Bunny CDN → create history_items →
- *   call provider → update history (completed) → deduct credits →
- *   [after()] upload outputs to Bunny CDN → return
+ *   return { taskId, status: 'processing' } immediately →
+ *   [after()] call provider → update history (completed/failed) → deduct credits →
+ *   upload outputs to Bunny CDN
  *
  * Request body:
  *   model          string    required   Model ID (must be an image model)
@@ -110,8 +111,6 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Ensure all reference images are on our Bunny CDN ─────────────────────
-  // Selected grid images arrive as Synvow output URLs (webstatic.aiproxy.vip).
-  // Re-upload them server-side under the real userId so we own the URL.
   let referenceUrls: string[] = rawRefs
   if (rawRefs.length > 0) {
     const results = await Promise.allSettled(rawRefs.map(u => ensureOnCdn(u, userId)))
@@ -140,6 +139,8 @@ export async function POST(request: NextRequest) {
       referenceUrls: referenceUrls.length > 0 ? referenceUrls : null,
       count,
       creditsToDeduct: totalCredits,
+      // Marker so process-pending knows this is a sync-generation task (not RunningHub/video)
+      _type: 'image-generation',
     },
     created_at: now,
     updated_at: now,
@@ -152,9 +153,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ── Call Synvow provider ──────────────────────────────────────────────────
-  const provider = getSynvowProvider()
-
+  // ── Build provider request ────────────────────────────────────────────────
   const generateReq: SynvowGenerateRequest = {
     model: modelId,
     prompt: prompt.trim(),
@@ -165,106 +164,103 @@ export async function POST(request: NextRequest) {
       : {}),
   }
 
-  const outputUrls: string[] = []
-  const debugItems: Array<{ request?: unknown; response?: unknown }> = []
-  let firstError: string | null = null
+  // ── Return immediately — generation runs in background via after() ─────────
+  // The client polls via processingDbIds / history list endpoint.
+  after(async () => {
+    const supabaseBg = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
+    const provider = getSynvowProvider()
 
-  // Generate `count` images sequentially (Synvow is synchronous per request)
-  for (let i = 0; i < count; i++) {
-    try {
-      const result = await provider.submitTask(generateReq)
-      debugItems.push({ request: result._debugRequest, response: result._debugResponse })
+    const outputUrls: string[] = []
+    let firstError: string | null = null
 
-      if (result.immediateOutput) {
-        let finalUrl = result.immediateOutput
+    // Generate `count` images sequentially (Synvow is synchronous per request)
+    for (let i = 0; i < count; i++) {
+      try {
+        const result = await provider.submitTask(generateReq)
 
-        // NB Pro (Gemini API) may return a data: URI — upload to Bunny CDN synchronously
-        if (finalUrl.startsWith('data:')) {
-          const match = finalUrl.match(/^data:([^;]+);base64,(.+)$/)
-          if (match) {
-            const mime = match[1]!
-            const base64 = match[2]!
-            const buf = Buffer.from(base64, 'base64')
-            const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg'
-            finalUrl = await uploadBuffer(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), buf, mime)
-            console.log(`✅ Bunny (generate-image): base64 output uploaded — ${finalUrl}`)
+        if (result.immediateOutput) {
+          let finalUrl = result.immediateOutput
+
+          // NB Pro (Gemini API) may return a data: URI — upload to Bunny CDN synchronously
+          if (finalUrl.startsWith('data:')) {
+            const match = finalUrl.match(/^data:([^;]+);base64,(.+)$/)
+            if (match) {
+              const mime = match[1]!
+              const base64 = match[2]!
+              const buf = Buffer.from(base64, 'base64')
+              const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg'
+              finalUrl = await uploadBuffer(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), buf, mime)
+              console.log(`✅ Bunny (generate-image): base64 output uploaded — ${finalUrl}`)
+            }
           }
+
+          outputUrls.push(finalUrl)
         }
-
-        outputUrls.push(finalUrl)
+      } catch (err) {
+        firstError = err instanceof Error ? err.message : 'Generation failed'
+        break
       }
-    } catch (err) {
-      firstError = err instanceof Error ? err.message : 'Generation failed'
-      break
     }
-  }
 
-  if (outputUrls.length === 0) {
-    await supabase
+    if (outputUrls.length === 0) {
+      await supabaseBg
+        .from('history_items')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+          settings: {
+            prompt: prompt.trim(),
+            aspect_ratio: aspect_ratio ?? null,
+            referenceUrls: referenceUrls.length > 0 ? referenceUrls : null,
+            count,
+            creditsToDeduct: totalCredits,
+            _type: 'image-generation',
+            failure_reason: firstError ?? 'No output returned',
+          },
+        })
+        .eq('id', taskId)
+      console.error(`❌ generate-image: task ${taskId} failed — ${firstError ?? 'no output'}`)
+      return
+    }
+
+    // ── Update history to completed (with raw Synvow URLs for now) ──────────
+    const actualCredits = creditsPerImage * outputUrls.length
+    const outputItems = outputUrls.map(url => ({ type: 'image' as const, url }))
+
+    await supabaseBg
       .from('history_items')
       .update({
-        status: 'failed',
+        status: 'completed',
+        output_urls: outputItems,
         updated_at: new Date().toISOString(),
         settings: {
           prompt: prompt.trim(),
           aspect_ratio: aspect_ratio ?? null,
           referenceUrls: referenceUrls.length > 0 ? referenceUrls : null,
           count,
-          creditsToDeduct: totalCredits,
-          failure_reason: firstError ?? 'No output returned',
+          creditsToDeduct: actualCredits,
+          _type: 'image-generation',
         },
       })
       .eq('id', taskId)
 
-    return NextResponse.json(
-      { error: firstError ?? 'Generation failed — no output returned' },
-      { status: 500 }
+    // ── Deduct credits ──────────────────────────────────────────────────────
+    const deductResult = await UnifiedCreditsService.deductCredits(
+      userId,
+      actualCredits,
+      taskId,
+      `Image generation: ${modelConfig.label} ×${outputUrls.length}`
     )
-  }
+    if (!deductResult.success) {
+      console.error(
+        `🚨 CRITICAL generate-image: credit deduction FAILED for user=${userId} task=${taskId} amount=${actualCredits} — ${deductResult.error}`
+      )
+    }
 
-  // ── Update history to completed (with raw Synvow URLs for now) ────────────
-  const actualCredits = creditsPerImage * outputUrls.length
-  const outputItems = outputUrls.map(url => ({ type: 'image' as const, url }))
-
-  await supabase
-    .from('history_items')
-    .update({
-      status: 'completed',
-      output_urls: outputItems,
-      updated_at: new Date().toISOString(),
-      settings: {
-        prompt: prompt.trim(),
-        aspect_ratio: aspect_ratio ?? null,
-        referenceUrls: referenceUrls.length > 0 ? referenceUrls : null,
-        count,
-        creditsToDeduct: actualCredits,
-      },
-    })
-    .eq('id', taskId)
-
-  // ── Deduct credits ────────────────────────────────────────────────────────
-  const deductResult = await UnifiedCreditsService.deductCredits(
-    userId,
-    actualCredits,
-    taskId,
-    `Image generation: ${modelConfig.label} ×${outputUrls.length}`
-  )
-  if (!deductResult.success) {
-    // Images already generated — do not withhold them from the user, but log
-    // this as a critical failure for manual investigation and recovery.
-    console.error(
-      `🚨 CRITICAL generate-image: credit deduction FAILED for user=${userId} task=${taskId} amount=${actualCredits} — ${deductResult.error}`
-    )
-  }
-
-  // ── Background: re-upload outputs to Bunny CDN (same pattern as poll endpoint)
-  // The Synvow URLs (webstatic.aiproxy.vip) are temporary; we own the CDN copies.
-  // History is updated after the response is already sent so the UI is not blocked.
-  after(async () => {
+    // ── Upload outputs to Bunny CDN ─────────────────────────────────────────
     try {
       const bunnyItems = await Promise.all(
         outputItems.map(async (item) => {
-          // Already on our CDN (e.g. data: URI was uploaded synchronously above) — skip re-upload
           if (isOurCdn(item.url)) return item
           try {
             const ext = extFromUrl(item.url) || 'jpg'
@@ -277,19 +273,12 @@ export async function POST(request: NextRequest) {
           }
         })
       )
-      const supabaseAfter = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
-      await supabaseAfter.from('history_items').update({ output_urls: bunnyItems }).eq('id', taskId)
+      await supabaseBg.from('history_items').update({ output_urls: bunnyItems }).eq('id', taskId)
       console.log(`✅ Bunny (generate-image): history updated for task ${taskId}`)
     } catch (err) {
-      console.error('❌ Bunny (generate-image): background upload error:', err)
+      console.error('❌ Bunny (generate-image): CDN upload error:', err)
     }
   })
 
-  return NextResponse.json({
-    success: true,
-    taskId,
-    outputUrls,
-    creditsUsed: actualCredits,
-    _debug: debugItems,
-  })
+  return NextResponse.json({ success: true, taskId, status: 'processing' })
 }
