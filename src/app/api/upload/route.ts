@@ -14,7 +14,7 @@ import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
 import { uploadBuffer, getInputPath, mimeFromExt } from '@/lib/bunny'
 
-const MAX_SIZE_BYTES = 15 * 1024 * 1024 // 15 MB decoded
+const MAX_SIZE_BYTES = 25 * 1024 * 1024 // 25 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export async function POST(request: NextRequest) {
@@ -30,33 +30,53 @@ export async function POST(request: NextRequest) {
 
   const userId = session.user.id
 
-  let body: { dataUri?: string }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  let buffer: Buffer
+  let mimeType: string
+
+  const contentType = request.headers.get('content-type') ?? ''
+
+  if (contentType.includes('multipart/form-data')) {
+    // Binary FormData upload — preferred path (no base64 inflation)
+    let form: FormData
+    try {
+      form = await request.formData()
+    } catch {
+      return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
+    }
+    const file = form.get('file')
+    if (!file || typeof file === 'string') {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    }
+    mimeType = file.type || 'image/jpeg'
+    if (!ALLOWED_TYPES.includes(mimeType)) {
+      return NextResponse.json({ error: `Unsupported image type: ${mimeType}` }, { status: 400 })
+    }
+    buffer = Buffer.from(await file.arrayBuffer())
+  } else {
+    // Legacy base64 JSON path
+    let body: { dataUri?: string }
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+    const { dataUri } = body
+    if (!dataUri || !dataUri.startsWith('data:')) {
+      return NextResponse.json({ error: 'dataUri must be a base64 data URI' }, { status: 400 })
+    }
+    const matches = dataUri.match(/^data:([^;]+);base64,(.+)$/)
+    if (!matches || !matches[1] || !matches[2]) {
+      return NextResponse.json({ error: 'Invalid data URI format' }, { status: 400 })
+    }
+    mimeType = matches[1]
+    if (!ALLOWED_TYPES.includes(mimeType)) {
+      return NextResponse.json({ error: `Unsupported image type: ${mimeType}` }, { status: 400 })
+    }
+    buffer = Buffer.from(matches[2], 'base64')
   }
 
-  const { dataUri } = body
-  if (!dataUri || !dataUri.startsWith('data:')) {
-    return NextResponse.json({ error: 'dataUri must be a base64 data URI' }, { status: 400 })
-  }
-
-  const matches = dataUri.match(/^data:([^;]+);base64,(.+)$/)
-  if (!matches || !matches[1] || !matches[2]) {
-    return NextResponse.json({ error: 'Invalid data URI format' }, { status: 400 })
-  }
-
-  const mimeType: string = matches[1]
-  const base64Data: string = matches[2]
-
-  if (!ALLOWED_TYPES.includes(mimeType)) {
-    return NextResponse.json({ error: `Unsupported image type: ${mimeType}` }, { status: 400 })
-  }
-
-  const buffer = Buffer.from(base64Data, 'base64')
   if (buffer.byteLength > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: 'Image too large (max 15MB)' }, { status: 413 })
+    return NextResponse.json({ error: 'Image too large (max 25MB)' }, { status: 413 })
   }
 
   try {

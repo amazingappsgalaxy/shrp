@@ -48,6 +48,16 @@ interface DebugEntry {
 const IMAGE_MODELS = getImageModels()
 const DEFAULT_MODEL = IMAGE_MODELS[0]!
 
+// Logo mapping for image model providers
+const MODEL_LOGO: Record<string, string> = {
+  'nano-banana':                         '/images/google_logo.webp',
+  'nano-banana-2':                       '/images/google_logo.webp',
+  'nano-banana-pro':                     '/images/google_logo.webp',
+  'gemini-3.1-flash-image-preview':      '/images/google_logo.webp',
+  'doubao-seedream-5-0-260128':          '/images/bytedance_logo.webp',
+  'doubao-seedream-4-5-251128':          '/images/bytedance_logo.webp',
+}
+
 // De-duplicated list for the model picker — show one entry per quality group
 const PICKER_MODELS = IMAGE_MODELS.reduce<typeof IMAGE_MODELS>((acc, m) => {
   if (m.qualityGroupId) {
@@ -1621,13 +1631,14 @@ export default function ImagePage() {
                     <div className="absolute bottom-full mb-2 left-0 z-50"
                       style={{ animation: "pickerIn 0.15s ease-out both" }}>
                       <div className="bg-[#0c0c0e] border border-white/10 rounded-lg shadow-[0_-8px_48px_rgba(0,0,0,0.9)] overflow-hidden">
-                        <div className="p-2 w-[300px]">
+                        <div className="p-2 w-[320px]">
                           <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 px-2">Model</p>
                           <div className="flex flex-col gap-1">
                             {PICKER_MODELS.map(m => {
                               // A model is "active" if it matches directly or shares the same quality group
                               const active = m.id === modelId ||
                                 (!!m.qualityGroupId && m.qualityGroupId === activeModel.qualityGroupId)
+                              const logo = MODEL_LOGO[m.id]
                               return (
                                 <button key={m.id}
                                   onClick={() => {
@@ -1642,17 +1653,27 @@ export default function ImagePage() {
                                     }
                                   }}
                                   className={cn(
-                                    "flex items-start gap-3 p-3 rounded-md border transition-all text-left",
-                                    active ? "bg-white/[0.05] border-white/10" : "border-transparent hover:bg-white/[0.03]",
+                                    "w-full flex items-center gap-3 px-3 py-3 transition-all text-left",
+                                    active ? "border-2" : "border border-transparent hover:border-white/[0.07] hover:bg-white/[0.03]",
                                   )}
+                                  style={{
+                                    borderRadius: 14,
+                                    ...(active ? {
+                                      background: 'linear-gradient(to right, rgba(255,255,0,0.07) 0%, rgba(255,255,0,0) 100%)',
+                                      borderColor: 'rgb(47, 47, 47)',
+                                    } : {}),
+                                  }}
                                 >
-                                  <div className={cn(
-                                    "w-3 h-3 rounded-full border-2 mt-0.5 shrink-0 transition-all",
-                                    active ? "border-[#FFFF00] bg-[#FFFF00]" : "border-white/20",
-                                  )} />
+                                  {logo ? (
+                                    <div className="w-9 h-9 rounded-lg bg-[#0e0e0e] flex items-center justify-center shrink-0 overflow-hidden">
+                                      <img src={logo} alt="" className="w-5 h-5 object-contain" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-9 h-9 rounded-lg bg-[#0e0e0e] shrink-0" />
+                                  )}
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-0.5">
-                                      <p className={cn("text-[11px] font-semibold", active ? "text-[#FFFF00]" : "text-white/80")}>{m.label}</p>
+                                      <p className={cn("text-[11px] font-semibold", active ? "text-[#FFFF00]" : "text-white/85")}>{m.label}</p>
                                       <span className={cn(
                                         "text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
                                         active ? "bg-[#FFFF00]/15 text-[#FFFF00]" : "bg-white/[0.05] text-gray-500",

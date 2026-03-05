@@ -129,14 +129,12 @@ function UpscalerContent() {
       }
       img.src = dataUri
 
-      // Fire upload to Bunny CDN immediately in the background
+      // Fire upload to Bunny CDN immediately in the background (send raw binary via FormData to avoid base64 inflation)
       setIsUploading(true)
-      fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUri }),
-      })
-        .then(r => r.json())
+      const form = new FormData()
+      form.append('file', file)
+      fetch('/api/upload', { method: 'POST', body: form })
+        .then(r => r.ok ? r.json() : Promise.reject(new Error(`Upload failed: ${r.status}`)))
         .then(data => { if (data.imageUrl) setRemoteImageUrl(data.imageUrl) })
         .catch(err => console.error('Background upload failed:', err))
         .finally(() => setIsUploading(false))
