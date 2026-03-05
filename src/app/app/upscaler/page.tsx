@@ -1,5 +1,6 @@
 "use client"
 import React, { useState, useRef, useEffect, Suspense } from "react"
+import { useSWRConfig } from "swr"
 import {
   IconUpload,
   IconLoader2,
@@ -10,8 +11,8 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
-import { useTaskManager } from "@/components/providers/TaskManagerProvider"
 import { useCredits } from "@/lib/hooks/use-credits"
+import { APP_DATA_KEY } from "@/lib/hooks/use-app-data"
 import { ExpandViewModal } from "@/components/ui/expand-view-modal"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import { ComparisonView } from "@/components/ui/ComparisonView"
@@ -54,7 +55,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function UpscalerContent() {
   const { user, isLoading, isDemo } = useAuth()
-  const { addWatchedTask, resolveTask, failTask } = useTaskManager()
+  const { mutate } = useSWRConfig()
 
   // Image state
   const [uploadedImage, setUploadedImage] = useState<string | null>(DEMO_INPUT_URL)
@@ -247,7 +248,7 @@ function UpscalerContent() {
       if (!response.ok) throw new Error(data?.error || 'Upscaling failed')
 
       const dbTaskId: string = data.taskId
-      addWatchedTask(dbTaskId, 'Upscaling')
+      // Credit refresh handled directly via mutate on success
 
       const pollStartTime = Date.now()
       const MAX_POLL_DURATION_MS = 45 * 60 * 1000 // 45 minutes hard timeout
@@ -260,7 +261,6 @@ function UpscalerContent() {
         const pInterval = taskIntervalsRef.current.get(taskId)
         if (pInterval) { clearInterval(pInterval); taskIntervalsRef.current.delete(taskId) }
         if (reason === 'failed') {
-          failTask(dbTaskId)
           setActiveTasks(prev => {
             const m = new Map(prev)
             const t = m.get(taskId)
@@ -291,7 +291,7 @@ function UpscalerContent() {
             if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
               setUpscaledImage(outputUrl)
             }
-            resolveTask(dbTaskId)
+            void mutate(APP_DATA_KEY) // refresh credit balance
             setActiveTasks(prev => {
               const newMap = new Map(prev)
               const task = newMap.get(taskId)

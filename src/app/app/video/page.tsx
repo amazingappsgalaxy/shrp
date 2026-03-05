@@ -1059,6 +1059,11 @@ function VideoPageContent() {
     videos
       .filter(v => v.loading && v.taskId && !pollIntervalsRef.current.has(v.id))
       .forEach(v => {
+        setActiveTasks(prev => {
+          const m = new Map(prev)
+          m.set(v.id, { id: v.id, progress: 0, status: 'loading', message: 'Generating video…', createdAt: Date.now(), inputImage: '' })
+          return m
+        })
         const progressInterval = startSmartProgress(v.id, VIDEO_TASK_DURATION_SECS, setActiveTasks)
         taskIntervalsRef.current.set(v.id, progressInterval)
         startVideoPoll(v.id, v.taskId!)
@@ -1292,6 +1297,11 @@ function VideoPageContent() {
     const localId = `vtask-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
     setVideos(prev => [{ id: localId, url: null, aspect: currentAspect, loading: true, prompt: prompt.trim(), model: selectedModel?.label }, ...prev])
+    setActiveTasks(prev => {
+      const m = new Map(prev)
+      m.set(localId, { id: localId, progress: 0, status: 'loading', message: 'Generating video…', createdAt: Date.now(), inputImage: '' })
+      return m
+    })
     const progressInterval = startSmartProgress(localId, VIDEO_TASK_DURATION_SECS, setActiveTasks)
     taskIntervalsRef.current.set(localId, progressInterval)
     setTimeout(() => setIsSubmitting(false), 800)
