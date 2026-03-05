@@ -16,7 +16,7 @@ import {
   IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
   IconPlayerPlay, IconVolume, IconVolumeOff, IconDownload,
-  IconPlus, IconClock, IconX,
+  IconPlus, IconClock, IconX, IconArrowUp,
 } from "@tabler/icons-react"
 import { createPortal } from "react-dom"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
@@ -353,10 +353,10 @@ function ModelPicker({
                         key={model.id}
                         onClick={() => { onSelect(model.id); setOpen(false) }}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-3 transition-all text-left border border-transparent",
+                          "w-full flex items-center gap-3 px-3 py-3 transition-all text-left",
                           isActive
-                            ? "hover:bg-white/[0.03]"
-                            : "hover:border-white/[0.07] hover:bg-white/[0.03]"
+                            ? "border border-transparent"
+                            : "border border-transparent hover:border-white/[0.07] hover:bg-white/[0.03]"
                         )}
                         style={{
                           borderRadius: 14,
@@ -1618,7 +1618,7 @@ function VideoPageContent() {
                           <div>
                             <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Upscale</span>
                             <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
-                              <IconUpload className="w-3.5 h-3.5 text-white/55" />
+                              <IconWand className="w-3.5 h-3.5 text-white/55" />
                               <Toggle checked={enableUpsample} onChange={setEnableUpsample} />
                             </div>
                           </div>
@@ -1633,7 +1633,7 @@ function VideoPageContent() {
                           <AspectDropdown ratios={availableAspects} selected={genAspect} onSelect={setGenAspect} compact={true} />
                         </div>
                         <div>
-                          <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Camera</span>
+                          <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Camera Lock</span>
                           <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
                             <IconCamera className="w-3.5 h-3.5 text-white/55" />
                             <Toggle checked={cameraFixed} onChange={setCameraFixed} />
