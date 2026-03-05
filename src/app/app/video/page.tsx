@@ -780,65 +780,53 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     if (hasLoading) setDisplayCount(prev => Math.max(prev, DISPLAY_BATCH))
   }, [videos])
 
-  // Loading cards shown separately (compact); completed capped at displayCount
+  // All videos (loading + completed) flow through the same masonry grid
   const completedVideos = useMemo(() => videos.filter(v => !v.error && !v.loading), [videos])
   const loadingVideos = useMemo(() => videos.filter(v => v.loading), [videos])
+  // Loading tiles first so they appear at top; completed capped at displayCount
   const displayVideos = useMemo(
-    () => completedVideos.slice(0, displayCount),
-    [completedVideos, displayCount]
+    () => [...loadingVideos, ...completedVideos.slice(0, displayCount)],
+    [loadingVideos, completedVideos, displayCount]
   )
   const hasMore = completedVideos.length > displayCount
 
   // Infinite scroll: re-run when hasMore changes so we observe the sentinel
-  // element once it renders (it's conditionally rendered based on hasMore)
   useEffect(() => {
     const sentinel = sentinelRef.current; if (!sentinel) return
     const io = new IntersectionObserver(entries => {
-      if (entries[0]?.isIntersecting) {
-        setDisplayCount(prev => prev + 10)
-      }
+      if (entries[0]?.isIntersecting) setDisplayCount(prev => prev + 10)
     }, { threshold: 0.1 })
     io.observe(sentinel)
     return () => io.disconnect()
-  }, [hasMore]) // re-connect observer whenever sentinel mounts/unmounts
+  }, [hasMore])
 
-  // -10% from previous 300/420/540
-  const targetH = containerW < 480 ? 270 : containerW < 768 ? 380 : 490
+  // Reduced targetH so a single wide tile (16:9) never fills the full container.
+  // At 280px: a lone 16:9 tile = 497px wide — well within an 800px container.
+  const targetH = containerW < 480 ? 220 : containerW < 768 ? 280 : 340
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
-
-  // Loading tile height is fixed/compact regardless of video count
-  const LOADING_H = 160
 
   return (
     <div ref={containerRef} className="w-full overflow-x-hidden">
-      {/* Loading tiles — compact fixed-height section at top */}
-      {loadingVideos.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: VGAP, marginBottom: VGAP }}>
-          {loadingVideos.map((video) => {
-            const w = Math.round(LOADING_H * (VIDEO_ASPECT_NUM[video.aspect] ?? (16 / 9)))
-            return (
-              <div
-                key={video.id}
-                style={{ width: w, height: LOADING_H, flexShrink: 0, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
-              >
-                <GenerationAnimation label="Generating video" />
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Completed videos — justified masonry */}
+      {/* Unified justified masonry — loading + completed tiles together */}
       {rows.map((row) => (
         <div key={row.videos[0]!.id} style={{ display: 'flex', gap: VGAP, marginBottom: VGAP }}>
           {row.videos.map((video, ii) => (
-            <VideoGridTile
-              key={video.id}
-              video={video}
-              width={row.widths[ii]!}
-              height={row.height}
-              onExpand={() => onExpand(video)}
-            />
+            video.loading ? (
+              <div
+                key={video.id}
+                style={{ width: row.widths[ii], height: row.height, flexShrink: 0, borderRadius: 8, position: 'relative', overflow: 'hidden' }}
+              >
+                <GenerationAnimation label="Generating video" />
+              </div>
+            ) : (
+              <VideoGridTile
+                key={video.id}
+                video={video}
+                width={row.widths[ii]!}
+                height={row.height}
+                onExpand={() => onExpand(video)}
+              />
+            )
           ))}
         </div>
       ))}
