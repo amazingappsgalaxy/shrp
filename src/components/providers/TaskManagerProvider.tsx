@@ -132,7 +132,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
 
           if (item.status === 'completed' && !task.notified) {
             next.set(item.id, { ...task, status: 'completed', notified: true })
-            playSuccessSound()
+            // Sound is played by MyLoadingProcessIndicator when it sees the status → 'success'
             // auto-dismiss after 2s
             const timer = setTimeout(() => {
               setTasks(p => { const m = new Map(p); m.delete(item.id); return m })
@@ -189,8 +189,8 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
       const task = prev.get(historyId)
       if (!task || task.status !== 'processing') return prev
       const next = new Map(prev)
-      next.set(historyId, { ...task, status: 'completed', notified: true })
-      playSuccessSound()
+      // notified: false so MyLoadingProcessIndicator plays the sound exactly once
+      next.set(historyId, { ...task, status: 'completed', notified: false })
       const timer = setTimeout(() => {
         setTasks(p => { const m = new Map(p); m.delete(historyId); return m })
       }, 2000)

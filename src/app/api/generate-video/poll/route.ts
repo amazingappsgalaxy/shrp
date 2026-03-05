@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
@@ -114,16 +114,29 @@ export async function GET(request: NextRequest) {
     if (pollStatus === 'SUCCESS' && outputUrl) {
       const generationTimeMs = Date.now() - new Date(item.created_at).getTime()
 
-      // Return provider URL to client immediately — don't block on CDN upload.
-      // DB is updated with provider URL so history page shows the video right away.
-      const providerOutputs = [{ type: 'video' as const, url: outputUrl }]
+      // Upload to Bunny CDN synchronously before responding.
+      // after() is unreliable on serverless — always upload synchronously
+      // so the DB and client both get the permanent CDN URL, not an expiring provider URL.
+      let finalUrl = outputUrl
+      try {
+        const ext = extFromUrl(outputUrl) || 'mp4'
+        const mime = mimeFromExt(ext) || 'video/mp4'
+        const prompt = (settings.prompt as string | undefined) || undefined
+        finalUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), outputUrl, mime)
+        console.log(`✅ Bunny (video-poll): uploaded — ${finalUrl}`)
+      } catch (err) {
+        console.error('❌ Bunny (video-poll): CDN upload failed, using provider URL:', err)
+        // finalUrl stays as outputUrl — acceptable fallback
+      }
+
+      const finalOutputs = [{ type: 'video' as const, url: finalUrl, original_url: outputUrl !== finalUrl ? outputUrl : undefined }]
 
       // Atomic update: only proceeds if status is still 'processing'
       const { data: won } = await supabase
         .from('history_items')
         .update({
           status: 'completed',
-          output_urls: providerOutputs,
+          output_urls: finalOutputs,
           generation_time_ms: generationTimeMs,
           updated_at: new Date().toISOString(),
         })
@@ -146,28 +159,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Upload to Bunny CDN in the background after response is sent.
-      // DB will be updated with CDN URL once upload completes.
-      after(async () => {
-        try {
-          const ext = extFromUrl(outputUrl) || 'mp4'
-          const mime = mimeFromExt(ext) || 'video/mp4'
-          const prompt = (settings.prompt as string | undefined) || undefined
-          const cdnUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), outputUrl, mime)
-          await supabase
-            .from('history_items')
-            .update({
-              output_urls: [{ type: 'video', url: cdnUrl, original_url: outputUrl }],
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', taskId)
-          console.log(`✅ Bunny (video-poll bg): uploaded — ${cdnUrl}`)
-        } catch (err) {
-          console.error('❌ Bunny (video-poll bg): CDN upload failed, provider URL remains in DB:', err)
-        }
-      })
-
-      return NextResponse.json({ status: 'success', outputs: providerOutputs })
+      return NextResponse.json({ status: 'success', outputs: finalOutputs })
     }
 
     if (pollStatus === 'FAILURE' || pollStatus === 'ERROR') {

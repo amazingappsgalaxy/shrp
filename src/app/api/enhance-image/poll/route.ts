@@ -8,6 +8,7 @@ import { RunningHubProvider } from '../../../../services/ai-providers/runninghub
 import { getSession } from '@/lib/auth-simple'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
+import { generateMediaFilename } from '@/lib/media-filename'
 
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
 
@@ -109,7 +110,8 @@ export async function GET(request: NextRequest) {
         rawOutputs.map(async (out) => {
           try {
             const ext = extFromUrl(out.url) || (out.type === 'video' ? 'mp4' : 'jpg')
-            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext), out.url, mimeFromExt(ext))
+            const taskPrompt = (settings as Record<string, unknown>)?.prompt as string | undefined
+            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, taskPrompt)), out.url, mimeFromExt(ext))
             console.log(`✅ Bunny (enhance-poll): uploaded — ${bunnyUrl}`)
             return { ...out, url: bunnyUrl, original_url: out.url }
           } catch (err) {
