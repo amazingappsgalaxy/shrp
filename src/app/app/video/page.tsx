@@ -841,9 +841,9 @@ function VideoJustifiedGrid({ videos, onExpand }: {
     return () => io.disconnect()
   }, [hasMore])
 
-  // Reduced targetH so a single wide tile (16:9) never fills the full container.
-  // At 280px: a lone 16:9 tile = 497px wide — well within an 800px container.
-  const targetH = containerW < 480 ? 220 : containerW < 768 ? 280 : 340
+  // Cap targetH so a 16:9 tile is never wider than half the container → always 2 per row.
+  const maxTHFor169 = Math.max(120, Math.floor((containerW - VGAP) / 2 * 9 / 16))
+  const targetH = Math.min(containerW < 480 ? 220 : containerW < 768 ? 280 : 340, maxTHFor169)
   const rows = useMemo(() => buildVideoRows(displayVideos, containerW, targetH), [displayVideos, containerW, targetH])
 
   return (

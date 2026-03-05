@@ -151,19 +151,6 @@ const IMAGE_MODELS: ModelConfig[] = [
     providers: ['synvow'],
   },
   {
-    id: 'grok-2-image',
-    label: 'Grok 2',
-    type: 'image',
-    description: 'xAI Grok image generation (text-to-image)',
-    credits: 70,
-    costUsd: 0.07,
-    tag: 'Creative',
-    controls: {
-      aspectRatios: ['1:1', '16:9', '9:16', '4:3'],
-    },
-    providers: ['synvow'],
-  },
-  {
     id: 'gemini-3.1-flash-image-preview',
     label: 'Gemini Flash',
     type: 'image',

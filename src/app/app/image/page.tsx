@@ -593,6 +593,8 @@ export default function ImagePage() {
   const [debugEntries,  setDebugEntries]  = useState<DebugEntry[]>([])
   const [debugOpenId,   setDebugOpenId]   = useState<string | null>(null)
   const [isDragOver,    setIsDragOver]    = useState(false)
+  // Pending model switch when refs would be cleared (requires user confirmation)
+  const [pendingModelId, setPendingModelId] = useState<string | null>(null)
 
   // History pagination
   const [isInitialLoading, setIsInitialLoading] = useState(true)
@@ -1289,6 +1291,31 @@ export default function ImagePage() {
       {/* pointer-events-none on the outer shell so the transparent side areas don't block grid hover */}
       <div className="fixed bottom-0 left-0 right-0 z-40 px-4 sm:px-6 pb-5 pt-3 pointer-events-none">
         <div ref={dockRef} className="max-w-[900px] mx-auto pointer-events-auto">
+          {/* Model-switch warning: shown when new model doesn't support reference images but refs are attached */}
+          {pendingModelId && (() => {
+            const pending = IMAGE_MODELS.find(m => m.id === pendingModelId)
+            const refCount = refOrder.length
+            return (
+              <div className="mb-2 flex items-center gap-3 px-4 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/[0.07] text-amber-300 text-xs">
+                <span className="flex-1">
+                  <span className="font-semibold">{pending?.label}</span> doesn&apos;t support reference images.{' '}
+                  {refCount} image{refCount !== 1 ? 's' : ''} will be removed.
+                </span>
+                <button
+                  onClick={() => { setModelId(pendingModelId); setPendingModelId(null) }}
+                  className="shrink-0 px-3 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 font-semibold transition-colors"
+                >
+                  Switch anyway
+                </button>
+                <button
+                  onClick={() => setPendingModelId(null)}
+                  className="shrink-0 px-3 py-1 rounded-md hover:bg-white/[0.05] text-white/50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )
+          })()}
           <div
             className="relative rounded-lg border bg-[#0c0c0e] transition-colors duration-150"
             style={{
@@ -1603,7 +1630,17 @@ export default function ImagePage() {
                                 (!!m.qualityGroupId && m.qualityGroupId === activeModel.qualityGroupId)
                               return (
                                 <button key={m.id}
-                                  onClick={() => { setModelId(m.id); setOpenPicker(null) }}
+                                  onClick={() => {
+                                    const hasRefs = refOrder.length > 0 || uploadedRefs.length > 0
+                                    const newSupportsRef = !!m.controls.referenceImage
+                                    if (!newSupportsRef && hasRefs) {
+                                      setPendingModelId(m.id)
+                                      setOpenPicker(null)
+                                    } else {
+                                      setModelId(m.id)
+                                      setOpenPicker(null)
+                                    }
+                                  }}
                                   className={cn(
                                     "flex items-start gap-3 p-3 rounded-md border transition-all text-left",
                                     active ? "bg-white/[0.05] border-white/10" : "border-transparent hover:bg-white/[0.03]",
