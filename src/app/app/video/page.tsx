@@ -355,13 +355,14 @@ function ModelPicker({
                         className={cn(
                           "w-full flex items-center gap-3 px-3 py-3 transition-all text-left",
                           isActive
-                            ? "border border-transparent"
+                            ? "border-2"
                             : "border border-transparent hover:border-white/[0.07] hover:bg-white/[0.03]"
                         )}
                         style={{
                           borderRadius: 14,
                           ...(isActive ? {
-                            background: 'linear-gradient(135deg, rgba(255,255,0,0.07) 0%, rgba(255,255,0,0.02) 60%, transparent 100%)',
+                            background: 'linear-gradient(to right, rgba(255,255,0,0.07) 0%, rgba(255,255,0,0) 100%)',
+                            borderColor: 'rgb(47, 47, 47)',
                           } : {}),
                         }}
                       >
