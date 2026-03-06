@@ -724,35 +724,44 @@ function VideoGridTile({ video, width, height, onExpand, onAspectCorrect }: {
   onAspectCorrect?: (id: string, aspect: string) => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [isHovered, setIsHovered] = useState(false)
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const tileRef = useRef<HTMLDivElement>(null)
+  const isInViewRef = useRef(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
 
-  const handleEnter = () => {
-    setIsHovered(true)
-    if (videoRef.current && isLoaded) videoRef.current.play().catch(() => {})
-  }
-  const handleLeave = () => {
-    setIsHovered(false)
-    if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0 }
-    setProgress(0)
-  }
+  // Auto-play when tile enters viewport, pause + reset when it leaves
+  useEffect(() => {
+    const el = tileRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isInViewRef.current = entry.isIntersecting
+        const vid = videoRef.current
+        if (!vid) return
+        if (entry.isIntersecting) {
+          if (vid.readyState >= 2) vid.play().catch(() => {})
+        } else {
+          vid.pause()
+          vid.currentTime = 0
+        }
+      },
+      { threshold: 0.4 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const handleLoaded = () => {
-    setIsLoaded(true)
-    if (isHovered && videoRef.current) videoRef.current.play().catch(() => {})
-    // Detect real aspect ratio from video dimensions and correct if it differs from stored value
+    // Detect real aspect ratio and correct if needed
     const el = videoRef.current
     if (el && onAspectCorrect) {
       const detected = detectAspectLabel(el.videoWidth, el.videoHeight)
       if (detected && detected !== video.aspect) onAspectCorrect(video.id, detected)
     }
+    // Play immediately if already in view
+    if (isInViewRef.current) videoRef.current?.play().catch(() => {})
   }
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return
-    const { currentTime, duration } = videoRef.current
-    if (duration > 0) setProgress((currentTime / duration) * 100)
-  }
+
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!videoRef.current) return
@@ -763,10 +772,9 @@ function VideoGridTile({ video, width, height, onExpand, onAspectCorrect }: {
 
   return (
     <div
+      ref={tileRef}
       style={{ width, height, flexShrink: 0, overflow: 'hidden', borderRadius: 8, position: 'relative', cursor: 'pointer' }}
       className="group bg-[#0a0a0a] border border-white/[0.07] hover:border-white/20 transition-all duration-200"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
       onClick={onExpand}
     >
       <video
@@ -774,12 +782,13 @@ function VideoGridTile({ video, width, height, onExpand, onAspectCorrect }: {
         src={video.url!}
         muted={isMuted} playsInline loop preload="metadata"
         onLoadedData={handleLoaded}
-        onTimeUpdate={handleTimeUpdate}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
         className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {/* Play icon when idle (not hovered) — glass effect with black tint */}
-      {!isHovered && (
+      {/* Play icon overlay — shown only when not playing */}
+      {!isPlaying && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div className="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg">
             <IconPlayerPlay className="w-4.5 h-4.5 fill-white text-white ml-0.5" />
@@ -787,8 +796,7 @@ function VideoGridTile({ video, width, height, onExpand, onAspectCorrect }: {
         </div>
       )}
 
-
-      {/* Mute/unmute button (on hover) — glass effect with black tint, bottom-left */}
+      {/* Mute/unmute button (on hover) */}
       <button
         onClick={toggleMute}
         className="absolute bottom-3 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-black/60"
