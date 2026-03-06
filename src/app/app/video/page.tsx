@@ -787,12 +787,6 @@ function VideoGridTile({ video, width, height, onExpand, onAspectCorrect }: {
         </div>
       )}
 
-      {/* Progress bar (on hover) */}
-      {isHovered && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10 z-10">
-          <div className="h-full bg-[#FFFF00] transition-none" style={{ width: `${progress}%` }} />
-        </div>
-      )}
 
       {/* Mute/unmute button (on hover) — glass effect with black tint, bottom-left */}
       <button
