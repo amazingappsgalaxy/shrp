@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Block test, debug, and admin pages
+Disallow: /test-payment
+Disallow: /test-subscription-flow
+Disallow: /debug-payment
+Disallow: /auth-test
+Disallow: /basic-test
+Disallow: /simple-test
+Disallow: /test-auth
+Disallow: /test-simple
+Disallow: /test-styles
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://sharpii.ai/sitemap.xml
