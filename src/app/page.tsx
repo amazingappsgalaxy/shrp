@@ -43,7 +43,7 @@ export default function Home() {
       <AIInfluencerSection />
       <CostOptimizationSection />
       <WorkflowSection />
-      <TestimonialsSection />
+      {/* <TestimonialsSection /> */}
       <section id="pricing-section" className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-6">
           <MyPricingPlans2 />
