@@ -21,10 +21,6 @@
 
 Product IDs come from env vars: `DODO_BASIC_MONTHLY_PRODUCT_ID`, `DODO_CREATOR_MONTHLY_PRODUCT_ID`, etc.
 
-**Known test-mode product IDs:**
-- Creator Monthly: `pdt_0NYlpIymBOLG7VGKUM3pF`
-- Creator Yearly: `pdt_WNr5iJDaFOiDCXWKZWjX2`
-- Day Pass: `pdt_0NYhE3lLB1AVBQ1IF1NzS` (hardcoded in code)
 
 ## Checkout Flow
 ```
