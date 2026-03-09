@@ -14,7 +14,7 @@ async function main() {
   await page.goto('http://localhost:3003/home3', { waitUntil: 'networkidle2', timeout: 30000 });
   await new Promise(r => setTimeout(r, 5000));
 
-  const positions = [0, 800, 1600, 2400, 3200, 4200, 5200, 6200, 7200, 8200, 9200, 10200];
+  const positions = [0, 800, 1600, 2400, 3200, 4200, 5200, 6200, 7200, 8200, 9200, 10200, 11200, 12200, 13200, 14200];
 
   for (const y of positions) {
     await page.evaluate(s => window.scrollTo(0, s), y);
