@@ -26,6 +26,11 @@ async function main() {
 
   await browser.close();
   console.log('Done!');
+
+  // Auto-delete screenshots after capture
+  const files = fs.readdirSync(OUT).filter(f => f.startsWith('home3_'));
+  files.forEach(f => fs.unlinkSync(path.join(OUT, f)));
+  console.log(`Deleted ${files.length} screenshots.`);
 }
 
 main().catch(console.error);
