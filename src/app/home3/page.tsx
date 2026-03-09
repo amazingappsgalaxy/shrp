@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import {
   ArrowRight, ChevronLeft, ChevronRight, Star, Sparkles, Zap,
   Brush, Eraser, Square, Type, Layers, Mic, Music, Video,
-  Camera, Wand2, ImageIcon, Download, Play,
+  Camera, Wand2, ImageIcon, Download, Play, Plus,
   Users, Building2, Globe,
 } from "lucide-react"
 
@@ -126,6 +126,7 @@ function useSlider(init = 50, min = 20, max = 80, speed = 0.045) {
 function Hero() {
   const { pos, cur, setPos, setPaused } = useSlider(50, 20, 80, 0.045)
   const [drag, setDrag] = useState(false)
+  const dragging = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const onMove = useCallback((cx: number) => {
@@ -139,10 +140,10 @@ function Hero() {
     <section className="relative w-full bg-black overflow-hidden" style={{ height: "100svh", minHeight: 700 }}>
       <div ref={ref} className="absolute inset-0"
         style={{ cursor: drag ? "grabbing" : "ew-resize", touchAction: "none" }}
-        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setDrag(true); setPaused(true); onMove(e.clientX) }}
-        onPointerMove={e => drag && onMove(e.clientX)}
-        onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); setDrag(false); setPaused(false) }}
-        onPointerLeave={() => { if (drag) { setDrag(false); setPaused(false) } }}
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; setDrag(true); setPaused(true); onMove(e.clientX) }}
+        onPointerMove={e => { if (dragging.current) onMove(e.clientX) }}
+        onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = false; setDrag(false); setPaused(false) }}
+        onPointerLeave={() => { if (dragging.current) { dragging.current = false; setDrag(false); setPaused(false) } }}
       >
         <div className="absolute inset-0 bg-neutral-900">
           <Image src={IMG.g1b} alt="Original" fill className="object-cover object-center" priority sizes="100vw" />
@@ -289,11 +290,19 @@ function FeaturesReel() {
   )
 }
 
-// ─── 4. UPSCALER — fixed slider with setPointerCapture ───────────────────────
+// ─── 4. UPSCALER — image selector + fixed slider ─────────────────────────────
 function UpscalerSection() {
   const { pos, cur, setPos, setPaused } = useSlider(50, 15, 85, 0.018)
   const [drag, setDrag] = useState(false)
+  const dragging = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
+  const [selectedPair, setSelectedPair] = useState(0)
+
+  const IMAGE_PAIRS = [
+    { before: IMG.bm1b, after: IMG.bm1a, label: "Man"    },
+    { before: IMG.g1b,  after: IMG.g1a,  label: "Female" },
+    { before: IMG.g2b,  after: IMG.asian, label: "Beauty" },
+  ]
 
   const onMove = useCallback((cx: number) => {
     if (!ref.current) return
@@ -306,9 +315,9 @@ function UpscalerSection() {
     <section className="bg-[#07070b] overflow-hidden"
       style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
       <div className="flex flex-col lg:flex-row" style={{ minHeight: "95vh" }}>
-        {/* LEFT: Stats */}
-        <div className="lg:w-[38%] flex flex-col justify-between px-8 lg:px-14 py-16 lg:py-24 border-r border-white/5">
-          <div>
+        {/* LEFT: Stats + image selector */}
+        <div className="lg:w-[38%] flex flex-col px-8 lg:px-14 py-16 lg:py-24 border-r border-white/5">
+          <div className="flex-1">
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-10">01 / Smart Upscaler</p>
             <div className="font-black text-[#FFFF00] leading-none mb-2"
               style={{ fontSize: "clamp(7rem,18vw,14rem)", letterSpacing: "-0.05em", lineHeight: 0.82 }}>8K</div>
@@ -316,11 +325,12 @@ function UpscalerSection() {
             <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2rem,3.5vw,3.2rem)" }}>
               NOT SCALED.<br />REBUILT.
             </h2>
-            <p className="text-white/35 text-[15px] max-w-[320px] leading-relaxed mb-12">
+            <p className="text-white/35 text-[15px] max-w-[320px] leading-relaxed mb-10">
               AI synthesizes new detail from scratch — skin texture, hair strands, micro-contrast. Zero artifacts at any resolution.
             </p>
           </div>
-          <div className="space-y-0 divide-y divide-white/6 mb-10">
+
+          <div className="space-y-0 divide-y divide-white/6 mb-8">
             {[
               { l: "4K Output", v: "4096 × 4096 px", n: "80 credits" },
               { l: "8K Output", v: "7680 × 4320 px", n: "120 credits" },
@@ -336,24 +346,50 @@ function UpscalerSection() {
               </div>
             ))}
           </div>
+
+          {/* Image selector */}
+          <div className="mb-8">
+            <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.3em] mb-3">Preview Images</p>
+            <div className="flex gap-2">
+              {IMAGE_PAIRS.map((pair, i) => (
+                <button key={i}
+                  onClick={() => { setSelectedPair(i); cur.current = 50; setPos(50) }}
+                  className="relative rounded-xl overflow-hidden flex-1 transition-all"
+                  style={{ aspectRatio: "2/3", outline: selectedPair === i ? "2px solid #FFFF00" : "1px solid rgba(255,255,255,0.1)", outlineOffset: selectedPair === i ? 2 : 0 }}>
+                  <div className="absolute inset-0"
+                    style={{ backgroundImage: `url(${pair.after})`, backgroundSize: "cover", backgroundPosition: "center 15%" }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-1.5 left-0 right-0 text-center">
+                    <span className="text-white text-[9px] font-bold">{pair.label}</span>
+                  </div>
+                  {selectedPair === i && (
+                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#FFFF00] flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-black" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Link href="/app/upscaler"
             className="inline-flex items-center gap-2.5 bg-[#FFFF00] px-8 py-4 rounded-xl text-black font-black text-[15px] hover:bg-white transition-colors duration-200 self-start">
             Try Upscaler Free <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        {/* RIGHT: Comparison — fixed with setPointerCapture */}
+        {/* RIGHT: Comparison slider */}
         <div ref={ref} className="lg:flex-1 relative"
           style={{ minHeight: 580, cursor: drag ? "grabbing" : "ew-resize", touchAction: "none" }}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setDrag(true); setPaused(true); onMove(e.clientX) }}
-          onPointerMove={e => drag && onMove(e.clientX)}
-          onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); setDrag(false); setPaused(false) }}
-          onPointerLeave={() => { if (drag) { setDrag(false); setPaused(false) } }}>
+          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; setDrag(true); setPaused(true); onMove(e.clientX) }}
+          onPointerMove={e => { if (dragging.current) onMove(e.clientX) }}
+          onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = false; setDrag(false); setPaused(false) }}
+          onPointerLeave={() => { if (dragging.current) { dragging.current = false; setDrag(false); setPaused(false) } }}>
           <div className="absolute inset-0">
-            <Image src={IMG.bm1b} alt="Original" fill className="object-cover object-center" sizes="60vw" />
+            <Image src={IMAGE_PAIRS[selectedPair]?.before ?? IMG.bm1b} alt="Original" fill className="object-cover object-center" sizes="60vw" />
           </div>
           <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
-            <Image src={IMG.bm1a} alt="AI 8K" fill className="object-cover object-center" sizes="60vw" />
+            <Image src={IMAGE_PAIRS[selectedPair]?.after ?? IMG.bm1a} alt="AI 8K" fill className="object-cover object-center" sizes="60vw" />
           </div>
           <div className="absolute top-0 bottom-0 pointer-events-none z-20"
             style={{ left: `${pos}%`, transform: "translateX(-50%)", width: 3, background: "rgba(255,255,255,0.95)", boxShadow: "0 0 20px rgba(255,255,255,0.7)" }} />
@@ -364,12 +400,12 @@ function UpscalerSection() {
           </div>
           <div className="absolute bottom-8 left-8 z-40 pointer-events-none flex gap-3">
             <div className="bg-black/70 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-xl">
-              <div className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-0.5">Input</div>
-              <div className="text-white font-black text-sm">2 MP</div>
+              <div className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-0.5">Original</div>
+              <div className="text-white font-black text-sm">As shot</div>
             </div>
             <div className="bg-[#FFFF00]/10 backdrop-blur-md border border-[#FFFF00]/30 px-4 py-2.5 rounded-xl">
               <div className="text-[#FFFF00]/60 text-[10px] font-bold uppercase tracking-wider mb-0.5">AI Output</div>
-              <div className="text-[#FFFF00] font-black text-sm">33 MP · 8K</div>
+              <div className="text-[#FFFF00] font-black text-sm">8K Enhanced</div>
             </div>
           </div>
         </div>
@@ -686,7 +722,7 @@ function AudioLipSync() {
   const barHeights = [0.3,0.6,0.9,0.5,0.8,0.4,1,0.7,0.5,0.9,0.3,0.7,0.8,0.5,0.6,0.4,0.9,0.7,0.5,0.8,0.3,0.6,1,0.4,0.7,0.5,0.9,0.6,0.3,0.8,0.5,0.7,0.4,0.9,0.6,0.8]
 
   return (
-    <section className="bg-[#050510] py-24">
+    <section className="bg-white py-24" data-nav-light="true">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="relative" style={{ maxWidth: 380 }}>
@@ -713,11 +749,11 @@ function AudioLipSync() {
             </div>
           </div>
           <div>
-            <p className="text-white/25 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Audio &amp; Lip Sync</p>
-            <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2.6rem,5vw,5.5rem)" }}>
+            <p className="text-black/30 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Audio &amp; Lip Sync</p>
+            <h2 className="font-black text-black leading-[0.88] mb-6" style={{ fontSize: "clamp(2.6rem,5vw,5.5rem)" }}>
               YOUR WORDS.<br /><span className="text-[#e91e8c]">ANY FACE.</span>
             </h2>
-            <p className="text-white/45 text-[15px] leading-relaxed mb-10 max-w-[380px]">
+            <p className="text-black/45 text-[15px] leading-relaxed mb-10 max-w-[380px]">
               Upload any audio — speech, voiceover, or song. AI synchronizes lip movement frame-by-frame with natural micro-expressions.
             </p>
             <div className="grid grid-cols-2 gap-3 mb-10">
@@ -727,15 +763,15 @@ function AudioLipSync() {
                 { icon: Video,    label: "Live Preview",  desc: "See it instantly" },
                 { icon: Download, label: "Export HD",     desc: "Up to 4K video" },
               ].map(f => (
-                <div key={f.label} className="bg-white/[0.06] border border-white/10 rounded-xl p-4">
+                <div key={f.label} className="bg-black/[0.05] border border-black/8 rounded-xl p-4">
                   <f.icon className="w-5 h-5 text-[#e91e8c] mb-3" />
-                  <div className="text-white font-bold text-[13px]">{f.label}</div>
-                  <div className="text-white/40 text-[11px] mt-0.5">{f.desc}</div>
+                  <div className="text-black font-bold text-[13px]">{f.label}</div>
+                  <div className="text-black/40 text-[11px] mt-0.5">{f.desc}</div>
                 </div>
               ))}
             </div>
             <Link href="/app/video"
-              className="inline-flex items-center gap-2.5 bg-[#e91e8c] px-7 py-4 rounded-xl text-white font-black text-[14px] hover:bg-[#d01478] transition-colors">
+              className="inline-flex items-center gap-2.5 bg-black px-7 py-4 rounded-xl text-white font-black text-[14px] hover:bg-black/80 transition-colors">
               Try Lip Sync <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -877,196 +913,222 @@ function AIRelighting() {
   )
 }
 
-// ─── 12. IMAGE EDIT STUDIO — full redesign matching real EditModal ────────────
+// ─── 12. IMAGE EDIT STUDIO — with workflow explanation ───────────────────────
 function ImageEditStudio() {
   const [activeMode, setActiveMode] = useState<"edit"|"relight"|"prompt">("edit")
+  const [activeLayerIdx, setActiveLayerIdx] = useState(0)
 
   const LAYERS = [
-    { hex: "#FF4B4B", name: "Smooth skin texture",     active: true  },
-    { hex: "#4B8BFF", name: "Brighten & enhance eyes", active: false },
-    { hex: "#4BFF8B", name: "Add hair highlights",     active: false },
+    { hex: "#FF4B4B", name: "Smooth skin texture",     prompt: "Smooth skin, remove blemishes, natural look" },
+    { hex: "#4B8BFF", name: "Brighten & enhance eyes", prompt: "Brighten eyes, add natural sparkle and clarity" },
+    { hex: "#4BFF8B", name: "Add hair highlights",     prompt: "Add natural blonde highlights to the hair" },
   ]
-  const LIGHTING = ["Studio","Golden Hr","Moonlight","Campfire","Spotlight","Window","Neon"]
 
   return (
     <section className="bg-[#06060c] py-24 overflow-hidden relative"
       style={{
-        backgroundImage: [
-          "linear-gradient(rgba(16,185,129,0.05) 1px, transparent 1px)",
-          "linear-gradient(90deg, rgba(16,185,129,0.05) 1px, transparent 1px)",
-        ].join(","),
-        backgroundSize: "36px 36px",
+        backgroundImage: "linear-gradient(rgba(16,185,129,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.03) 1px, transparent 1px)",
+        backgroundSize: "40px 40px",
       }}>
-      {/* Radial glow */}
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 70% 60% at 55% 60%, rgba(16,185,129,0.06), transparent)" }} />
+        style={{ background: "radial-gradient(ellipse 60% 50% at 65% 55%, rgba(16,185,129,0.05), transparent)" }} />
 
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 relative z-10">
-        {/* Section header */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-12 xl:gap-20 items-start">
+
+          {/* LEFT: Workflow explanation */}
+          <div className="lg:sticky lg:top-28">
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">04 / Image Edit</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
+            <h2 className="font-black text-white leading-[0.82] mb-5" style={{ fontSize: "clamp(2.6rem,4.5vw,5.5rem)" }}>
               BRUSH. MASK.<br /><span className="text-emerald-400">TRANSFORM.</span>
             </h2>
-          </div>
-          <div className="max-w-[300px] lg:pb-3">
-            <p className="text-white/35 text-[15px] leading-relaxed mb-5">
-              Paint a mask over any zone. Write what you want changed. AI edits only inside the mask — everything else stays untouched.
+            <p className="text-white/40 text-[15px] leading-relaxed mb-10 max-w-[360px]">
+              Paint any region. Write what you want changed. AI edits only inside the mask — every pixel outside stays untouched.
             </p>
-            <Link href="/app/edit" className="inline-flex items-center gap-2 bg-emerald-500 px-6 py-3 rounded-xl text-white font-black text-sm hover:bg-emerald-400 transition-colors">
+
+            <div className="space-y-6 mb-10">
+              {[
+                { n: "01", color: "#FF4B4B", title: "Pick a layer color",   desc: "Each mask layer has its own color and its own prompt. Stack multiple targeted edits in one generation." },
+                { n: "02", color: "#4B8BFF", title: "Brush the area",       desc: "Use the brush tool to paint over exactly the region you want to edit — face, hair, background, clothing." },
+                { n: "03", color: "#4BFF8B", title: "Describe the change",  desc: "Type in plain English what you want. \"Smooth skin\", \"add highlights\", \"darken background\" — any edit." },
+              ].map(s => (
+                <div key={s.n} className="flex gap-4 items-start">
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-black text-[12px] mt-0.5"
+                    style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30` }}>
+                    {s.n}
+                  </div>
+                  <div>
+                    <div className="text-white font-bold text-[14px] mb-1">{s.title}</div>
+                    <div className="text-white/35 text-[13px] leading-relaxed">{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link href="/app/edit"
+              className="inline-flex items-center gap-2 bg-emerald-500 px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-emerald-400 transition-colors">
               Open Edit Studio <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-        </div>
 
-        {/* Studio UI mockup */}
-        <div className="rounded-2xl border border-emerald-400/12 overflow-hidden shadow-2xl"
-          style={{ background: "#0c0c12" }}>
-          {/* Chrome bar */}
-          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/6 bg-[#0e0e16]">
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-500/60" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
-              <div className="w-3 h-3 rounded-full bg-green-500/60" />
-            </div>
-            <span className="text-white/20 text-[12px] ml-2 font-medium">Sharpii.ai — Image Edit Studio</span>
-            {/* Mode tabs */}
-            <div className="ml-auto flex gap-1">
-              {(["edit","relight","prompt"] as const).map(m => (
-                <button key={m} onClick={() => setActiveMode(m)}
-                  className={cn("px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors",
-                    activeMode === m
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-400/30"
-                      : "text-white/25 hover:text-white/50")}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 3-pane layout */}
-          <div className="flex" style={{ minHeight: 580 }}>
-            {/* Left: tool panel */}
-            <div className="w-[60px] border-r border-white/6 flex flex-col items-center py-5 gap-2 bg-[#0c0c12] shrink-0">
-              {[
-                { icon: Brush,  active: true  },
-                { icon: Eraser, active: false },
-                { icon: Square, active: false },
-                { icon: Type,   active: false },
-              ].map((t, i) => (
-                <div key={i} className={cn("w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer border transition-colors",
-                  t.active ? "bg-emerald-500/20 border-emerald-400/35" : "border-transparent hover:bg-white/[0.05]")}>
-                  <t.icon className={cn("w-4 h-4", t.active ? "text-emerald-400" : "text-white/25")} />
-                </div>
-              ))}
-              <div className="w-8 h-px bg-white/8 my-2" />
-              <div className="w-10 h-10 rounded-xl hover:bg-white/[0.05] flex items-center justify-center cursor-pointer">
-                <Layers className="w-4 h-4 text-white/20" />
+          {/* RIGHT: Edit Studio UI mockup */}
+          <div className="bg-[#0c0c12] rounded-2xl border border-white/8 overflow-hidden shadow-2xl">
+            {/* Top chrome bar */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/6 bg-[#0a0a10]">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]/70" />
+                <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]/70" />
+                <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]/70" />
               </div>
+              {/* Mode tabs — matches real EditModal */}
+              <div className="flex items-center bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl p-1 gap-0.5">
+                {(["edit","relight","prompt"] as const).map(m => (
+                  <button key={m} onClick={() => setActiveMode(m)}
+                    className={cn("px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
+                      activeMode === m ? "bg-[#FFFF00] text-black shadow-sm" : "text-[#b0b0b0] hover:text-white")}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <span className="text-white/15 text-[11px] hidden sm:block">Image Edit Studio</span>
             </div>
 
-            {/* Canvas — portrait + floating layer cards side-by-side */}
-            <div className="flex-1 bg-[#090910] flex items-center justify-center p-8">
-              {/* Checkerboard hint for transparency */}
-              <div className="relative" style={{ width: 720 }}>
+            {/* Workspace */}
+            <div className="flex" style={{ minHeight: 500 }}>
+              {/* Left toolbar — matches real EditModal left panel */}
+              <div className="w-[52px] border-r border-white/6 flex flex-col items-center py-4 gap-1.5 bg-[#0a0a10] shrink-0">
+                <div className="flex gap-0.5 mb-1">
+                  <div className="w-7 h-7 rounded-md flex items-center justify-center text-white/20 cursor-pointer">
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="w-7 h-7 rounded-md flex items-center justify-center text-white/20 cursor-pointer">
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="w-7 h-px bg-[#191919]" />
+                {/* Active layer indicator dot */}
+                <div className="w-4 h-4 rounded-full mt-0.5" style={{ background: LAYERS[activeLayerIdx]?.hex ?? "#FF4B4B" }} />
+                {/* Tool buttons */}
+                {[
+                  { Icon: Brush,  active: true  },
+                  { Icon: Eraser, active: false },
+                  { Icon: Square, active: false },
+                  { Icon: Type,   active: false },
+                ].map((t, i) => (
+                  <div key={i} className={cn("w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer transition-all",
+                    t.active ? "bg-[#FFFF00] text-black shadow-md" : "text-white/25 hover:bg-white/[0.06]")}>
+                    <t.Icon className="w-4 h-4" />
+                  </div>
+                ))}
+                <div className="w-7 h-px bg-[#191919] my-1" />
+                {/* Add layer button */}
+                <div className="w-9 h-9 rounded-full bg-[#FFFF00] flex items-center justify-center cursor-pointer hover:scale-105 transition-transform shadow-md">
+                  <Plus className="w-4 h-4 text-black" />
+                </div>
+                <div className="w-7 h-px bg-[#191919] my-1" />
+                {/* Layer color dots */}
+                {LAYERS.map((l, i) => (
+                  <button key={l.hex} onClick={() => setActiveLayerIdx(i)}
+                    className="w-4 h-4 rounded-full transition-all cursor-pointer"
+                    style={{
+                      background: l.hex,
+                      boxShadow: activeLayerIdx === i
+                        ? `0 0 0 2px #0a0a10, 0 0 0 3.5px #FFFF00`
+                        : `0 0 0 2px #0a0a10, 0 0 0 3.5px rgba(255,255,255,0.2)`
+                    }} />
+                ))}
+              </div>
 
+              {/* Canvas area */}
+              <div className="flex-1 bg-[#090910] flex items-center justify-center p-5 min-w-0">
                 {activeMode === "edit" && (
-                  <div className="flex items-start gap-8">
-                    {/* Portrait canvas */}
-                    <div className="relative rounded-2xl overflow-hidden shadow-2xl flex-shrink-0" style={{ width: 380, height: 520 }}>
+                  <div className="flex gap-4 items-start w-full justify-center">
+                    {/* Portrait with colored mask overlays */}
+                    <div className="relative rounded-xl overflow-hidden shadow-2xl flex-shrink-0" style={{ width: 300, height: 420 }}>
                       <div className="absolute inset-0"
                         style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
-                      {/* Mask overlays */}
+                      {/* Red mask: forehead / skin area */}
                       <div className="absolute pointer-events-none"
-                        style={{ top: "13%", left: "18%", width: "64%", height: "13%", borderRadius: "50%", background: "rgba(255,75,75,0.48)", filter: "blur(8px)", transform: "rotate(-1.5deg)" }} />
+                        style={{ top: "13%", left: "12%", width: "76%", height: "18%", borderRadius: "50%", background: "rgba(255,75,75,0.42)", filter: "blur(10px)" }} />
+                      {/* Blue mask: eye area */}
                       <div className="absolute pointer-events-none"
-                        style={{ top: "28%", left: "20%", width: "60%", height: "8%", borderRadius: "50%", background: "rgba(75,139,255,0.48)", filter: "blur(5px)" }} />
+                        style={{ top: "30%", left: "16%", width: "68%", height: "9%", borderRadius: "50%", background: "rgba(75,139,255,0.46)", filter: "blur(6px)" }} />
+                      {/* Green mask: hair area */}
                       <div className="absolute pointer-events-none"
-                        style={{ top: "2%", left: "8%", width: "84%", height: "14%", borderRadius: "50%", background: "rgba(75,255,139,0.32)", filter: "blur(11px)" }} />
-                      {/* Brush cursor */}
-                      <div className="absolute z-30 pointer-events-none" style={{ top: "19%", left: "38%", transform: "translate(-50%,-50%)" }}>
-                        <div className="w-8 h-8 rounded-full border-2 border-white/70 bg-[#FF4B4B]/25" />
+                        style={{ top: "0%", left: "8%", width: "84%", height: "16%", borderRadius: "50%", background: "rgba(75,255,139,0.28)", filter: "blur(12px)" }} />
+                      {/* Brush cursor — active over red mask */}
+                      <div className="absolute z-30 pointer-events-none" style={{ top: "20%", left: "44%", transform: "translate(-50%,-50%)" }}>
+                        <div className="w-7 h-7 rounded-full border-2 border-white/80 bg-[#FF4B4B]/20" />
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-white/80" />
                       </div>
                     </div>
 
-                    {/* Floating layer cards with SVG connector lines */}
-                    <div className="flex flex-col gap-4 pt-8 flex-shrink-0">
-                      {LAYERS.map((l, i) => {
-                        const topPcts = ["13%", "28%", "3%"]
-                        return (
-                          <div key={l.name} className="relative">
-                            {/* Connector line */}
-                            <div className="absolute right-full top-1/2 -translate-y-1/2 flex items-center pointer-events-none"
-                              style={{ width: 40 }}>
-                              <div className="h-px flex-1" style={{ background: `${l.hex}50`, borderTop: `1px dashed ${l.hex}40` }} />
-                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: l.hex, opacity: 0.7 }} />
-                            </div>
-                            <div className={cn("bg-[#14141e]/95 backdrop-blur-md border rounded-xl px-4 py-3 cursor-pointer transition-colors",
-                              l.active ? "border-white/15" : "border-white/6 hover:border-white/12")}
-                              style={{ minWidth: 200, borderColor: l.active ? `${l.hex}50` : undefined }}>
-                              <div className="flex items-center gap-2 mb-1">
-                                <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: l.hex }} />
-                                <span className="text-white/75 font-bold text-[12px]">{l.name}</span>
-                              </div>
-                              <div className="text-white/25 text-[10px]">Layer {i + 1}{l.active ? " · Active" : ""}</div>
-                            </div>
+                    {/* Floating prompt cards — one per layer */}
+                    <div className="flex flex-col gap-3 pt-6 flex-shrink-0 min-w-0" style={{ width: 210 }}>
+                      {LAYERS.map((l, i) => (
+                        <button key={l.hex} onClick={() => setActiveLayerIdx(i)}
+                          className={cn("rounded-xl border px-3 py-2.5 text-left bg-[#14141e]/95 transition-all",
+                            activeLayerIdx === i ? "scale-[1.02]" : "opacity-65 hover:opacity-85")}
+                          style={{ borderColor: `${l.hex}${activeLayerIdx === i ? "60" : "35"}` }}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: l.hex }} />
+                            <span className="text-white/75 font-bold text-[11px] flex-1 truncate">{l.name}</span>
+                            {activeLayerIdx === i && <span className="text-white/20 text-[9px] font-bold shrink-0">ACTIVE</span>}
                           </div>
-                        )
-                      })}
-                      <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-white/15 hover:border-white/25 transition-colors cursor-pointer mt-1">
-                        <div className="w-2.5 h-2.5 rounded-sm border border-white/20 border-dashed flex-shrink-0" />
-                        <span className="text-white/25 text-[12px]">Add layer</span>
+                          <div className="bg-[#0a0a14] border border-white/6 rounded-lg px-2.5 py-1.5 text-white/40 text-[10px] leading-snug">
+                            &ldquo;{l.prompt}&rdquo;
+                          </div>
+                        </button>
+                      ))}
+                      <button className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-white/15 text-white/25 text-[11px] hover:border-white/25 transition-colors">
+                        <Plus className="w-3.5 h-3.5" /> Add layer
                       </button>
                     </div>
                   </div>
                 )}
 
                 {activeMode === "relight" && (
-                  <div className="relative rounded-2xl overflow-hidden shadow-2xl mx-auto" style={{ width: 380, height: 520 }}>
-                    <div className="absolute inset-0"
-                      style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
-                    <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255,136,0,0.32), transparent 55%)" }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
-                    <div className="absolute top-5 left-4 right-4">
-                      <div className="flex gap-1 flex-wrap bg-black/65 backdrop-blur-sm rounded-xl p-2 border border-white/10">
-                        {LIGHTING.map(s => (
-                          <button key={s} className={cn("px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors",
-                            s === "Golden Hr" ? "bg-orange-500/20 text-orange-400 border border-orange-400/30" : "text-white/35 hover:text-white/60")}>
+                  <div className="relative rounded-xl overflow-hidden shadow-2xl" style={{ width: 300, height: 420 }}>
+                    <div className="absolute inset-0" style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(130deg, rgba(255,136,0,0.38), transparent 60%)" }} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
+                    <div className="absolute top-4 left-4 right-4">
+                      <div className="flex flex-wrap gap-1 bg-black/70 backdrop-blur-sm rounded-xl p-2 border border-white/10">
+                        {["Studio","Golden Hr","Moonlight","Campfire","Spotlight","Window"].map(s => (
+                          <span key={s} className={cn("px-2.5 py-1 rounded-lg text-[10px] font-bold",
+                            s === "Golden Hr" ? "bg-orange-500/20 text-orange-400" : "text-white/30")}>
                             {s}
-                          </button>
+                          </span>
                         ))}
                       </div>
                     </div>
-                    <div className="absolute bottom-5 left-5 right-5">
-                      <div className="text-orange-300 text-[10px] font-black uppercase tracking-widest mb-1">Golden Hour Active</div>
-                      <div className="text-white font-bold">Warm directional light applied</div>
+                    <div className="absolute bottom-4 left-4">
+                      <div className="text-orange-300 text-[10px] font-black uppercase tracking-widest mb-0.5">Golden Hour Active</div>
+                      <div className="text-white font-bold text-sm">Warm directional light</div>
                     </div>
                   </div>
                 )}
 
                 {activeMode === "prompt" && (
-                  <div className="relative rounded-2xl overflow-hidden shadow-2xl mx-auto" style={{ width: 380, height: 520 }}>
-                    <div className="absolute inset-0"
-                      style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-                    <div className="absolute top-5 left-4 right-4">
+                  <div className="relative rounded-xl overflow-hidden shadow-2xl" style={{ width: 300, height: 420 }}>
+                    <div className="absolute inset-0" style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                    <div className="absolute top-4 left-4 right-4">
                       <div className="bg-[#14141e]/90 backdrop-blur-md border border-white/10 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-2.5">
                           <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-emerald-400 text-[11px] font-bold">Full Image Prompt Edit</span>
+                          <span className="text-emerald-400 text-[11px] font-bold">Full Image Prompt</span>
                         </div>
-                        <div className="text-white/65 text-[13px] leading-relaxed">&ldquo;Add dramatic studio lighting with deep shadows on the left side&rdquo;</div>
+                        <div className="text-white/60 text-[12px] leading-relaxed">&ldquo;Add dramatic studio lighting with deep shadows on the left side, keep face sharp&rdquo;</div>
                       </div>
                     </div>
-                    <div className="absolute bottom-5 left-5 right-5 flex items-center gap-3">
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
                         <Sparkles className="w-4 h-4 text-emerald-400" />
                       </div>
                       <div>
-                        <div className="text-emerald-300 text-[10px] font-black uppercase tracking-widest">Generating...</div>
-                        <div className="text-white/50 text-[12px]">Applying prompt to full image</div>
+                        <div className="text-emerald-300 text-[9px] font-black uppercase tracking-widest">Generating...</div>
+                        <div className="text-white/40 text-[11px]">Applying prompt to full image</div>
                       </div>
                     </div>
                   </div>
@@ -1074,46 +1136,27 @@ function ImageEditStudio() {
               </div>
             </div>
 
-            {/* Right: layers panel */}
-            <div className="w-[200px] border-l border-white/6 flex flex-col bg-[#0c0c12] py-4 px-3 shrink-0">
-              <div className="text-white/20 text-[10px] font-black uppercase tracking-wider mb-4">Layers</div>
-              <div className="space-y-2 flex-1">
-                {LAYERS.map((l, i) => (
-                  <div key={l.name} className={cn("flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
-                    l.active ? "bg-white/[0.07] border border-white/10" : "hover:bg-white/[0.04]")}>
-                    <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: l.hex }} />
-                    <span className="text-white/55 text-[11px] font-medium truncate">{l.name}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-white/[0.04] rounded-lg">
-                  <div className="w-3 h-3 rounded-sm border border-white/20 border-dashed flex-shrink-0" />
-                  <span className="text-white/25 text-[11px]">Add layer</span>
-                </div>
+            {/* Bottom bar — matches real EditModal bottom bar */}
+            <div className="border-t border-white/6 px-4 py-3 flex items-center gap-3 bg-[#0a0a10]">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: LAYERS[activeLayerIdx]?.hex ?? "#FF4B4B" }} />
+                <span className="text-white/25 text-[10px] font-black uppercase tracking-wide">Active Layer</span>
               </div>
-              <div className="border-t border-white/6 pt-4 mt-4">
-                <div className="text-white/20 text-[10px] font-black uppercase tracking-wider mb-2">Model</div>
-                <div className="bg-white/[0.04] border border-white/8 rounded-lg px-3 py-2 text-white/45 text-[11px]">nano-banana-2</div>
+              <div className="flex-1 bg-[#12121a] border border-white/8 rounded-xl px-3 py-2.5 flex items-center gap-2 min-w-0">
+                <Sparkles className="w-3 h-3 text-emerald-400/50 shrink-0" />
+                <span className="text-white/25 text-[11px] truncate">{LAYERS[activeLayerIdx]?.prompt ?? "Describe what you want changed..."}</span>
               </div>
-            </div>
-          </div>
-
-          {/* Bottom prompt bar */}
-          <div className="border-t border-white/6 px-5 py-3.5 flex items-center gap-4 bg-[#0e0e16]">
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="w-3 h-3 rounded-sm bg-[#FF4B4B]" />
-              <span className="text-white/30 text-[11px] font-bold uppercase tracking-wide">Active Layer</span>
-            </div>
-            <div className="flex-1 bg-[#12121a] border border-white/8 rounded-xl px-4 py-2.5 flex items-center gap-3">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400/60 shrink-0" />
-              <span className="text-white/25 text-[12px]">Smooth skin, remove blemishes, natural look...</span>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-white/25 text-[12px]">⚡ 5 credits</span>
-              <button className="bg-emerald-500 hover:bg-emerald-400 text-white text-[12px] font-black px-5 py-2.5 rounded-xl flex items-center gap-2 transition-colors">
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-white/20 text-[11px] hidden sm:block">nano-banana-2</span>
+                <div className="w-px h-3 bg-white/10 hidden sm:block" />
+                <span className="text-white/20 text-[11px]">⚡ 5 cr</span>
+              </div>
+              <button className="bg-[#FFFF00] text-black text-[12px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 hover:bg-white transition-colors shrink-0">
                 <Wand2 className="w-3.5 h-3.5" /> Generate
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </section>
