@@ -503,13 +503,13 @@ function SkinDetailMagnifier() {
                 <div className="absolute inset-0" style={{ backgroundImage: `url(${IMG.bm1b})`, backgroundSize: "450%", backgroundPosition: "52% 10%" }} />
                 <div className="absolute inset-0 bg-black/10" />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent pt-10 px-3 pb-3">
-                  <span className="bg-white/15 backdrop-blur-sm text-white/80 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/15">Original 1080p</span>
+                  <span className="bg-white/15 backdrop-blur-sm text-white/80 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border border-white/15">Original 1080p</span>
                 </div>
               </div>
               <div className="relative rounded-xl overflow-hidden ring-2 ring-[#FFFF00]/50" style={{ minHeight: 240 }}>
                 <div className="absolute inset-0" style={{ backgroundImage: `url(${IMG.bm1a})`, backgroundSize: "450%", backgroundPosition: "52% 10%" }} />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent pt-10 px-3 pb-3">
-                  <span className="bg-[#FFFF00] text-black text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">AI 8K</span>
+                  <span className="bg-[#FFFF00] text-black text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg">AI 8K</span>
                 </div>
               </div>
             </div>
@@ -551,7 +551,7 @@ function VideoSection() {
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-3">02 / Video Suite</p>
             <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,6vw,7.5rem)" }}>
-              IMAGINE.<br /><span className="font-heading text-violet-400">GENERATE.</span>
+              IMAGINE.<br /><span className="text-violet-400">GENERATE.</span>
             </h2>
           </div>
           <div className="max-w-[280px]">
@@ -635,7 +635,7 @@ function VideoCategories() {
       <div className="px-8 lg:px-14 mb-16 max-w-[1440px] mx-auto relative z-10">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">11 Video Formats</p>
         <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
-          EVERY KIND<br /><span className="text-violet-400">OF VIDEO.</span>
+          EVERY KIND<br /><span className="font-heading text-violet-400">OF VIDEO.</span>
         </h2>
       </div>
 
@@ -671,7 +671,7 @@ function MotionTransfer() {
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Motion Transfer</p>
             <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2.4rem,4.5vw,5rem)" }}>
-              ANY MOTION.<br /><span className="font-heading text-cyan-400">ANY PERSON.</span>
+              ANY MOTION.<br /><span className="text-cyan-400">ANY PERSON.</span>
             </h2>
             <p className="text-white/50 text-[15px] leading-relaxed mb-10 max-w-[380px]">
               Take any movement — a dance, a gesture, a walk — from any reference video. Apply it exactly to a different person. No motion capture, no markers.
@@ -683,8 +683,8 @@ function MotionTransfer() {
                 { n: "3", t: "AI transfers motion frame-by-frame" },
               ].map(s => (
                 <div key={s.n} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-400/25 flex items-center justify-center shrink-0">
-                    <span className="text-cyan-300 text-[11px] font-black">{s.n}</span>
+                  <div className="shrink-0 w-7 h-7 rounded-lg bg-white/[0.07] flex items-center justify-center">
+                    <span className="text-white/50 text-[11px] font-black">{s.n}</span>
                   </div>
                   <span className="text-white/55 text-[14px]">{s.t}</span>
                 </div>
@@ -885,7 +885,7 @@ function AudioLipSync() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
                 <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `${v.accent}80` }} />
                 <div className="absolute top-3 left-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm" style={{ color: v.accent }}>{v.tag}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-black/50 backdrop-blur-sm" style={{ color: v.accent }}>{v.tag}</span>
                 </div>
                 <div className="absolute bottom-3 left-3 right-3">
                   <div className="text-white font-black text-[14px] leading-tight">{v.tag}</div>
@@ -1510,14 +1510,14 @@ function ModelsSection() {
                 <AutoVid src={m.vid} poster={m.vidT} className="group-hover:scale-105 transition-transform duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute top-3 right-3">
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm"
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm"
                     style={{ color: m.color }}>{m.tag}</span>
                 </div>
                 <div className="absolute bottom-3 left-3 text-white/40 text-[9px] font-bold uppercase tracking-widest">{m.cat}</div>
               </div>
               {/* Info */}
               <div className="p-5">
-                <div className="w-2 h-2 rounded-full mb-3" style={{ background: m.color }} />
+                <div className="w-8 h-0.5 rounded-sm mb-3" style={{ background: m.color }} />
                 <div className="text-white font-black text-[14px] mb-1 group-hover:translate-x-0.5 transition-transform">{m.name}</div>
                 <div className="text-white/40 text-[12px] mb-4">{m.desc}</div>
                 <div className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest" style={{ color: m.color }}>
@@ -1624,8 +1624,8 @@ function HowItWorksSection() {
                 initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.5, delay: i * 0.08 }}
                 className="flex gap-8 mb-12 last:mb-0">
-                <div className="shrink-0 w-14 h-14 rounded-2xl bg-black flex items-center justify-center">
-                  <span className="text-white font-black text-[13px]">{step.n}</span>
+                <div className="shrink-0 w-14 h-14 rounded-xl bg-[#FFFF00] flex items-center justify-center">
+                  <span className="text-black font-black text-[13px]">{step.n}</span>
                 </div>
                 <div className="pt-1">
                   <h3 className="text-black font-black text-2xl mb-2">{step.title}</h3>
@@ -1905,10 +1905,10 @@ function ImageGallerySection() {
       </div>
 
       {/* Desktop: uniform 6-col grid, all 3:4 */}
-      <div className="hidden lg:grid px-8 lg:px-14 max-w-[1440px] mx-auto grid-cols-5 gap-2">
+      <div className="hidden lg:grid px-8 lg:px-14 max-w-[1440px] mx-auto grid-cols-4 gap-2">
         {IMGS.map((src, i) => (
           <div key={i} className="relative overflow-hidden rounded-xl group cursor-pointer" style={{ aspectRatio: "3/4" }}>
-            <Image src={src} alt="AI portrait" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" sizes="17vw" />
+            <Image src={src} alt="AI portrait" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" sizes="22vw" />
           </div>
         ))}
       </div>
