@@ -8,37 +8,19 @@ export function Footer() {
     return (
         <footer className="bg-black border-t border-white/5 pt-24 pb-12 relative overflow-hidden">
 
-            {/* New CTA Section */}
-            <div className="container mx-auto px-4 mb-24">
-                <div className="relative rounded-2xl bg-white/5 border border-white/10 overflow-hidden p-12 md:p-24 text-center">
-                    <div className="absolute inset-0 bg-[#FFFF00]/5 blur-[100px] pointer-events-none" />
-
-                    <div className="relative z-10 max-w-4xl mx-auto space-y-8">
-                        <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.2em] mb-6">Start Today — Free</p>
-                        <h2 className="text-5xl md:text-8xl font-black font-heading text-white tracking-tight leading-[0.9]">
-                            MAKE IT<br />
-                            <span className="text-[#FFFF00]">SHARP.</span>
-                        </h2>
-
-                        <p className="text-lg text-white/55 max-w-xl mx-auto leading-relaxed">
-                            Stop your AI photos from looking plastic. Real skin texture, 8K detail, video generation, AI avatars — the complete creative studio, one subscription.
-                        </p>
-
-                        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-6">
-                            <Link href="/signup">
-                                <button className="group relative bg-[#FFFF00] text-black px-10 py-5 rounded-xl font-black text-base inline-flex items-center gap-3 hover:scale-105 hover:shadow-[0_0_50px_rgba(255,255,0,0.3)] transition-all duration-300">
-                                    <span>Get Started Free</span>
-                                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                                </button>
-                            </Link>
-                            <Link href="/app/dashboard">
-                                <button className="border border-white/15 text-white/70 px-8 py-5 rounded-xl font-bold text-base inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 transition-all duration-300">
-                                    Enter App
-                                </button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
+            {/* CTA Section — minimal */}
+            <div className="container mx-auto px-4 mb-24 text-center">
+                <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.25em] mb-8">20+ AI Models · 8K Output · No Subscription Lock-in</p>
+                <h2 className="text-5xl md:text-7xl font-black font-heading text-white tracking-tight leading-[0.88] mb-10">
+                    EXPLORE<br />
+                    <span className="text-[#FFFF00]">AI TOOLS.</span>
+                </h2>
+                <Link href="/app/dashboard">
+                    <button className="group bg-[#FFFF00] text-black px-12 py-5 rounded-xl font-black text-base inline-flex items-center gap-3 hover:scale-105 hover:shadow-[0_0_50px_rgba(255,255,0,0.25)] transition-all duration-300">
+                        Enter App
+                        <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                    </button>
+                </Link>
             </div>
 
             <div className="container mx-auto px-4">
