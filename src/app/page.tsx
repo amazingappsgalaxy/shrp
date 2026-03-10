@@ -1875,8 +1875,8 @@ function AIAvatarsSection() {
               { n: "~3min", d: "Photo to finished video" },
               { n: "Any",  d: "Language and voice"      },
               { n: "Any",  d: "Face or persona"         },
-            ].map(s => (
-              <div key={s.n} className="flex items-center gap-3">
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-3">
                 <div className="text-white font-black text-2xl">{s.n}</div>
                 <div className="text-white/30 text-[12px] max-w-[90px] leading-snug">{s.d}</div>
               </div>
