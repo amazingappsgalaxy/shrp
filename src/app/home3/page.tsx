@@ -101,18 +101,28 @@ function NavThemeController() {
 // ─── PRIMITIVES ───────────────────────────────────────────────────────────────
 function AutoVid({ src, poster, className = "" }: { src: string; poster?: string; className?: string }) {
   const ref = useRef<HTMLVideoElement>(null)
+  const [inView, setInView] = useState(false)
   const [failed, setFailed] = useState(false)
+
   useEffect(() => {
-    const v = ref.current
-    if (!v) return
-    v.play().catch(() => {})
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) { setInView(true); obs.disconnect() } },
+      { rootMargin: "300px" }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
   }, [])
+
+  useEffect(() => { if (inView) ref.current?.play().catch(() => {}) }, [inView])
+
   if (failed && poster) {
     return <div className={cn("w-full h-full bg-cover bg-center", className)} style={{ backgroundImage: `url(${poster})` }} />
   }
   return (
     <video
-      ref={ref} src={src} poster={poster} muted loop playsInline autoPlay
+      ref={ref} src={inView ? src : undefined} poster={poster} muted loop playsInline
       className={cn("w-full h-full object-cover", className)}
       onError={() => setFailed(true)}
     />
@@ -1439,7 +1449,7 @@ function ImageGenSection() {
               initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.65, delay: i * 0.1 }}
               className="flex-1 relative overflow-hidden rounded-xl group cursor-pointer" style={{ height: item.h }}>
-              <Image src={item.src} alt={item.alt} fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
+              <Image src={item.src} alt={item.alt} fill sizes="20vw" className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-70" />
               <div className="absolute bottom-0 left-0 right-0 p-5 translate-y-1 group-hover:translate-y-0 opacity-70 group-hover:opacity-100 transition-all duration-300">
                 <p className="text-white text-sm font-bold">{item.alt}</p>
