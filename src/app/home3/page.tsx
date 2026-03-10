@@ -75,6 +75,13 @@ function NavStyleOverride() {
       .auto-scroll-x:hover { animation-play-state: paused; }
       .skin-xhair { opacity: 0; transition: opacity 0.2s; }
       .skin-container:hover .skin-xhair { opacity: 1; }
+      input[type=range].pslider { -webkit-appearance:none; appearance:none; width:100%; height:36px; background:transparent; cursor:pointer; padding:0; margin:0; }
+      input[type=range].pslider::-webkit-slider-runnable-track { height:2px; border-radius:99px; background:rgba(255,255,255,0.08); }
+      input[type=range].pslider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#fff; margin-top:-9px; cursor:pointer; box-shadow:0 0 0 2.5px #0c0016, 0 0 0 4.5px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); transition:box-shadow 0.15s, transform 0.1s; }
+      input[type=range].pslider:hover::-webkit-slider-thumb, input[type=range].pslider:active::-webkit-slider-thumb { box-shadow:0 0 0 2.5px #0c0016, 0 0 0 5.5px #fbbf24, 0 0 20px rgba(251,191,36,0.5), 0 2px 12px rgba(0,0,0,0.8); transform:scale(1.15); }
+      input[type=range].pslider::-moz-range-track { height:2px; border-radius:99px; background:rgba(255,255,255,0.08); }
+      input[type=range].pslider::-moz-range-progress { height:2px; border-radius:99px; background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+      input[type=range].pslider::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#fff; border:2.5px solid #0c0016; cursor:pointer; box-shadow:0 0 0 3px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); }
     `}</style>
   )
 }
@@ -615,8 +622,25 @@ function VideoCategories() {
   const all = [...CATS, ...CATS]
 
   return (
-    <section className="bg-[#060610] pt-24 pb-24 overflow-hidden">
-      <div className="px-8 lg:px-14 mb-14 max-w-[1440px] mx-auto">
+    <section className="bg-[#060610] pt-24 pb-24 overflow-hidden relative">
+      {/* Futuristic perspective grid floor */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div style={{
+          position: "absolute", bottom: 0, left: "-60%", right: "-60%", height: "65%",
+          backgroundImage: "linear-gradient(rgba(255,255,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,0,0.1) 1px, transparent 1px)",
+          backgroundSize: "70px 70px",
+          transform: "perspective(700px) rotateX(62deg)",
+          transformOrigin: "50% 0%",
+        }} />
+        {/* Vanishing-point fade — top */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to bottom, #060610 0%, transparent 35%, transparent 72%, #060610 100%)" }} />
+        {/* Side fades */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to right, #060610 0%, transparent 18%, transparent 82%, #060610 100%)" }} />
+        {/* Horizon glow */}
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "63%", width: "60%", height: 1, background: "linear-gradient(90deg, transparent, rgba(255,255,0,0.3), transparent)" }} />
+      </div>
+
+      <div className="px-8 lg:px-14 mb-14 max-w-[1440px] mx-auto relative z-10">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">11 Video Formats</p>
         <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
           EVERY KIND<br /><span className="text-violet-400">OF VIDEO.</span>
@@ -624,7 +648,7 @@ function VideoCategories() {
       </div>
 
       {/* Full-width auto-scroll, doubled size */}
-      <div className="overflow-hidden">
+      <div className="overflow-hidden relative z-10">
         <div className="flex gap-5 w-max auto-scroll-x" style={{ animationDuration: "56s" }}>
           {all.map((cat, i) => (
             <div key={i} className="flex-shrink-0 rounded-2xl overflow-hidden relative group cursor-pointer"
@@ -713,69 +737,81 @@ function MotionTransfer() {
 
 // ─── 9. AUDIO & LIP SYNC ──────────────────────────────────────────────────────
 function AudioLipSync() {
-  const BARS = Array.from({ length: 36 }, (_, i) => i)
-  const barHeights = [0.3,0.6,0.9,0.5,0.8,0.4,1,0.7,0.5,0.9,0.3,0.7,0.8,0.5,0.6,0.4,0.9,0.7,0.5,0.8,0.3,0.6,1,0.4,0.7,0.5,0.9,0.6,0.3,0.8,0.5,0.7,0.4,0.9,0.6,0.8]
-
+  const BH = [0.3,0.7,1,0.5,0.85,0.4,0.95,0.6,0.5,0.9,0.35,0.75,0.8,0.45,0.65,0.4,0.9,0.7,0.5,0.8,0.3]
   return (
-    <section className="bg-white py-24" data-nav-light="true">
+    <section className="bg-white py-24 overflow-hidden" data-nav-light="true">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <div className="relative" style={{ maxWidth: 380 }}>
-            <div className="relative rounded-2xl overflow-hidden bg-black" style={{ aspectRatio: "3/4" }}>
-              <AutoVid src={VID.lipsync} poster={VID.lipsyncT} className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 px-5 py-5">
-                <div className="flex items-end gap-[3px] mb-3 h-14">
-                  {BARS.map(i => {
-                    const h = barHeights[i % 36] ?? 0.5
-                    return (
-                      <motion.div key={i} className="flex-1 rounded-sm"
-                        style={{ background: `rgba(233,30,140,${0.4 + h * 0.6})`, minWidth: 2 }}
-                        animate={{ scaleY: [h * 0.4, h, h * 0.5] }}
-                        transition={{ duration: 0.4 + (i % 7) * 0.07, repeat: Infinity, delay: i * 0.025, ease: "easeInOut" }} />
-                    )
-                  })}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#e91e8c] animate-pulse" />
-                  <span className="text-white/50 text-[10px] font-bold uppercase tracking-wider">Audio Syncing Live...</span>
-                </div>
-              </div>
-            </div>
-          </div>
+
+        {/* Header row */}
+        <div className="flex flex-col lg:flex-row items-start justify-between gap-8 mb-10">
           <div>
-            <p className="text-black/30 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Audio &amp; Lip Sync</p>
-            <h2 className="font-black text-black leading-[0.88] mb-6" style={{ fontSize: "clamp(2.6rem,5vw,5.5rem)" }}>
+            <p className="text-black/25 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Audio &amp; Lip Sync</p>
+            <h2 className="font-black text-black leading-[0.88]" style={{ fontSize: "clamp(3rem,6vw,7rem)" }}>
               YOUR WORDS.<br /><span className="text-[#e91e8c]">ANY FACE.</span>
             </h2>
-            <p className="text-black/45 text-[15px] leading-relaxed mb-10 max-w-[380px]">
-              Upload any audio — speech, voiceover, or song. AI synchronizes lip movement frame-by-frame with natural micro-expressions.
+          </div>
+          <div className="max-w-[300px] lg:pt-8">
+            <p className="text-black/40 text-[15px] leading-relaxed mb-6">
+              Upload any audio — voice, song, or script. AI syncs lip movement frame-by-frame with natural micro-expressions.
             </p>
-            <div className="grid grid-cols-2 gap-3 mb-10">
-              {[
-                { icon: Mic,      label: "Voice Sync",    desc: "Any spoken audio" },
-                { icon: Music,    label: "Song Lip Sync", desc: "Music video ready" },
-                { icon: Video,    label: "Live Preview",  desc: "See it instantly" },
-                { icon: Download, label: "Export HD",     desc: "Up to 4K video" },
-              ].map(f => (
-                <div key={f.label} className="bg-black/[0.05] border border-black/8 rounded-xl p-4">
-                  <f.icon className="w-5 h-5 text-[#e91e8c] mb-3" />
-                  <div className="text-black font-bold text-[13px]">{f.label}</div>
-                  <div className="text-black/40 text-[11px] mt-0.5">{f.desc}</div>
-                </div>
-              ))}
-            </div>
-            <Link href="/app/video"
-              className="inline-flex items-center gap-2.5 bg-black px-7 py-4 rounded-xl text-white font-black text-[14px] hover:bg-black/80 transition-colors">
+            <Link href="/app/video" className="inline-flex items-center gap-2 bg-black px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-black/75 transition-colors">
               Try Lip Sync <ArrowRight className="w-4 h-4" />
             </Link>
+          </div>
+        </div>
+
+        {/* 5-video layout: 1 tall featured left + 2×2 right grid */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Featured — tall portrait video with waveform */}
+          <div className="relative rounded-2xl overflow-hidden lg:w-[38%] shrink-0" style={{ minHeight: 520 }}>
+            <AutoVid src={VID.lipsync} poster={VID.lipsyncT} className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 px-6 py-6">
+              <div className="flex items-end gap-[3px] mb-3 h-12">
+                {BH.map((h, i) => (
+                  <motion.div key={i} className="flex-1 rounded-sm"
+                    style={{ background: `rgba(233,30,140,${0.45 + h * 0.55})`, minWidth: 3, originY: "bottom" }}
+                    animate={{ scaleY: [h * 0.35, h, h * 0.45] }}
+                    transition={{ duration: 0.38 + (i % 6) * 0.07, repeat: Infinity, delay: i * 0.028, ease: "easeInOut" }} />
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#e91e8c] animate-pulse" />
+                <span className="text-white/50 text-[10px] font-bold uppercase tracking-widest">Audio Syncing Live</span>
+              </div>
+              <div className="text-white font-black text-xl">Lip Sync Studio</div>
+              <div className="text-white/40 text-[12px] mt-0.5">Any audio. Any face.</div>
+            </div>
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#e91e8c]" />
+          </div>
+
+          {/* Right: 2×2 grid of 4 videos */}
+          <div className="flex-1 grid grid-cols-2 gap-4">
+            {([
+              { src: VID.aiInfluencer, poster: VID.aiInfluencerT, accent: "#e879f9", tag: "AI Influencer",   desc: "Consistent AI persona"   },
+              { src: VID.soul2,        poster: VID.soul2T,        accent: "#a78bfa", tag: "Soul Cinematic",  desc: "Text to cinematic video" },
+              { src: VID.nanoBanana,   poster: VID.nanoBananaT,   accent: "#f59e0b", tag: "Nano Banana 2",   desc: "Ultra-detail generation" },
+              { src: VID.motion,       poster: VID.motionT,       accent: "#22d3ee", tag: "Motion Transfer", desc: "Clone any movement"      },
+            ] as const).map((v, i) => (
+              <div key={i} className="relative rounded-2xl overflow-hidden group" style={{ minHeight: 250 }}>
+                <AutoVid src={v.src} poster={v.poster} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
+                <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `${v.accent}80` }} />
+                <div className="absolute top-3 left-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm" style={{ color: v.accent }}>{v.tag}</span>
+                </div>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="text-white font-black text-[14px] leading-tight">{v.tag}</div>
+                  <div className="text-white/40 text-[11px] mt-0.5">{v.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </section>
   )
 }
-
 // ─── 10. SKIN EDITOR ──────────────────────────────────────────────────────────
 function SkinEditorSection() {
   const [textureSize,  setTextureSize]  = useState(4)
@@ -813,26 +849,36 @@ function SkinEditorSection() {
               </button>
             ))}
           </div>
-          <div className="space-y-7 mb-10 max-w-[380px]">
+          <div className="space-y-8 mb-10 max-w-[380px]">
             {[
-              { label: "Skin Texture Size",       val: textureSize,   fmt: String(textureSize),     pct: texturePercent,  set: setTextureSize,  min: 2,   max: 10,  step: 1    },
-              { label: "Detail Recovery",          val: detailLevel,   fmt: detailLevel.toFixed(1),   pct: detailPercent,   set: setDetailLevel,  min: 0.8, max: 1.2, step: 0.05 },
-              { label: "Transformation Strength",  val: strength,      fmt: `${Math.round(strength * 100)}%`, pct: strengthPercent, set: setStrength, min: 0.1, max: 0.38, step: 0.01 },
+              { label: "Skin Texture Size",      val: textureSize,  fmt: String(textureSize),            pct: texturePercent,  set: setTextureSize,  min: 2,   max: 10,  step: 1    },
+              { label: "Detail Recovery",         val: detailLevel,  fmt: detailLevel.toFixed(1),          pct: detailPercent,   set: setDetailLevel,  min: 0.8, max: 1.2, step: 0.05 },
+              { label: "Strength",                val: strength,     fmt: `${Math.round(strength*100)}%`,  pct: strengthPercent, set: setStrength,     min: 0.1, max: 0.38,step: 0.01 },
             ].map(s => (
-              <div key={s.label} className="relative">
-                <div className="flex justify-between mb-3">
-                  <span className="text-white/55 text-[12px] font-semibold tracking-wide">{s.label}</span>
-                  <span className="text-amber-400 text-[13px] font-mono font-bold tabular-nums">{s.fmt}</span>
+              <div key={s.label}>
+                <div className="flex items-baseline justify-between mb-3">
+                  <span className="text-white/40 text-[11px] font-bold uppercase tracking-[0.18em]">{s.label}</span>
+                  <span className="text-amber-400 font-mono font-black text-2xl tabular-nums leading-none">{s.fmt}</span>
                 </div>
-                <div className="relative h-2 bg-white/8 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-100"
-                    style={{ width: `${s.pct}%`, background: "linear-gradient(90deg, #f59e0b, #fbbf24)", boxShadow: "0 0 10px rgba(251,191,36,0.5)" }} />
+                <div className="relative flex items-center" style={{ height: 36 }}>
+                  {/* Track */}
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-white/12 rounded-full" />
+                  {/* Fill */}
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-px rounded-full transition-all duration-75"
+                    style={{ width: `${s.pct}%`, background: "linear-gradient(90deg,#f59e0b,#fbbf24)" }} />
+                  {/* Tick marks */}
+                  {Array.from({ length: 7 }, (_, i) => (
+                    <div key={i} className="absolute top-1/2 -translate-y-1/2 w-px transition-colors"
+                      style={{ left: `${(i/6)*100}%`, height: i%3===0 ? 10 : 5, background: (i/6)*100 <= s.pct ? "rgba(251,191,36,0.5)" : "rgba(255,255,255,0.1)" }} />
+                  ))}
+                  {/* Thumb */}
+                  <div className="absolute top-1/2 pointer-events-none rounded-full transition-all duration-75"
+                    style={{ left: `${s.pct}%`, transform: "translate(-50%,-50%)", width: 20, height: 20, background: "#fff", boxShadow: "0 0 0 2.5px #0c0016, 0 0 0 4.5px rgba(251,191,36,0.75), 0 2px 10px rgba(0,0,0,0.7)" }} />
+                  {/* Native input */}
+                  <input type="range" min={s.min} max={s.max} step={s.step} value={s.val}
+                    onChange={e => s.set(Number(e.target.value) as never)}
+                    className="pslider absolute inset-0 opacity-0" />
                 </div>
-                <div className="absolute pointer-events-none"
-                  style={{ top: "calc(1.75rem + 0px)", left: `calc(${s.pct}% - 10px)`, width: 20, height: 20, borderRadius: "50%", background: "#fbbf24", border: "3px solid #0c0016", boxShadow: "0 0 0 1px rgba(251,191,36,0.4), 0 4px 12px rgba(0,0,0,0.6)" }} />
-                <input type="range" min={s.min} max={s.max} step={s.step} value={s.val}
-                  onChange={e => s.set(Number(e.target.value) as never)}
-                  className="absolute inset-x-0 opacity-0 h-10 cursor-pointer" style={{ top: "1.5rem" }} />
               </div>
             ))}
           </div>
@@ -909,274 +955,193 @@ function AIRelighting() {
   )
 }
 
-// ─── 12. IMAGE EDIT STUDIO — with workflow explanation ───────────────────────
+// ─── 12. IMAGE EDIT STUDIO ────────────────────────────────────────────────────
 function ImageEditStudio() {
-  const [activeMode, setActiveMode] = useState<"edit"|"relight"|"prompt">("edit")
   const [activeLayerIdx, setActiveLayerIdx] = useState(0)
-
   const LAYERS = [
-    { hex: "#FF4B4B", name: "Smooth skin texture",     prompt: "Smooth skin, remove blemishes, natural look" },
-    { hex: "#4B8BFF", name: "Brighten & enhance eyes", prompt: "Brighten eyes, add natural sparkle and clarity" },
-    { hex: "#4BFF8B", name: "Add hair highlights",     prompt: "Add natural blonde highlights to the hair" },
+    { hex: "#FF4B4B", label: "RED",   prompt: "Smooth skin, remove blemishes, natural texture" },
+    { hex: "#4B8BFF", label: "BLUE",  prompt: "Brighten eyes, add natural sparkle and depth" },
+    { hex: "#4BFF8B", label: "GREEN", prompt: "Add natural golden highlights to the hair" },
   ]
 
   return (
-    <section className="bg-[#06060c] py-24 overflow-hidden relative"
-      style={{
-        backgroundImage: "linear-gradient(rgba(16,185,129,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.03) 1px, transparent 1px)",
-        backgroundSize: "40px 40px",
-      }}>
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 60% 50% at 65% 55%, rgba(16,185,129,0.05), transparent)" }} />
-
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-12 xl:gap-20 items-start">
-
-          {/* LEFT: Workflow explanation */}
-          <div className="lg:sticky lg:top-28">
-            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">04 / Image Edit</p>
-            <h2 className="font-black text-white leading-[0.82] mb-5" style={{ fontSize: "clamp(2.6rem,4.5vw,5.5rem)" }}>
-              BRUSH. MASK.<br /><span className="text-emerald-400">TRANSFORM.</span>
-            </h2>
-            <p className="text-white/40 text-[15px] leading-relaxed mb-10 max-w-[360px]">
-              Paint any region. Write what you want changed. AI edits only inside the mask — every pixel outside stays untouched.
+    <section className="bg-[#04040a] py-20 overflow-hidden">
+      {/* Section header */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-10">
+        <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">04 / Image Edit</p>
+        <div className="flex flex-col lg:flex-row items-end justify-between gap-6">
+          <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
+            BRUSH. MASK.<br /><span className="text-emerald-400">TRANSFORM.</span>
+          </h2>
+          <div className="lg:max-w-[320px] lg:pb-1 flex flex-col gap-4">
+            <p className="text-white/35 text-[15px] leading-relaxed">
+              Paint a region with any colour. Write what you want changed. AI edits only inside your mask — nothing outside is touched.
             </p>
-
-            <div className="space-y-6 mb-10">
-              {[
-                { n: "01", color: "#FF4B4B", title: "Pick a layer color",   desc: "Each mask layer has its own color and its own prompt. Stack multiple targeted edits in one generation." },
-                { n: "02", color: "#4B8BFF", title: "Brush the area",       desc: "Use the brush tool to paint over exactly the region you want to edit — face, hair, background, clothing." },
-                { n: "03", color: "#4BFF8B", title: "Describe the change",  desc: "Type in plain English what you want. \"Smooth skin\", \"add highlights\", \"darken background\" — any edit." },
-              ].map(s => (
-                <div key={s.n} className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-black text-[12px] mt-0.5"
-                    style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30` }}>
-                    {s.n}
-                  </div>
-                  <div>
-                    <div className="text-white font-bold text-[14px] mb-1">{s.title}</div>
-                    <div className="text-white/35 text-[13px] leading-relaxed">{s.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Link href="/app/edit"
-              className="inline-flex items-center gap-2 bg-emerald-500 px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-emerald-400 transition-colors">
+            <Link href="/app/edit" className="self-start inline-flex items-center gap-2 bg-emerald-500 px-6 py-3 rounded-xl text-white font-black text-sm hover:bg-emerald-400 transition-colors">
               Open Edit Studio <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
+        </div>
+      </div>
 
-          {/* RIGHT: Edit Studio UI mockup */}
-          <div className="bg-[#0c0c12] rounded-2xl border border-white/8 overflow-hidden shadow-2xl">
-            {/* Top chrome bar */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/6 bg-[#0a0a10]">
-              <div className="flex gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]/70" />
-                <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]/70" />
-                <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]/70" />
-              </div>
-              {/* Mode tabs — matches real EditModal */}
-              <div className="flex items-center bg-[#0c0c0c] border border-[#2a2a2a] rounded-xl p-1 gap-0.5">
-                {(["edit","relight","prompt"] as const).map(m => (
-                  <button key={m} onClick={() => setActiveMode(m)}
-                    className={cn("px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
-                      activeMode === m ? "bg-[#FFFF00] text-black shadow-sm" : "text-[#b0b0b0] hover:text-white")}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-              <span className="text-white/15 text-[11px] hidden sm:block">Image Edit Studio</span>
+      {/* Full-width app mockup */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
+        <div className="rounded-2xl border border-white/8 overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.8)] bg-[#0b0b12]">
+
+          {/* Title bar */}
+          <div className="flex items-center gap-4 px-5 py-3 bg-[#080810] border-b border-white/6">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+              <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+              <div className="w-3 h-3 rounded-full bg-[#28c840]" />
             </div>
-
-            {/* Workspace */}
-            <div className="flex" style={{ minHeight: 500 }}>
-              {/* Left toolbar — matches real EditModal left panel */}
-              <div className="w-[52px] border-r border-white/6 flex flex-col items-center py-4 gap-1.5 bg-[#0a0a10] shrink-0">
-                <div className="flex gap-0.5 mb-1">
-                  <div className="w-7 h-7 rounded-md flex items-center justify-center text-white/20 cursor-pointer">
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="w-7 h-7 rounded-md flex items-center justify-center text-white/20 cursor-pointer">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
+            <span className="text-white/15 text-[11px] flex-1 text-center">Image Edit Studio — sharpii.ai</span>
+            {/* Mode tabs */}
+            <div className="flex items-center bg-[#111118] border border-white/8 rounded-xl p-1 gap-0.5">
+              {(["EDIT","RELIGHT","PROMPT"] as const).map(m => (
+                <div key={m} className={cn("px-4 py-1.5 rounded-lg text-[11px] font-black tracking-widest",
+                  m === "EDIT" ? "bg-[#FFFF00] text-black" : "text-white/25")}>
+                  {m}
                 </div>
-                <div className="w-7 h-px bg-[#191919]" />
-                {/* Active layer indicator dot */}
-                <div className="w-4 h-4 rounded-full mt-0.5" style={{ background: LAYERS[activeLayerIdx]?.hex ?? "#FF4B4B" }} />
-                {/* Tool buttons */}
-                {[
-                  { Icon: Brush,  active: true  },
-                  { Icon: Eraser, active: false },
-                  { Icon: Square, active: false },
-                  { Icon: Type,   active: false },
-                ].map((t, i) => (
-                  <div key={i} className={cn("w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer transition-all",
-                    t.active ? "bg-[#FFFF00] text-black shadow-md" : "text-white/25 hover:bg-white/[0.06]")}>
-                    <t.Icon className="w-4 h-4" />
-                  </div>
-                ))}
-                <div className="w-7 h-px bg-[#191919] my-1" />
-                {/* Add layer button */}
-                <div className="w-9 h-9 rounded-full bg-[#FFFF00] flex items-center justify-center cursor-pointer hover:scale-105 transition-transform shadow-md">
-                  <Plus className="w-4 h-4 text-black" />
-                </div>
-                <div className="w-7 h-px bg-[#191919] my-1" />
-                {/* Layer color dots */}
-                {LAYERS.map((l, i) => (
-                  <button key={l.hex} onClick={() => setActiveLayerIdx(i)}
-                    className="w-4 h-4 rounded-full transition-all cursor-pointer"
-                    style={{
-                      background: l.hex,
-                      boxShadow: activeLayerIdx === i
-                        ? `0 0 0 2px #0a0a10, 0 0 0 3.5px #FFFF00`
-                        : `0 0 0 2px #0a0a10, 0 0 0 3.5px rgba(255,255,255,0.2)`
-                    }} />
-                ))}
-              </div>
-
-              {/* Canvas area */}
-              <div className="flex-1 bg-[#090910] flex items-center justify-center p-5 min-w-0">
-                {activeMode === "edit" && (
-                  <div className="relative overflow-visible flex-shrink-0 mx-auto" style={{ width: 420, height: 420 }}>
-                    {/* Portrait */}
-                    <div className="absolute left-0 top-0 rounded-xl overflow-hidden shadow-2xl" style={{ width: 300, height: 420 }}>
-                      <div className="absolute inset-0"
-                        style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
-                      {/* Red mask: forehead */}
-                      <div className="absolute pointer-events-none"
-                        style={{ top: "13%", left: "12%", width: "76%", height: "18%", borderRadius: "50%", background: "rgba(255,75,75,0.42)", filter: "blur(10px)" }} />
-                      {/* Blue mask: eyes */}
-                      <div className="absolute pointer-events-none"
-                        style={{ top: "30%", left: "16%", width: "68%", height: "9%", borderRadius: "50%", background: "rgba(75,139,255,0.46)", filter: "blur(6px)" }} />
-                      {/* Green mask: hair */}
-                      <div className="absolute pointer-events-none"
-                        style={{ top: "0%", left: "8%", width: "84%", height: "16%", borderRadius: "50%", background: "rgba(75,255,139,0.28)", filter: "blur(12px)" }} />
-                      {/* Brush cursor — filled yellow circle matching real app */}
-                      <div className="absolute z-30 pointer-events-none" style={{ top: "20%", left: "44%", transform: "translate(-50%,-50%)" }}>
-                        <div className="w-7 h-7 rounded-full bg-[#FFFF00]/80"
-                          style={{ boxShadow: "0 0 0 2px rgba(0,0,0,0.5), 0 0 14px rgba(255,255,0,0.55)" }} />
-                      </div>
-                    </div>
-
-                    {/* Floating prompt cards — overlaid ON canvas, extending right */}
-                    {LAYERS.map((l, i) => {
-                      const tops = [48, 152, 4]
-                      const topPx = tops[i] ?? 48
-                      const isActive = activeLayerIdx === i
-                      return (
-                        <button key={l.hex} onClick={() => setActiveLayerIdx(i)}
-                          className={cn("absolute rounded-xl border text-left backdrop-blur-sm transition-all bg-[#14141e]/95",
-                            isActive ? "shadow-2xl scale-[1.02]" : "opacity-55 hover:opacity-80")}
-                          style={{
-                            left: 192, top: topPx, width: 204,
-                            padding: "9px 12px",
-                            borderColor: `${l.hex}${isActive ? "65" : "30"}`,
-                            zIndex: isActive ? 20 : 10,
-                          }}>
-                          {/* Connector dot */}
-                          <div className="absolute rounded-full" style={{
-                            left: -5, top: "50%", transform: "translateY(-50%)",
-                            width: 6, height: 6, background: l.hex,
-                            boxShadow: `0 0 8px ${l.hex}`,
-                          }} />
-                          {/* Badge */}
-                          <div className="flex items-center gap-1.5 mb-2">
-                            <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md"
-                              style={{ background: `${l.hex}22`, color: l.hex }}>{l.name}</span>
-                            {isActive && <span className="text-white/20 text-[9px] font-bold ml-auto">ACTIVE</span>}
-                          </div>
-                          {/* Prompt */}
-                          <div className="bg-[#0a0a14] border border-white/6 rounded-lg px-2.5 py-1.5 text-white/40 text-[10px] leading-snug mb-2">
-                            &ldquo;{l.prompt}&rdquo;
-                          </div>
-                          {/* + */}
-                          <div className="flex justify-end">
-                            <div className="w-5 h-5 rounded-full bg-white/8 flex items-center justify-center">
-                              <Plus className="w-3 h-3 text-white/30" />
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                    {/* Add layer */}
-                    <button className="absolute rounded-xl border border-dashed border-white/12 text-white/25 text-[10px] hover:border-white/22 transition-colors flex items-center gap-1.5"
-                      style={{ left: 192, top: 294, width: 204, padding: "8px 12px" }}>
-                      <Plus className="w-3 h-3" /> Add layer
-                    </button>
-                  </div>
-                )}
-
-                {activeMode === "relight" && (
-                  <div className="relative rounded-xl overflow-hidden shadow-2xl" style={{ width: 300, height: 420 }}>
-                    <div className="absolute inset-0" style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
-                    <div className="absolute inset-0" style={{ background: "linear-gradient(130deg, rgba(255,136,0,0.38), transparent 60%)" }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
-                    <div className="absolute top-4 left-4 right-4">
-                      <div className="flex flex-wrap gap-1 bg-black/70 backdrop-blur-sm rounded-xl p-2 border border-white/10">
-                        {["Studio","Golden Hr","Moonlight","Campfire","Spotlight","Window"].map(s => (
-                          <span key={s} className={cn("px-2.5 py-1 rounded-lg text-[10px] font-bold",
-                            s === "Golden Hr" ? "bg-orange-500/20 text-orange-400" : "text-white/30")}>
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="absolute bottom-4 left-4">
-                      <div className="text-orange-300 text-[10px] font-black uppercase tracking-widest mb-0.5">Golden Hour Active</div>
-                      <div className="text-white font-bold text-sm">Warm directional light</div>
-                    </div>
-                  </div>
-                )}
-
-                {activeMode === "prompt" && (
-                  <div className="relative rounded-xl overflow-hidden shadow-2xl" style={{ width: 300, height: 420 }}>
-                    <div className="absolute inset-0" style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 5%" }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                    <div className="absolute top-4 left-4 right-4">
-                      <div className="bg-[#14141e]/90 backdrop-blur-md border border-white/10 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2.5">
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-emerald-400 text-[11px] font-bold">Full Image Prompt</span>
-                        </div>
-                        <div className="text-white/60 text-[12px] leading-relaxed">&ldquo;Add dramatic studio lighting with deep shadows on the left side, keep face sharp&rdquo;</div>
-                      </div>
-                    </div>
-                    <div className="absolute bottom-4 left-4 right-4 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
-                        <Sparkles className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div>
-                        <div className="text-emerald-300 text-[9px] font-black uppercase tracking-widest">Generating...</div>
-                        <div className="text-white/40 text-[11px]">Applying prompt to full image</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom bar — matches real EditModal bottom bar */}
-            <div className="border-t border-white/6 px-4 py-3 flex items-center gap-3 bg-[#0a0a10]">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: LAYERS[activeLayerIdx]?.hex ?? "#FF4B4B" }} />
-                <span className="text-white/25 text-[10px] font-black uppercase tracking-wide">Active Layer</span>
-              </div>
-              <div className="flex-1 bg-[#12121a] border border-white/8 rounded-xl px-3 py-2.5 flex items-center gap-2 min-w-0">
-                <Sparkles className="w-3 h-3 text-emerald-400/50 shrink-0" />
-                <span className="text-white/25 text-[11px] truncate">{LAYERS[activeLayerIdx]?.prompt ?? "Describe what you want changed..."}</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-white/20 text-[11px] hidden sm:block">nano-banana-2</span>
-                <div className="w-px h-3 bg-white/10 hidden sm:block" />
-                <span className="text-white/20 text-[11px]">⚡ 5 cr</span>
-              </div>
-              <button className="bg-[#FFFF00] text-black text-[12px] font-black px-4 py-2.5 rounded-xl flex items-center gap-1.5 hover:bg-white transition-colors shrink-0">
-                <Wand2 className="w-3.5 h-3.5" /> Generate
-              </button>
+              ))}
             </div>
           </div>
 
+          {/* Workspace */}
+          <div className="flex" style={{ minHeight: 560 }}>
+            {/* Left toolbar */}
+            <div className="w-14 bg-[#080810] border-r border-white/5 flex flex-col items-center py-5 gap-2 shrink-0">
+              <div className="w-7 h-7 rounded-md flex items-center justify-center text-white/15"><ChevronLeft className="w-3.5 h-3.5" /></div>
+              <div className="w-7 h-7 rounded-md flex items-center justify-center text-white/15"><ChevronRight className="w-3.5 h-3.5" /></div>
+              <div className="w-8 h-px bg-white/8 my-1" />
+              <div className="w-5 h-5 rounded-full"
+                style={{ background: LAYERS[activeLayerIdx]?.hex ?? "#FF4B4B", boxShadow: `0 0 10px ${LAYERS[activeLayerIdx]?.hex ?? "#FF4B4B"}80` }} />
+              <div className="w-8 h-px bg-white/8 my-1" />
+              {[{ Icon: Brush, on: true }, { Icon: Eraser, on: false }, { Icon: Square, on: false }, { Icon: Type, on: false }].map((t, i) => (
+                <div key={i} className={cn("w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer",
+                  t.on ? "bg-[#FFFF00] text-black" : "text-white/20 hover:bg-white/6")}>
+                  <t.Icon className="w-4 h-4" />
+                </div>
+              ))}
+              <div className="w-8 h-px bg-white/8 my-1" />
+              <div className="w-9 h-9 rounded-full bg-[#FFFF00] flex items-center justify-center cursor-pointer shadow-md">
+                <Plus className="w-4 h-4 text-black" />
+              </div>
+              <div className="w-8 h-px bg-white/8 my-1" />
+              {LAYERS.map((l, i) => (
+                <button key={l.hex} onClick={() => setActiveLayerIdx(i)}
+                  className="w-4 h-4 rounded-full cursor-pointer"
+                  style={{ background: l.hex, boxShadow: activeLayerIdx === i ? `0 0 0 2px #080810, 0 0 0 4px ${l.hex}, 0 0 12px ${l.hex}80` : `0 0 0 2px #080810, 0 0 0 3px rgba(255,255,255,0.2)` }} />
+              ))}
+            </div>
+
+            {/* Canvas */}
+            <div className="flex-1 bg-[#05050e] flex items-center justify-center relative overflow-hidden"
+              style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px)", backgroundSize: "28px 28px" }}>
+
+              {/* Portrait + masks + floating card */}
+              <div className="relative flex-shrink-0" style={{ width: 320, height: 480 }}>
+                {/* Portrait */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
+                  <Image src={IMG.g1a} alt="Portrait canvas" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+                  {/* Mask blobs */}
+                  <div className="absolute pointer-events-none"
+                    style={{ top: "13%", left: "8%", width: "84%", height: "22%", borderRadius: "60% 50% 55% 60% / 50% 55% 50% 55%", background: "rgba(255,75,75,0.48)", filter: "blur(14px)" }} />
+                  <div className="absolute pointer-events-none"
+                    style={{ top: "30%", left: "14%", width: "72%", height: "10%", borderRadius: "50%", background: "rgba(75,139,255,0.42)", filter: "blur(8px)" }} />
+                  <div className="absolute pointer-events-none"
+                    style={{ top: "0%", left: "4%", width: "92%", height: "17%", borderRadius: "50%", background: "rgba(75,255,139,0.26)", filter: "blur(16px)" }} />
+                  {/* Brush cursor */}
+                  <div className="absolute z-30 pointer-events-none" style={{ top: "21%", left: "46%", transform: "translate(-50%,-50%)" }}>
+                    <div className="w-8 h-8 rounded-full bg-[#FFFF00]/82"
+                      style={{ boxShadow: "0 0 0 2px rgba(0,0,0,0.6), 0 0 22px rgba(255,255,0,0.55)" }} />
+                  </div>
+                </div>
+
+                {/* Active floating layer card — overlaid on portrait */}
+                <div className="absolute bg-[#12121c]/92 backdrop-blur-md border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.7)] z-20"
+                  style={{ top: 68, right: -8, width: 198, padding: "11px 14px", borderColor: `${LAYERS[activeLayerIdx]?.hex}55` }}>
+                  <div className="absolute rounded-full" style={{ left: -5, top: 20, width: 8, height: 8, background: LAYERS[activeLayerIdx]?.hex, boxShadow: `0 0 12px ${LAYERS[activeLayerIdx]?.hex}` }} />
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="text-[11px] font-black uppercase tracking-wide px-2.5 py-0.5 rounded-lg"
+                      style={{ background: `${LAYERS[activeLayerIdx]?.hex}22`, color: LAYERS[activeLayerIdx]?.hex }}>
+                      {LAYERS[activeLayerIdx]?.label}
+                    </span>
+                    <span className="text-white/18 text-[9px] font-bold ml-auto tracking-widest">LAYER {activeLayerIdx + 1}</span>
+                  </div>
+                  <div className="bg-black/45 border border-white/6 rounded-xl px-3 py-2.5 mb-3">
+                    <div className="text-white/45 text-[11px] leading-snug">&ldquo;{LAYERS[activeLayerIdx]?.prompt}&rdquo;</div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-1.5">
+                      {LAYERS.map((l, li) => (
+                        <button key={l.hex} onClick={() => setActiveLayerIdx(li)}
+                          className="rounded-full transition-all"
+                          style={{ width: 10, height: 10, background: l.hex, opacity: activeLayerIdx === li ? 1 : 0.35, boxShadow: activeLayerIdx === li ? `0 0 6px ${l.hex}` : "none" }} />
+                      ))}
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-white/8 flex items-center justify-center cursor-pointer">
+                      <Plus className="w-3 h-3 text-white/35" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Inactive layer pills */}
+                {LAYERS.map((l, i) => i !== activeLayerIdx && (
+                  <button key={l.hex} onClick={() => setActiveLayerIdx(i)}
+                    className="absolute bg-[#12121c]/80 backdrop-blur-sm border rounded-xl flex items-center gap-2 opacity-50 hover:opacity-80 transition-opacity z-10"
+                    style={{ right: -8, top: 68 + 120 + (i * 42), width: 198, padding: "7px 14px", borderColor: `${l.hex}28` }}>
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: l.hex }} />
+                    <span className="text-white/40 text-[11px] font-bold">{l.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Step callouts — visible on wide screens */}
+              <div className="hidden xl:flex flex-col gap-5 ml-12 max-w-[200px]">
+                {[
+                  { n: "01", color: "#FF4B4B", t: "Pick a colour", d: "Each layer has its own mask + prompt." },
+                  { n: "02", color: "#4B8BFF", t: "Brush the region", d: "Paint exactly the area to edit." },
+                  { n: "03", color: "#4BFF8B", t: "Describe it", d: "AI edits only inside your mask." },
+                ].map(s => (
+                  <div key={s.n} className="flex gap-3 items-start">
+                    <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-[11px] font-black"
+                      style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}25` }}>{s.n}</div>
+                    <div>
+                      <div className="text-white font-bold text-[13px] mb-0.5">{s.t}</div>
+                      <div className="text-white/30 text-[12px] leading-snug">{s.d}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="border-t border-white/6 px-5 py-3 bg-[#080810] flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-3 h-3 rounded-sm" style={{ background: LAYERS[activeLayerIdx]?.hex }} />
+              <span className="text-white/25 text-[11px] font-black uppercase tracking-wide">{LAYERS[activeLayerIdx]?.label} Active</span>
+            </div>
+            <div className="flex-1 min-w-0 bg-[#111118] border border-white/8 rounded-xl px-3 py-2 flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" style={{ color: `${LAYERS[activeLayerIdx]?.hex}90` }} />
+              <span className="text-white/25 text-[11px] truncate">{LAYERS[activeLayerIdx]?.prompt}</span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-white/20 text-[11px] hidden sm:block">nano-banana-2</span>
+              <span className="text-white/12 hidden sm:block">|</span>
+              <div className="flex items-center gap-1">
+                <Zap className="w-3 h-3 text-[#FFFF00]/40" />
+                <span className="text-white/30 text-[11px]">5 cr</span>
+              </div>
+              <div className="hidden sm:flex gap-1.5">
+                {LAYERS.map((l, i) => <div key={l.hex} className="w-2.5 h-2.5 rounded-full" style={{ background: l.hex, opacity: activeLayerIdx === i ? 1 : 0.28 }} />)}
+              </div>
+            </div>
+            <button className="bg-[#FFFF00] text-black font-black text-[12px] px-5 py-2.5 rounded-xl flex items-center gap-1.5 hover:bg-white transition-colors shrink-0">
+              <Wand2 className="w-3.5 h-3.5" /> GENERATE
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -1501,84 +1466,91 @@ function PricingSection() {
 
 // ─── A. AI SKIN FIX ───────────────────────────────────────────────────────────
 function AISkinFixSection() {
-  const [pos, setPos] = useState(50)
-  const cur = useRef(50)
-  const [drag, setDrag] = useState(false)
-  const dragging = useRef(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const onMove = useCallback((cx: number) => {
-    const r = ref.current?.getBoundingClientRect()
-    if (!r) return
-    cur.current = Math.max(5, Math.min((cx - r.left) / r.width * 100, 95))
-    setPos(cur.current)
-  }, [])
-
-  const FIXES = [
-    { label: "Acne & Blemish Removal",  desc: "Zero traces. Skin texture fully preserved." },
-    { label: "Tone Correction",          desc: "Even redness, dark spots, uneven pigmentation." },
-    { label: "Texture Refinement",       desc: "Smooth rough patches without losing natural grain." },
-    { label: "Pore Minimization",        desc: "Visually tighten and clean enlarged pores." },
-    { label: "Under-Eye Treatment",      desc: "Reduce dark circles and fine lines sub-dermally." },
-    { label: "Radiance Enhancement",     desc: "Boost luminosity for a healthy, glowing finish." },
-  ]
   return (
-    <section className="bg-[#070707] py-24">
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-          {/* Left */}
-          <div>
-            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Skin Correction</p>
-            <h2 className="font-black text-white leading-[0.82] mb-6" style={{ fontSize: "clamp(2.8rem,5vw,6rem)" }}>
-              CLINICAL-GRADE<br /><span className="text-amber-400">SKIN AI.</span>
-            </h2>
-            <p className="text-white/40 text-[15px] mb-10 leading-relaxed max-w-md">
-              Dermatologist-level corrections, powered by AI. Every edit adapts to individual skin tone, texture, and undertone — preserving authenticity while eliminating imperfections.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-10">
-              {FIXES.map(f => (
-                <div key={f.label} className="bg-white/[0.03] border border-white/6 rounded-xl p-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mb-3" />
-                  <div className="text-white font-bold text-[13px] mb-1">{f.label}</div>
-                  <div className="text-white/35 text-[12px] leading-snug">{f.desc}</div>
-                </div>
-              ))}
-            </div>
-            <Link href="/app/skineditor" className="inline-flex items-center gap-2 bg-amber-400 px-6 py-3.5 rounded-xl text-black font-black text-sm hover:bg-amber-300 transition-colors">
-              Try Skin Fixer <ArrowRight className="w-4 h-4" />
-            </Link>
+    <section className="bg-[#080808] py-24 overflow-hidden">
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-14">
+        <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Skin Restoration</p>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+          <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
+            REAL SKIN.<br /><span className="text-amber-400">NO FILTERS.</span>
+          </h2>
+          <p className="text-white/30 text-[15px] max-w-[340px] leading-relaxed lg:pb-2">
+            Most AI over-smooths into plastic. Sharpii.ai restores micro-texture, pores, and natural grain — preserving what other tools destroy.
+          </p>
+        </div>
+      </div>
+
+      {/* Two portraits: Typical AI vs Sharpii */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* Before: over-smoothed AI look */}
+        <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: "3/4", maxHeight: 600 }}>
+          <div className="absolute inset-0"
+            style={{ backgroundImage: `url(${IMG.g1b})`, backgroundSize: "cover", backgroundPosition: "center 10%", filter: "brightness(1.1) contrast(0.85) saturate(0.8) blur(0.6px)" }} />
+          <div className="absolute inset-0" style={{ background: "rgba(220,200,200,0.06)" }} />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+          <div className="absolute top-5 left-5">
+            <span className="bg-red-500/15 border border-red-500/25 text-red-400 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-sm">
+              Typical AI
+            </span>
           </div>
-          {/* Right: comparison slider */}
-          <div ref={ref} className="relative rounded-2xl overflow-hidden shadow-2xl"
-            style={{ aspectRatio: "3/4", maxHeight: 560, cursor: drag ? "grabbing" : "ew-resize", touchAction: "none" }}
-            onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; setDrag(true); onMove(e.clientX) }}
-            onPointerMove={e => { if (dragging.current) onMove(e.clientX) }}
-            onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = false; setDrag(false) }}
-            onPointerLeave={() => { if (dragging.current) { dragging.current = false; setDrag(false) } }}>
-            <Image src={IMG.g1b} alt="Before skin correction" fill className="object-cover object-center" />
-            <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
-              <Image src={IMG.g1a} alt="After skin correction" fill className="object-cover object-center" />
-            </div>
-            {/* Divider */}
-            <div className="absolute top-0 bottom-0 pointer-events-none z-20"
-              style={{ left: `${pos}%`, transform: "translateX(-50%)", width: 2, background: "rgba(255,255,255,0.9)", boxShadow: "0 0 16px rgba(255,255,255,0.6)" }} />
-            <div className="absolute z-30 pointer-events-none"
-              style={{ left: `${pos}%`, top: "50%", transform: "translate(-50%,-50%)", width: 44, height: 44, borderRadius: "50%", background: "white", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <ChevronLeft className="w-3.5 h-3.5 text-black absolute left-2" />
-              <ChevronRight className="w-3.5 h-3.5 text-black absolute right-2" />
-            </div>
-            {/* Labels */}
-            <div className="absolute bottom-6 left-6 z-40 pointer-events-none flex gap-2">
-              <div className="bg-black/70 backdrop-blur-md border border-white/10 px-3 py-2 rounded-xl">
-                <div className="text-white/40 text-[9px] font-bold uppercase tracking-wider mb-0.5">Before</div>
-                <div className="text-white font-black text-xs">Unretouched</div>
-              </div>
-              <div className="bg-amber-400/15 backdrop-blur-md border border-amber-400/30 px-3 py-2 rounded-xl">
-                <div className="text-amber-400/60 text-[9px] font-bold uppercase tracking-wider mb-0.5">After</div>
-                <div className="text-amber-400 font-black text-xs">AI Corrected</div>
-              </div>
-            </div>
+          <div className="absolute bottom-5 left-5 right-5">
+            <div className="text-red-400/60 text-[10px] font-black uppercase tracking-widest mb-1">Over-Smoothed</div>
+            <div className="text-white font-black text-lg leading-tight">Plastic. Waxy.<br />Zero texture.</div>
           </div>
         </div>
+
+        {/* After: Sharpii real texture */}
+        <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: "3/4", maxHeight: 600 }}>
+          <div className="absolute inset-0"
+            style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+          <div className="absolute top-5 left-5">
+            <span className="bg-amber-400/15 border border-amber-400/35 text-amber-400 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-sm">
+              Sharpii AI
+            </span>
+          </div>
+          <div className="absolute bottom-5 left-5 right-5">
+            <div className="text-amber-400/60 text-[10px] font-black uppercase tracking-widest mb-1">Authentic Texture</div>
+            <div className="text-white font-black text-lg leading-tight">Natural. Detailed.<br />Human.</div>
+          </div>
+          {/* Feature tags overlay */}
+          <div className="absolute top-5 right-5 flex flex-col gap-1.5">
+            {["Pores visible", "Natural grain", "True tone"].map(t => (
+              <span key={t} className="bg-black/50 backdrop-blur-sm text-white/55 text-[10px] font-bold px-2.5 py-1 rounded-full text-right">{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Comparison detail strips */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
+        {[
+          { label: "Pore Detail",    bad: "Blurred away",    good: "Visible & natural" },
+          { label: "Skin Texture",   bad: "Plastic sheen",   good: "Natural micro-grain" },
+          { label: "Expressions",    bad: "Softened out",    good: "Fully preserved" },
+          { label: "Skin Tone",      bad: "Washed out",      good: "True to life" },
+        ].map(d => (
+          <div key={d.label} className="bg-white/[0.03] border border-white/6 rounded-xl p-4">
+            <div className="text-amber-400 text-[11px] font-black uppercase tracking-wider mb-3">{d.label}</div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-400/50 shrink-0" />
+                <span className="text-white/25 text-[11px]">{d.bad}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                <span className="text-white/65 text-[11px]">{d.good}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 flex items-center gap-5 flex-wrap">
+        <Link href="/app/skineditor" className="inline-flex items-center gap-2 bg-amber-400 px-6 py-3.5 rounded-xl text-black font-black text-sm hover:bg-amber-300 transition-colors">
+          Fix Skin Now <ArrowRight className="w-4 h-4" />
+        </Link>
+        <span className="text-white/20 text-[13px]">No plastic. No filters. No compromise.</span>
       </div>
     </section>
   )
@@ -1659,61 +1631,85 @@ function AIAvatarsSection() {
 
 // ─── C. IMAGE GALLERY ─────────────────────────────────────────────────────────
 function ImageGallerySection() {
-  const IMGS = [
-    { src: IMG.g1a,   h: 580, label: "Editorial"    },
-    { src: IMG.bm1a,  h: 440, label: "Studio"       },
-    { src: IMG.asian, h: 610, label: "Beauty"        },
-    { src: IMG.g2b,   h: 470, label: "Commercial"   },
-    { src: IMG.g1b,   h: 540, label: "Lifestyle"    },
-    { src: IMG.bm1b,  h: 490, label: "Portrait"     },
-  ]
   return (
-    <section className="bg-[#030305] py-24 overflow-hidden">
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-12">
+    <section className="bg-[#030303] pt-24 pb-16 overflow-hidden">
+      {/* Header */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
-            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Gallery</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7rem)" }}>
-              STUNNING.<br /><span className="text-[#FFFF00]">BY DEFAULT.</span>
+            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Showcase</p>
+            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
+              EVERY PIXEL.<br /><span className="text-[#FFFF00]">EARNED.</span>
             </h2>
           </div>
-          <p className="text-white/30 text-[15px] max-w-[260px] leading-relaxed lg:pb-2">
-            Every image you see was created or enhanced with Sharpii.ai. This is your new baseline.
-          </p>
+          <div className="lg:max-w-[280px] lg:pb-2">
+            <p className="text-white/30 text-[15px] leading-relaxed mb-5">
+              Every portrait below was created or enhanced with Sharpii.ai. No filters. No presets. Pure AI output.
+            </p>
+            <Link href="/signup" className="inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
+              Create Yours <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </div>
-      {/* Masonry-style columns — desktop */}
-      <div className="hidden lg:flex gap-2 px-8 lg:px-14 max-w-[1440px] mx-auto items-end">
-        {IMGS.map((img, i) => (
-          <motion.div key={img.label}
-            initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }} transition={{ duration: 0.65, delay: i * 0.08 }}
-            className="flex-1 relative overflow-hidden rounded-xl group cursor-pointer"
-            style={{ height: img.h }}>
-            <Image src={img.src} alt={img.label} fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4">
-              <span className="text-white/50 text-[10px] font-black uppercase tracking-widest">{img.label}</span>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-      {/* Mobile grid */}
-      <div className="lg:hidden grid grid-cols-2 gap-2 px-4">
-        {IMGS.map(img => (
-          <div key={img.label} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "3/4" }}>
-            <Image src={img.src} alt={img.label} fill className="object-cover object-center" />
+
+      {/* Desktop: CSS grid mosaic — 4 columns, mixed sizes */}
+      <div className="hidden lg:block px-8 lg:px-14 max-w-[1440px] mx-auto">
+        <div className="grid grid-cols-4 gap-3" style={{ gridAutoRows: "220px" }}>
+          {/* Row 1+2: big portrait left, 2 medium right */}
+          <div className="relative overflow-hidden rounded-2xl col-span-1 row-span-2 group cursor-pointer">
+            <Image src={IMG.g1a} alt="Editorial portrait" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-3">
-              <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">{img.label}</span>
-            </div>
+            <div className="absolute bottom-4 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Editorial</span></div>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
+            <Image src={IMG.bm1a} alt="Studio portrait" fill className="object-cover object-top transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Studio</span></div>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl col-span-2 group cursor-pointer">
+            <Image src={IMG.asian} alt="Beauty shot" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-3 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Beauty</span></div>
+          </div>
+          {/* Row 2 right: big + small */}
+          <div className="relative overflow-hidden rounded-2xl col-span-2 group cursor-pointer">
+            <Image src={IMG.g2b} alt="Commercial" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-3 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Commercial</span></div>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
+            <Image src={IMG.bm1b} alt="Portrait" fill className="object-cover object-top transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Portrait</span></div>
+          </div>
+          {/* Row 3: wide + portrait + portrait */}
+          <div className="relative overflow-hidden rounded-2xl col-span-2 group cursor-pointer">
+            <Image src={IMG.g1b} alt="Lifestyle" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-3 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Lifestyle</span></div>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
+            <Image src={IMG.asian} alt="Artistic" fill className="object-cover object-top transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Artistic</span></div>
+          </div>
+          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
+            <Image src={IMG.g1a} alt="Fashion" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Fashion</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile: 2-col grid */}
+      <div className="lg:hidden grid grid-cols-2 gap-2 px-4">
+        {[IMG.g1a, IMG.bm1a, IMG.asian, IMG.g2b, IMG.g1b, IMG.bm1b].map((src, i) => (
+          <div key={i} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "3/4" }}>
+            <Image src={src} alt="AI portrait" fill className="object-cover object-center" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
           </div>
         ))}
-      </div>
-      <div className="mt-12 text-center">
-        <Link href="/signup" className="inline-flex items-center gap-2 bg-[#FFFF00] px-8 py-4 rounded-xl text-black font-black text-[15px] hover:bg-white transition-colors">
-          Create Your Own <ArrowRight className="w-4 h-4" />
-        </Link>
       </div>
     </section>
   )
