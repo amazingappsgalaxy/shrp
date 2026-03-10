@@ -193,7 +193,7 @@ function Hero() {
               <span className="text-[11px] font-bold text-white/65 uppercase tracking-[0.18em]">AI-Powered Visual Enhancement</span>
             </div>
             <h1 className="font-black text-white leading-[0.82] tracking-tight" style={{ fontSize: "clamp(2.4rem,5.5vw,7rem)" }}>
-              MAKE IT<br /><span className="text-[#FFFF00]">SHARP.</span>
+              MAKE IT<br /><span className="font-heading text-[#FFFF00]" style={{ fontSize: "clamp(3rem,7.5vw,10rem)" }}>SHARP.</span>
             </h1>
           </div>
           <div className="lg:max-w-[400px] flex flex-col gap-5">
@@ -621,7 +621,7 @@ function VideoCategories() {
   const all = [...CATS, ...CATS]
 
   return (
-    <section className="bg-black overflow-hidden relative" style={{ paddingTop: "9rem", paddingBottom: "8rem" }}>
+    <section className="bg-black overflow-hidden relative pt-36 pb-32">
       {/* Ambient glow — 3 large blurred color blobs for depth */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Violet blob — upper left */}
@@ -665,7 +665,7 @@ function VideoCategories() {
 // ─── 8. MOTION TRANSFER ───────────────────────────────────────────────────────
 function MotionTransfer() {
   return (
-    <section className="bg-black pt-24 pb-24">
+    <section className="bg-black pt-24 pb-16">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
@@ -731,28 +731,47 @@ function MotionTransfer() {
 // ─── REEL TILE — mutable video card ──────────────────────────────────────────
 function ReelTile({ src, poster }: { src: string; poster?: string }) {
   const [muted, setMuted] = useState(true)
+  const [failed, setFailed] = useState(false)
+  const [inView, setInView] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLVideoElement>(null)
-  useEffect(() => { ref.current?.play().catch(() => {}) }, [])
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const obs = new IntersectionObserver((entries) => { if (entries[0]?.isIntersecting) { setInView(true); obs.disconnect() } }, { threshold: 0.1 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => { if (inView) ref.current?.play().catch(() => {}) }, [inView])
   useEffect(() => { if (ref.current) ref.current.muted = muted }, [muted])
+
   return (
-    <div className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ aspectRatio: "9/16" }}>
-      <video ref={ref} src={src} poster={poster} muted loop playsInline autoPlay className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+    <div ref={wrapRef} className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ aspectRatio: "9/16" }}>
+      {failed && poster
+        ? <div className="w-full h-full bg-cover bg-center" style={{ backgroundImage: `url(${poster})` }} />
+        : <video ref={ref} src={inView ? src : undefined} poster={poster} muted loop playsInline
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            onError={() => setFailed(true)} />
+      }
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-      {/* Mute/unmute on hover */}
-      <button
-        onClick={e => { e.stopPropagation(); setMuted(m => !m) }}
-        className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
-        {muted
-          ? <VolumeX className="w-3.5 h-3.5 text-white" />
-          : <Volume2 className="w-3.5 h-3.5 text-white" />}
-      </button>
+      {!failed && (
+        <button
+          onClick={e => { e.stopPropagation(); setMuted(m => !m) }}
+          className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+          {muted
+            ? <VolumeX className="w-3.5 h-3.5 text-white" />
+            : <Volume2 className="w-3.5 h-3.5 text-white" />}
+        </button>
+      )}
     </div>
   )
 }
 
 function CopyViralReels() {
   const REELS_ROW1 = [
-    { src: VID.lipsync,      poster: VID.lipsyncT      },
+    { src: VID.lipsync, poster: VID.lipsyncT },
     { src: VID.motion,       poster: VID.motionT       },
     { src: VID.soul2,        poster: VID.soul2T        },
     { src: VID.aiInfluencer, poster: VID.aiInfluencerT },
@@ -767,7 +786,7 @@ function CopyViralReels() {
   ]
 
   return (
-    <section className="bg-black py-24 overflow-hidden">
+    <section className="bg-black pt-16 pb-24 overflow-hidden">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-14">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
@@ -1019,7 +1038,7 @@ function AIRelighting() {
           </motion.div>
 
           {/* Two stacked right */}
-          <div className="lg:flex-1 flex flex-row lg:flex-col gap-4">
+          <div className="lg:flex-1 flex flex-row lg:flex-col gap-4 lg:self-stretch">
             {SIDE.map((p, i) => (
               <motion.div key={p.name}
                 initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
@@ -1317,7 +1336,7 @@ function ImageEditStudio() {
               <div className="relative" style={{ width: "min(320px, 80vw)", height: "min(440px, 68vw)", maxHeight: 460 }}>
                 {/* Image */}
                 <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
-                  <Image src={IMG.g1a} alt="Canvas portrait" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+                  <Image src={IMG.g1a} alt="Canvas portrait" fill sizes="(max-width:768px) 80vw, 320px" className="object-cover" style={{ objectPosition: "center 5%" }} />
 
                   {/* Animated mask layer */}
                   <div className="absolute pointer-events-none" style={{ ...maskStyle }} />
@@ -1329,7 +1348,7 @@ function ImageEditStudio() {
                     animate={{ opacity: isResult ? 1 : 0 }}
                     transition={{ duration: 0.7 }}
                   >
-                    <Image src={IMG.bm1a} alt="Result" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+                    <Image src={IMG.bm1a} alt="Result" fill sizes="(max-width:768px) 80vw, 320px" className="object-cover" style={{ objectPosition: "center 5%" }} />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="bg-black/60 backdrop-blur-md border border-green-500/40 px-4 py-2 rounded-xl flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -1792,7 +1811,7 @@ function AIAvatarsSection() {
           <div className="shrink-0 flex flex-col items-center">
             <div className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-3">Your Photo</div>
             <div className="relative w-28 h-36 rounded-2xl overflow-hidden ring-2 ring-purple-500/50 shadow-[0_0_30px_rgba(168,139,250,0.3)]">
-              <Image src={IMG.g1a} alt="Input photo" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+              <Image src={IMG.g1a} alt="Input photo" fill sizes="112px" className="object-cover" style={{ objectPosition: "center 5%" }} />
               <div className="absolute inset-0 flex items-end p-2">
                 <span className="bg-purple-500/80 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">1 photo</span>
               </div>
@@ -1828,7 +1847,7 @@ function AIAvatarsSection() {
                   {/* Face centered */}
                   <div className="absolute bottom-0 left-0 right-0 top-4 flex items-end justify-center overflow-hidden">
                     <div className="w-[85%] relative" style={{ aspectRatio: "3/4" }}>
-                      <Image src={env.img} alt={env.label} fill className="object-cover rounded-xl" style={{ objectPosition: "center 5%" }} />
+                      <Image src={env.img} alt={env.label} fill sizes="(max-width:768px) 40vw, 20vw" className="object-cover rounded-xl" style={{ objectPosition: "center 5%" }} />
                     </div>
                   </div>
                   {/* Overlay gradient */}
@@ -1934,7 +1953,7 @@ function ImageGallerySection() {
       <div className="lg:hidden grid grid-cols-3 gap-1.5 px-4">
         {IMGS.slice(0, 9).map((src, i) => (
           <div key={i} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "3/4" }}>
-            <Image src={src} alt="AI portrait" fill className="object-cover object-center" />
+            <Image src={src} alt="AI portrait" fill sizes="30vw" className="object-cover object-center" />
           </div>
         ))}
       </div>
