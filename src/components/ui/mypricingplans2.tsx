@@ -205,7 +205,7 @@ export function MyPricingPlans2({
               <div
                 key={i}
                 className={cn(
-                  "flex flex-col p-6 lg:p-8 rounded-[2rem] transition-all duration-300 relative group h-full overflow-visible",
+                  "flex flex-col p-6 lg:p-8 rounded-2xl transition-all duration-300 relative group h-full overflow-visible",
                   "hover:scale-[1.02] hover:-translate-y-1",
                   isCreator
                     ? "bg-[#FFFF00] text-black border border-[#FFFF00] shadow-[0_0_50px_rgba(255,255,0,0.15)]"
@@ -215,7 +215,7 @@ export function MyPricingPlans2({
                 )}
               >
                 {/* Content Container to ensure internal clipping if valid */}
-                <div className="absolute inset-0 rounded-[2rem] overflow-hidden pointer-events-none">
+                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                   {/* Shimmering Overlay for Pro (Subtle) */}
                   {isPro && (
                     <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent skew-x-12 animate-[shimmer_3.5s_infinite] opacity-30 z-0 pointer-events-none" />
@@ -330,7 +330,7 @@ export function MyPricingPlans2({
                     onClick={() => handlePlanSelect(plan)}
                     disabled={isLoading === plan.name}
                     className={cn(
-                      "w-full h-12 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 overflow-hidden relative group/btn",
+                      "w-full h-12 rounded-lg text-xs font-bold uppercase tracking-widest transition-all duration-300 overflow-hidden relative group/btn",
                       "shadow-lg hover:translate-y-[-2px]",
                       isHighlighted
                         ? "bg-black text-white hover:bg-black/90 hover:shadow-xl"

@@ -10,22 +10,22 @@ export function Footer() {
 
             {/* New CTA Section */}
             <div className="container mx-auto px-4 mb-24">
-                <div className="relative rounded-[3rem] bg-white/5 border border-white/10 overflow-hidden p-12 md:p-24 text-center">
+                <div className="relative rounded-2xl bg-white/5 border border-white/10 overflow-hidden p-12 md:p-24 text-center">
                     <div className="absolute inset-0 bg-[#FFFF00]/5 blur-[100px] pointer-events-none" />
 
                     <div className="relative z-10 max-w-4xl mx-auto space-y-8">
                         <h2 className="text-5xl md:text-8xl font-black font-heading text-white tracking-tight leading-[0.9]">
-                            CREATE <br />
-                            <span className="text-[#FFFF00]">IMPACT.</span>
+                            MAKE IT<br />
+                            <span className="text-[#FFFF00]">SHARP.</span>
                         </h2>
 
                         <p className="text-xl text-white/60 max-w-2xl mx-auto">
-                            Elevate your visual storytelling with the world's most advanced AI enhancement engine.
+                            Upload your first photo. AI does the rest — 8K detail, real texture, zero artifacts.
                         </p>
 
                         <div className="flex justify-center pt-8">
                             <Link href="/app/dashboard">
-                                <button className="group relative bg-[#FFFF00] text-black px-10 py-5 rounded-2xl font-bold text-xl inline-flex items-center gap-3 hover:scale-105 transition-transform duration-300">
+                                <button className="group relative bg-[#FFFF00] text-black px-10 py-5 rounded-xl font-bold text-xl inline-flex items-center gap-3 hover:scale-105 transition-transform duration-300">
                                     <span>Enter App</span>
                                     <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
                                 </button>
