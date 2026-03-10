@@ -12,8 +12,7 @@ import { cn } from "@/lib/utils"
 import {
   ArrowRight, ChevronLeft, ChevronRight, Star, Sparkles, Zap,
   Brush, Eraser, Square, Type, Layers, Mic, Music, Video,
-  Camera, Wand2, ImageIcon, Download, Play, Plus,
-  Users, Building2, Globe,
+  Wand2, Play, Plus,
 } from "lucide-react"
 
 // ─── ASSETS ───────────────────────────────────────────────────────────────────
@@ -73,8 +72,6 @@ function NavStyleOverride() {
         animation: autoScrollX 52s linear infinite;
       }
       .auto-scroll-x:hover { animation-play-state: paused; }
-      .skin-xhair { opacity: 0; transition: opacity 0.2s; }
-      .skin-container:hover .skin-xhair { opacity: 1; }
       input[type=range].pslider { -webkit-appearance:none; appearance:none; width:100%; height:36px; background:transparent; cursor:pointer; padding:0; margin:0; }
       input[type=range].pslider::-webkit-slider-runnable-track { height:2px; border-radius:99px; background:rgba(255,255,255,0.08); }
       input[type=range].pslider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#fff; margin-top:-9px; cursor:pointer; box-shadow:0 0 0 2.5px #0c0016, 0 0 0 4.5px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); transition:box-shadow 0.15s, transform 0.1s; }
@@ -192,7 +189,7 @@ function Hero() {
             <div className="flex items-center gap-3">
               <Link href="/signup">
                 <button className="bg-[#FFFF00] text-black font-bold h-14 px-8 rounded-xl text-sm inline-flex items-center gap-2 hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,0,0.35)] transition-all duration-300">
-                  Start for Free <ArrowRight className="w-4 h-4" />
+                  Get Started <ArrowRight className="w-4 h-4" />
                 </button>
               </Link>
               <Link href="/app">
@@ -250,7 +247,7 @@ function FeaturesReel() {
       <div className="px-8 lg:px-14 mb-10 max-w-[1440px] mx-auto">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-4">The Platform</p>
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-          <h2 className="font-black text-white leading-[0.88]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
+          <h2 className="font-heading font-black text-white leading-[0.88]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
             ONE PLATFORM.<br /><span className="text-[#FFFF00]">EVERY TOOL.</span>
           </h2>
           <p className="text-white/35 text-[14px] max-w-xs leading-relaxed lg:pb-1">
@@ -299,7 +296,8 @@ function FeaturesReel() {
 
 // ─── 4. UPSCALER — image selector + fixed slider ─────────────────────────────
 function UpscalerSection() {
-  const { pos, cur, setPos, setPaused } = useSlider(50, 15, 85, 0.018)
+  const [pos, setPos] = useState(50)
+  const cur = useRef(50)
   const [drag, setDrag] = useState(false)
   const dragging = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -329,7 +327,7 @@ function UpscalerSection() {
             <div className="font-black text-[#FFFF00] leading-none mb-2"
               style={{ fontSize: "clamp(7rem,18vw,14rem)", letterSpacing: "-0.05em", lineHeight: 0.82 }}>8K</div>
             <div className="text-white/20 font-black text-2xl mb-8 uppercase tracking-wide">Resolution</div>
-            <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2rem,3.5vw,3.2rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2rem,3.5vw,3.2rem)" }}>
               NOT SCALED.<br />REBUILT.
             </h2>
             <p className="text-white/35 text-[15px] max-w-[320px] leading-relaxed mb-10">
@@ -342,7 +340,6 @@ function UpscalerSection() {
               { l: "4K Output", v: "4096 × 4096 px", n: "80 credits" },
               { l: "8K Output", v: "7680 × 4320 px", n: "120 credits" },
               { l: "Processing", v: "~90 seconds",    n: "per image" },
-              { l: "Formats",   v: "JPEG · PNG · WEBP", n: "RAW input" },
             ].map(s => (
               <div key={s.l} className="flex items-center justify-between py-4">
                 <span className="text-white/40 text-[13px] font-medium">{s.l}</span>
@@ -376,17 +373,17 @@ function UpscalerSection() {
 
           <Link href="/app/upscaler"
             className="inline-flex items-center gap-2.5 bg-[#FFFF00] px-8 py-4 rounded-xl text-black font-black text-[15px] hover:bg-white transition-colors duration-200 self-start">
-            Try Upscaler Free <ArrowRight className="w-4 h-4" />
+            Try Upscaler <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
         {/* RIGHT: Comparison slider */}
         <div ref={ref} className="lg:flex-1 relative"
           style={{ minHeight: 580, cursor: drag ? "grabbing" : "ew-resize", touchAction: "none" }}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; setDrag(true); setPaused(true); onMove(e.clientX) }}
+          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; setDrag(true); onMove(e.clientX) }}
           onPointerMove={e => { if (dragging.current) onMove(e.clientX) }}
-          onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = false; setDrag(false); setPaused(false) }}
-          onPointerLeave={() => { if (dragging.current) { dragging.current = false; setDrag(false); setPaused(false) } }}>
+          onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = false; setDrag(false) }}
+          onPointerLeave={() => { if (dragging.current) { dragging.current = false; setDrag(false) } }}>
           <div className="absolute inset-0">
             <Image src={IMAGE_PAIRS[selectedPair]?.before ?? IMG.bm1b} alt="Original" fill className="object-cover object-center" sizes="60vw" />
           </div>
@@ -420,8 +417,6 @@ function UpscalerSection() {
 function SkinDetailMagnifier() {
   const containerRef = useRef<HTMLDivElement>(null)
   const magnifierRef = useRef<HTMLDivElement>(null)
-  const crossHRef = useRef<HTMLDivElement>(null)
-  const crossVRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -435,8 +430,6 @@ function SkinDetailMagnifier() {
         magnifierRef.current.style.top = `calc(${y}% - 110px)`
         magnifierRef.current.style.backgroundPosition = `${x * 0.98}% ${y * 0.98}%`
       }
-      if (crossHRef.current) crossHRef.current.style.left = `${x}%`
-      if (crossVRef.current) crossVRef.current.style.top = `${y}%`
     }
     container.addEventListener("mousemove", handleMove, { passive: true })
     return () => container.removeEventListener("mousemove", handleMove)
@@ -448,7 +441,7 @@ function SkinDetailMagnifier() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-12">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Detail Engine</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,6vw,7rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,6vw,7rem)" }}>
               EVERY PORE.<br /><span className="text-[#FFFF00]">EVERY STRAND.</span>
             </h2>
           </div>
@@ -471,11 +464,6 @@ function SkinDetailMagnifier() {
                 boxShadow: "0 0 0 3px rgba(255,255,255,0.08), 0 12px 40px rgba(0,0,0,0.8)",
                 left: "calc(50% - 110px)", top: "calc(38% - 110px)",
               }} />
-            {/* Crosshairs — hidden until hover via CSS class */}
-            <div ref={crossHRef} className="skin-xhair absolute top-0 bottom-0 pointer-events-none z-10"
-              style={{ width: 1, background: "rgba(255,255,0,0.25)", left: "50%" }} />
-            <div ref={crossVRef} className="skin-xhair absolute left-0 right-0 pointer-events-none z-10"
-              style={{ height: 1, background: "rgba(255,255,0,0.25)", top: "38%" }} />
             <div className="absolute bottom-5 left-5 z-30">
               <span className="bg-black/60 backdrop-blur-sm text-white/50 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
                 Move cursor to explore
@@ -551,7 +539,7 @@ function VideoSection() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-3">02 / Video Suite</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,6vw,7.5rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,6vw,7.5rem)" }}>
               IMAGINE.<br /><span className="text-violet-400">GENERATE.</span>
             </h2>
           </div>
@@ -622,27 +610,29 @@ function VideoCategories() {
   const all = [...CATS, ...CATS]
 
   return (
-    <section className="bg-[#060610] pt-24 pb-24 overflow-hidden relative">
+    <section className="bg-[#060610] pt-24 pb-24 overflow-hidden relative" style={{ isolation: "isolate" }}>
       {/* Futuristic perspective grid floor */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ contain: "layout" }}>
         <div style={{
           position: "absolute", bottom: 0, left: "-60%", right: "-60%", height: "65%",
-          backgroundImage: "linear-gradient(rgba(255,255,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,0,0.1) 1px, transparent 1px)",
+          backgroundImage: "linear-gradient(rgba(255,255,0,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,0,0.28) 1px, transparent 1px)",
           backgroundSize: "70px 70px",
           transform: "perspective(700px) rotateX(62deg)",
           transformOrigin: "50% 0%",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
         }} />
         {/* Vanishing-point fade — top */}
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to bottom, #060610 0%, transparent 35%, transparent 72%, #060610 100%)" }} />
         {/* Side fades */}
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to right, #060610 0%, transparent 18%, transparent 82%, #060610 100%)" }} />
         {/* Horizon glow */}
-        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "63%", width: "60%", height: 1, background: "linear-gradient(90deg, transparent, rgba(255,255,0,0.3), transparent)" }} />
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "63%", width: "60%", height: 1, background: "linear-gradient(90deg, transparent, rgba(255,255,0,0.6), transparent)" }} />
       </div>
 
       <div className="px-8 lg:px-14 mb-14 max-w-[1440px] mx-auto relative z-10">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">11 Video Formats</p>
-        <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
+        <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
           EVERY KIND<br /><span className="text-violet-400">OF VIDEO.</span>
         </h2>
       </div>
@@ -678,7 +668,7 @@ function MotionTransfer() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Motion Transfer</p>
-            <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2.4rem,4.5vw,5rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2.4rem,4.5vw,5rem)" }}>
               ANY MOTION.<br /><span className="text-cyan-400">ANY PERSON.</span>
             </h2>
             <p className="text-white/35 text-[15px] leading-relaxed mb-10 max-w-[380px]">
@@ -730,6 +720,65 @@ function MotionTransfer() {
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── COPY VIRAL REELS ─────────────────────────────────────────────────────────
+function CopyViralReels() {
+  const REELS = [
+    { src: VID.lipsync,      poster: VID.lipsyncT,      label: "Lip Sync",         desc: "Match any audio" },
+    { src: VID.motion,       poster: VID.motionT,       label: "Motion Copy",      desc: "Clone any move" },
+    { src: VID.soul2,        poster: VID.soul2T,        label: "Style Transfer",   desc: "Copy the vibe" },
+    { src: VID.aiInfluencer, poster: VID.aiInfluencerT, label: "AI Persona",       desc: "Your face, any reel" },
+    { src: VID.nanoBanana,   poster: VID.nanoBananaT,   label: "Face Swap",        desc: "Drop-in replacement" },
+    { src: VID.createVideo,  poster: VID.createVideoT,  label: "Scene Gen",        desc: "Prompt to reel" },
+  ]
+  return (
+    <section className="bg-[#070710] py-24 overflow-hidden">
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-14">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div>
+            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Viral Reels Engine</p>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
+              COPY ANY REEL.<br /><span className="text-[#FFFF00]">MAKE IT YOURS.</span>
+            </h2>
+          </div>
+          <p className="text-white/30 text-[15px] max-w-[340px] leading-relaxed lg:pb-2">
+            See a trending reel? Replicate the motion, the style, the lip-sync — with your face, your body, your brand.
+          </p>
+        </div>
+      </div>
+
+      {/* Portrait video grid — 9:16 aspect ratio tiles */}
+      <div className="px-8 lg:px-14 max-w-[1440px] mx-auto">
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 lg:gap-3">
+          {REELS.map((r, i) => (
+            <div key={i} className="relative rounded-2xl overflow-hidden group cursor-pointer"
+              style={{ aspectRatio: "9/16" }}>
+              <AutoVid src={r.src} poster={r.poster} className="group-hover:scale-105 transition-transform duration-700" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+              {/* Yellow accent line at top */}
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#FFFF00]/50" />
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <div className="text-white font-black text-[12px] leading-tight mb-0.5">{r.label}</div>
+                <div className="text-white/40 text-[10px]">{r.desc}</div>
+              </div>
+              {/* Play indicator */}
+              <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/15 border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Play className="w-2.5 h-2.5 text-white fill-white" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mt-10 flex items-center gap-5 flex-wrap">
+        <Link href="/app/video" className="inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3.5 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
+          Start Copying Reels <ArrowRight className="w-4 h-4" />
+        </Link>
+        <span className="text-white/20 text-[13px]">Motion transfer · Lip sync · Style copy · All in one</span>
       </div>
     </section>
   )
@@ -834,7 +883,7 @@ function SkinEditorSection() {
         </div>
         <div className="flex flex-col justify-center px-8 lg:pl-4 lg:pr-14 py-16 order-1 lg:order-2 relative z-10">
           <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">03 / Skin Editor</p>
-          <h2 className="font-black text-white leading-[0.82] mb-6" style={{ fontSize: "clamp(2.4rem,4.5vw,5.2rem)" }}>
+          <h2 className="font-heading font-black text-white leading-[0.82] mb-6" style={{ fontSize: "clamp(2.4rem,4.5vw,5.2rem)" }}>
             DERMA-GRADE<br /><span className="text-amber-400">SKIN CONTROL.</span>
           </h2>
           <p className="text-white/40 text-[15px] mb-8 max-w-[360px] leading-relaxed">
@@ -861,19 +910,14 @@ function SkinEditorSection() {
                   <span className="text-amber-400 font-mono font-black text-2xl tabular-nums leading-none">{s.fmt}</span>
                 </div>
                 <div className="relative flex items-center" style={{ height: 36 }}>
-                  {/* Track */}
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-white/12 rounded-full" />
+                  {/* Track (unfilled) */}
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-full" style={{ height: 2, background: "rgba(255,255,255,0.08)" }} />
                   {/* Fill */}
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-px rounded-full transition-all duration-75"
-                    style={{ width: `${s.pct}%`, background: "linear-gradient(90deg,#f59e0b,#fbbf24)" }} />
-                  {/* Tick marks */}
-                  {Array.from({ length: 7 }, (_, i) => (
-                    <div key={i} className="absolute top-1/2 -translate-y-1/2 w-px transition-colors"
-                      style={{ left: `${(i/6)*100}%`, height: i%3===0 ? 10 : 5, background: (i/6)*100 <= s.pct ? "rgba(251,191,36,0.5)" : "rgba(255,255,255,0.1)" }} />
-                  ))}
-                  {/* Thumb */}
-                  <div className="absolute top-1/2 pointer-events-none rounded-full transition-all duration-75"
-                    style={{ left: `${s.pct}%`, transform: "translate(-50%,-50%)", width: 20, height: 20, background: "#fff", boxShadow: "0 0 0 2.5px #0c0016, 0 0 0 4.5px rgba(251,191,36,0.75), 0 2px 10px rgba(0,0,0,0.7)" }} />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full transition-all duration-75"
+                    style={{ width: `${s.pct}%`, height: 2, background: "linear-gradient(90deg,#92400e,#f59e0b,#fbbf24)" }} />
+                  {/* Wipe-bar handle */}
+                  <div className="absolute top-1/2 pointer-events-none transition-all duration-75"
+                    style={{ left: `${s.pct}%`, transform: "translate(-50%,-50%)", width: 3, height: 32, background: "rgba(255,255,255,0.95)", boxShadow: "0 0 10px rgba(251,191,36,0.6), 0 0 0 1px rgba(0,0,0,0.3)" }} />
                   {/* Native input */}
                   <input type="range" min={s.min} max={s.max} step={s.step} value={s.val}
                     onChange={e => s.set(Number(e.target.value) as never)}
@@ -917,7 +961,7 @@ function AIRelighting() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Relighting</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
               LIGHT.<br /><span className="text-orange-400">REDEFINED.</span>
             </h2>
           </div>
@@ -970,7 +1014,7 @@ function ImageEditStudio() {
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-10">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">04 / Image Edit</p>
         <div className="flex flex-col lg:flex-row items-end justify-between gap-6">
-          <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
+          <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
             BRUSH. MASK.<br /><span className="text-emerald-400">TRANSFORM.</span>
           </h2>
           <div className="lg:max-w-[320px] lg:pb-1 flex flex-col gap-4">
@@ -1163,7 +1207,7 @@ function ImageGenSection() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">05 / Image Generation</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3.2rem,7vw,8rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3.2rem,7vw,8rem)" }}>
               DESCRIBE IT.<br /><span className="text-purple-400">WE RENDER IT.</span>
             </h2>
           </div>
@@ -1220,12 +1264,23 @@ function ModelsSection() {
   const all = [...MODELS, ...MODELS]
 
   return (
-    <section className="bg-[#050508] py-24 overflow-hidden"
-      style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px)", backgroundSize: "24px 24px" }}>
-      <div className="px-8 lg:px-14 mb-14 max-w-[1440px] mx-auto">
+    <section className="bg-[#050508] py-24 overflow-hidden relative">
+      {/* Horizontal scan-line grid — different feel from VideoCategories perspective grid */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ contain: "layout" }}>
+        <div style={{
+          position: "absolute", inset: 0,
+          backgroundImage: "linear-gradient(rgba(255,255,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,0,0.04) 1px, transparent 1px)",
+          backgroundSize: "80px 80px",
+        }} />
+        {/* Fade top and bottom */}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050508 0%, transparent 20%, transparent 80%, #050508 100%)" }} />
+        {/* Radial center fade to darken edges */}
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 60% at 50% 50%, transparent 40%, #050508 100%)" }} />
+      </div>
+      <div className="px-8 lg:px-14 mb-14 max-w-[1440px] mx-auto relative z-10">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Models</p>
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <h2 className="font-black text-white leading-[0.88]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
+          <h2 className="font-heading font-black text-white leading-[0.88]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
             EVERY MODEL<br /><span className="text-[#FFFF00]">WE OFFER.</span>
           </h2>
           <p className="text-white/35 text-[14px] max-w-[280px] leading-relaxed lg:pb-1">
@@ -1235,7 +1290,7 @@ function ModelsSection() {
       </div>
 
       {/* Auto-scroll model strip — full width */}
-      <div className="overflow-hidden mb-4">
+      <div className="overflow-hidden mb-4 relative z-10">
         <div className="flex gap-4 w-max auto-scroll-x" style={{ animationDuration: "60s" }}>
           {all.map((m, i) => (
             <Link key={i} href={m.href}
@@ -1268,68 +1323,6 @@ function ModelsSection() {
   )
 }
 
-// ─── 15. CREATOR USE CASES ────────────────────────────────────────────────────
-function CreatorUseCases() {
-  const CASES = [
-    {
-      icon: Camera, label: "Photographers", color: "#FFFF00",
-      headline: "Deliver 8K quality without 8K equipment.",
-      uses: ["Upscale client portraits to 8K for print", "Bulk-process wedding shoots in minutes", "Perfect skin retouching for every subject", "Add studio lighting in post"],
-      cta: "/app/upscaler",
-    },
-    {
-      icon: Users, label: "Content Creators", color: "#a78bfa",
-      headline: "Create more content, faster.",
-      uses: ["Generate AI portraits for social feeds", "Sync audio to any face for shorts", "Create AI influencer personas", "Transfer motion from any reference"],
-      cta: "/app/image",
-    },
-    {
-      icon: Building2, label: "Studios & Agencies", color: "#22d3ee",
-      headline: "Scale professional work at AI speed.",
-      uses: ["Batch-process entire campaign shoots", "Consistent AI talent across all visuals", "Video generation for social content", "Enterprise API access"],
-      cta: "/signup",
-    },
-  ]
-  return (
-    <section className="bg-[#060606] py-24">
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
-        <div className="mb-14">
-          <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Built For</p>
-          <h2 className="font-black text-white leading-[0.88]" style={{ fontSize: "clamp(2.8rem,5vw,5.5rem)" }}>
-            YOUR WORKFLOW.<br /><span className="text-[#FFFF00]">YOUR TOOLS.</span>
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {CASES.map((c, i) => (
-            <motion.div key={c.label}
-              initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="bg-white/[0.03] border border-white/8 rounded-2xl p-8 flex flex-col group hover:border-white/14 transition-colors">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                style={{ background: `${c.color}15`, border: `1px solid ${c.color}25` }}>
-                <c.icon className="w-5 h-5" style={{ color: c.color }} />
-              </div>
-              <div className="text-white/40 text-[11px] font-black uppercase tracking-widest mb-2">{c.label}</div>
-              <h3 className="text-white font-black text-xl leading-snug mb-6">{c.headline}</h3>
-              <ul className="space-y-3 flex-1 mb-8">
-                {c.uses.map(u => (
-                  <li key={u} className="flex items-start gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full mt-2 shrink-0" style={{ background: c.color }} />
-                    <span className="text-white/50 text-[14px] leading-snug">{u}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href={c.cta} className="inline-flex items-center gap-2 font-black text-[13px] uppercase tracking-widest hover:gap-3 transition-all"
-                style={{ color: c.color }}>
-                Get Started <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
 
 // ─── 16. STATS ────────────────────────────────────────────────────────────────
 function StatsSection() {
@@ -1337,7 +1330,7 @@ function StatsSection() {
     <section className="bg-[#FFFF00]" data-nav-light="true">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 py-28">
         <p className="text-black/35 text-[11px] font-black uppercase tracking-[0.35em] mb-14">BY THE NUMBERS</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-14 gap-x-8 lg:gap-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-12 gap-x-8 lg:gap-0">
           {[
             { n: "8K",    d: "Max Output", s: "7680 × 4320px"      },
             { n: "50+",   d: "AI Models",  s: "Across all tools"    },
@@ -1346,7 +1339,7 @@ function StatsSection() {
           ].map(({ n, d, s }, i) => (
             <div key={d} className="lg:px-10 xl:px-14 first:lg:pl-0 last:lg:pr-0 relative">
               {i > 0 && <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-px bg-black/15" />}
-              <div className="font-black text-black leading-none" style={{ fontSize: "clamp(4.5rem,8vw,9rem)" }}>{n}</div>
+              <div className="font-black text-black leading-none" style={{ fontSize: "clamp(3.5rem,8vw,9rem)" }}>{n}</div>
               <div className="text-black font-bold text-xl mt-3">{d}</div>
               <div className="text-black/45 text-sm mt-1">{s}</div>
             </div>
@@ -1370,7 +1363,7 @@ function TestimonialsSection() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Reviews</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
               Trusted By<br /><span className="text-[#FFFF00]">Thousands.</span>
             </h2>
           </div>
@@ -1433,7 +1426,7 @@ function HowItWorksSection() {
             ))}
             <div className="mt-12 pt-12 border-t border-black/10 flex gap-4">
               <Link href="/signup" className="inline-flex items-center gap-2 bg-black px-7 py-3.5 rounded-xl text-white font-black text-sm hover:bg-black/80 transition-colors">
-                Start for Free <ArrowRight className="w-4 h-4" />
+                Get Started <ArrowRight className="w-4 h-4" />
               </Link>
               <Link href="/app" className="inline-flex items-center gap-2 border border-black/15 px-7 py-3.5 rounded-xl text-black/70 font-bold text-sm hover:bg-black/5 transition-colors">
                 View All Tools
@@ -1453,8 +1446,8 @@ function PricingSection() {
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
         <div className="text-center mb-16">
           <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Pricing</p>
-          <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
-            Start Free.<br /><span className="text-[#FFFF00]">Scale Fearlessly.</span>
+          <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,5.5vw,6.5rem)" }}>
+            Start Now.<br /><span className="text-[#FFFF00]">Scale Fearlessly.</span>
           </h2>
           <p className="text-white/35 text-[15px] mt-5 max-w-md mx-auto">Credits work across every tool. No feature gates. Cancel anytime.</p>
         </div>
@@ -1465,13 +1458,64 @@ function PricingSection() {
 }
 
 // ─── A. AI SKIN FIX ───────────────────────────────────────────────────────────
+function SkinCompareSlider({ before, after, label }: { before: string; after: string; label: string }) {
+  const [pos, setPos] = useState(50)
+  const cur = useRef(50)
+  const [drag, setDrag] = useState(false)
+  const dragging = useRef(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const onMove = useCallback((cx: number) => {
+    if (!ref.current) return
+    const r = ref.current.getBoundingClientRect()
+    cur.current = Math.max(5, Math.min((cx - r.left) / r.width * 100, 95))
+    setPos(cur.current)
+  }, [])
+  return (
+    <div ref={ref} className="relative rounded-2xl overflow-hidden select-none"
+      style={{ aspectRatio: "3/4", cursor: drag ? "grabbing" : "ew-resize", touchAction: "none" }}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; setDrag(true); onMove(e.clientX) }}
+      onPointerMove={e => { if (dragging.current) onMove(e.clientX) }}
+      onPointerUp={e => { e.currentTarget.releasePointerCapture(e.pointerId); dragging.current = false; setDrag(false) }}
+      onPointerLeave={() => { if (dragging.current) { dragging.current = false; setDrag(false) } }}>
+      {/* Before layer */}
+      <div className="absolute inset-0">
+        <Image src={before} alt="Before" fill className="object-cover object-center" sizes="50vw" />
+      </div>
+      {/* After layer */}
+      <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
+        <Image src={after} alt="After" fill className="object-cover object-center" sizes="50vw" />
+      </div>
+      {/* Divider line */}
+      <div className="absolute top-0 bottom-0 pointer-events-none z-20"
+        style={{ left: `${pos}%`, transform: "translateX(-50%)", width: 2, background: "rgba(255,255,255,0.9)", boxShadow: "0 0 12px rgba(255,255,255,0.6)" }} />
+      {/* Handle chevrons */}
+      <div className="absolute z-30 pointer-events-none flex items-center justify-center"
+        style={{ left: `${pos}%`, top: "50%", transform: "translate(-50%,-50%)", width: 40, height: 40, borderRadius: "50%", background: "white", boxShadow: "0 4px 20px rgba(0,0,0,0.6)" }}>
+        <ChevronLeft className="w-3 h-3 text-black absolute left-2" />
+        <ChevronRight className="w-3 h-3 text-black absolute right-2" />
+      </div>
+      {/* Labels */}
+      <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
+        <span className="text-white/50 text-[9px] font-black uppercase tracking-widest">Before</span>
+      </div>
+      <div className="absolute bottom-4 right-4 z-10 pointer-events-none text-right" style={{ clipPath: `inset(0 0 0 ${pos}%)` }}>
+        <span className="text-amber-400 text-[9px] font-black uppercase tracking-widest">Sharpii</span>
+      </div>
+      {/* Section label */}
+      <div className="absolute top-4 left-4 z-10 pointer-events-none">
+        <span className="bg-black/55 backdrop-blur-sm text-white/60 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg">{label}</span>
+      </div>
+    </div>
+  )
+}
+
 function AISkinFixSection() {
   return (
     <section className="bg-[#080808] py-24 overflow-hidden">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-14">
         <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Skin Restoration</p>
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-          <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
+          <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
             REAL SKIN.<br /><span className="text-amber-400">NO FILTERS.</span>
           </h2>
           <p className="text-white/30 text-[15px] max-w-[340px] leading-relaxed lg:pb-2">
@@ -1480,77 +1524,17 @@ function AISkinFixSection() {
         </div>
       </div>
 
-      {/* Two portraits: Typical AI vs Sharpii */}
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Before: over-smoothed AI look */}
-        <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: "3/4", maxHeight: 600 }}>
-          <div className="absolute inset-0"
-            style={{ backgroundImage: `url(${IMG.g1b})`, backgroundSize: "cover", backgroundPosition: "center 10%", filter: "brightness(1.1) contrast(0.85) saturate(0.8) blur(0.6px)" }} />
-          <div className="absolute inset-0" style={{ background: "rgba(220,200,200,0.06)" }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-          <div className="absolute top-5 left-5">
-            <span className="bg-red-500/15 border border-red-500/25 text-red-400 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-sm">
-              Typical AI
-            </span>
-          </div>
-          <div className="absolute bottom-5 left-5 right-5">
-            <div className="text-red-400/60 text-[10px] font-black uppercase tracking-widest mb-1">Over-Smoothed</div>
-            <div className="text-white font-black text-lg leading-tight">Plastic. Waxy.<br />Zero texture.</div>
-          </div>
-        </div>
-
-        {/* After: Sharpii real texture */}
-        <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: "3/4", maxHeight: 600 }}>
-          <div className="absolute inset-0"
-            style={{ backgroundImage: `url(${IMG.g1a})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-          <div className="absolute top-5 left-5">
-            <span className="bg-amber-400/15 border border-amber-400/35 text-amber-400 text-[11px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full backdrop-blur-sm">
-              Sharpii AI
-            </span>
-          </div>
-          <div className="absolute bottom-5 left-5 right-5">
-            <div className="text-amber-400/60 text-[10px] font-black uppercase tracking-widest mb-1">Authentic Texture</div>
-            <div className="text-white font-black text-lg leading-tight">Natural. Detailed.<br />Human.</div>
-          </div>
-          {/* Feature tags overlay */}
-          <div className="absolute top-5 right-5 flex flex-col gap-1.5">
-            {["Pores visible", "Natural grain", "True tone"].map(t => (
-              <span key={t} className="bg-black/50 backdrop-blur-sm text-white/55 text-[10px] font-bold px-2.5 py-1 rounded-full text-right">{t}</span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Comparison detail strips */}
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
-        {[
-          { label: "Pore Detail",    bad: "Blurred away",    good: "Visible & natural" },
-          { label: "Skin Texture",   bad: "Plastic sheen",   good: "Natural micro-grain" },
-          { label: "Expressions",    bad: "Softened out",    good: "Fully preserved" },
-          { label: "Skin Tone",      bad: "Washed out",      good: "True to life" },
-        ].map(d => (
-          <div key={d.label} className="bg-white/[0.03] border border-white/6 rounded-xl p-4">
-            <div className="text-amber-400 text-[11px] font-black uppercase tracking-wider mb-3">{d.label}</div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-400/50 shrink-0" />
-                <span className="text-white/25 text-[11px]">{d.bad}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                <span className="text-white/65 text-[11px]">{d.good}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Two draggable comparison sliders */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 grid grid-cols-1 lg:grid-cols-2 gap-4 mb-10">
+        <SkinCompareSlider before={IMG.g1b} after={IMG.g1a} label="Portrait" />
+        <SkinCompareSlider before={IMG.bm1b} after={IMG.bm1a} label="Studio" />
       </div>
 
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 flex items-center gap-5 flex-wrap">
         <Link href="/app/skineditor" className="inline-flex items-center gap-2 bg-amber-400 px-6 py-3.5 rounded-xl text-black font-black text-sm hover:bg-amber-300 transition-colors">
           Fix Skin Now <ArrowRight className="w-4 h-4" />
         </Link>
-        <span className="text-white/20 text-[13px]">No plastic. No filters. No compromise.</span>
+        <span className="text-white/20 text-[13px]">Drag either slider to compare · No plastic · No compromise.</span>
       </div>
     </section>
   )
@@ -1580,7 +1564,7 @@ function AIAvatarsSection() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-14">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Avatars</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
               ONE FACE.<br /><span className="text-purple-400">INFINITE STYLES.</span>
             </h2>
           </div>
@@ -1631,20 +1615,21 @@ function AIAvatarsSection() {
 
 // ─── C. IMAGE GALLERY ─────────────────────────────────────────────────────────
 function ImageGallerySection() {
+  const IMGS = [IMG.g1a, IMG.bm1a, IMG.asian, IMG.g2b, IMG.g1b, IMG.bm1b, IMG.g1a, IMG.bm1a, IMG.g2b, IMG.asian, IMG.g1b, IMG.bm1b]
   return (
     <section className="bg-[#030303] pt-24 pb-16 overflow-hidden">
       {/* Header */}
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
-            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Showcase</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
-              EVERY PIXEL.<br /><span className="text-[#FFFF00]">EARNED.</span>
+            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Output Gallery</p>
+            <h2 className="font-heading font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
+              MADE WITH<br /><span className="text-[#FFFF00]">SHARPII.</span>
             </h2>
           </div>
           <div className="lg:max-w-[280px] lg:pb-2">
             <p className="text-white/30 text-[15px] leading-relaxed mb-5">
-              Every portrait below was created or enhanced with Sharpii.ai. No filters. No presets. Pure AI output.
+              Every portrait was created or enhanced with Sharpii.ai. Pure AI output — no filters, no presets.
             </p>
             <Link href="/signup" className="inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
               Create Yours <ArrowRight className="w-4 h-4" />
@@ -1653,61 +1638,20 @@ function ImageGallerySection() {
         </div>
       </div>
 
-      {/* Desktop: CSS grid mosaic — 4 columns, mixed sizes */}
-      <div className="hidden lg:block px-8 lg:px-14 max-w-[1440px] mx-auto">
-        <div className="grid grid-cols-4 gap-3" style={{ gridAutoRows: "220px" }}>
-          {/* Row 1+2: big portrait left, 2 medium right */}
-          <div className="relative overflow-hidden rounded-2xl col-span-1 row-span-2 group cursor-pointer">
-            <Image src={IMG.g1a} alt="Editorial portrait" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-4 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Editorial</span></div>
+      {/* Desktop: uniform 6-col grid, all 3:4 */}
+      <div className="hidden lg:grid px-8 lg:px-14 max-w-[1440px] mx-auto grid-cols-6 gap-2">
+        {IMGS.map((src, i) => (
+          <div key={i} className="relative overflow-hidden rounded-xl group cursor-pointer" style={{ aspectRatio: "3/4" }}>
+            <Image src={src} alt="AI portrait" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" sizes="17vw" />
           </div>
-          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
-            <Image src={IMG.bm1a} alt="Studio portrait" fill className="object-cover object-top transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Studio</span></div>
-          </div>
-          <div className="relative overflow-hidden rounded-2xl col-span-2 group cursor-pointer">
-            <Image src={IMG.asian} alt="Beauty shot" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Beauty</span></div>
-          </div>
-          {/* Row 2 right: big + small */}
-          <div className="relative overflow-hidden rounded-2xl col-span-2 group cursor-pointer">
-            <Image src={IMG.g2b} alt="Commercial" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Commercial</span></div>
-          </div>
-          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
-            <Image src={IMG.bm1b} alt="Portrait" fill className="object-cover object-top transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Portrait</span></div>
-          </div>
-          {/* Row 3: wide + portrait + portrait */}
-          <div className="relative overflow-hidden rounded-2xl col-span-2 group cursor-pointer">
-            <Image src={IMG.g1b} alt="Lifestyle" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-3 left-4"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Lifestyle</span></div>
-          </div>
-          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
-            <Image src={IMG.asian} alt="Artistic" fill className="object-cover object-top transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Artistic</span></div>
-          </div>
-          <div className="relative overflow-hidden rounded-2xl group cursor-pointer">
-            <Image src={IMG.g1a} alt="Fashion" fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute bottom-3 left-3"><span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Fashion</span></div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Mobile: 2-col grid */}
-      <div className="lg:hidden grid grid-cols-2 gap-2 px-4">
-        {[IMG.g1a, IMG.bm1a, IMG.asian, IMG.g2b, IMG.g1b, IMG.bm1b].map((src, i) => (
+      {/* Mobile: 3-col grid */}
+      <div className="lg:hidden grid grid-cols-3 gap-1.5 px-4">
+        {IMGS.slice(0, 9).map((src, i) => (
           <div key={i} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "3/4" }}>
             <Image src={src} alt="AI portrait" fill className="object-cover object-center" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
           </div>
         ))}
       </div>
@@ -1730,6 +1674,7 @@ export default function Home3Page() {
       <VideoSection />
       <VideoCategories />
       <MotionTransfer />
+      <CopyViralReels />
       <AudioLipSync />
       <SkinEditorSection />
       <AISkinFixSection />
@@ -1739,7 +1684,6 @@ export default function Home3Page() {
       <ImageGenSection />
       <ImageGallerySection />
       <ModelsSection />
-      <CreatorUseCases />
       <StatsSection />
       <TestimonialsSection />
       <HowItWorksSection />
