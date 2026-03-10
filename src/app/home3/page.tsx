@@ -101,8 +101,22 @@ function NavThemeController() {
 // ─── PRIMITIVES ───────────────────────────────────────────────────────────────
 function AutoVid({ src, poster, className = "" }: { src: string; poster?: string; className?: string }) {
   const ref = useRef<HTMLVideoElement>(null)
-  useEffect(() => { ref.current?.play().catch(() => {}) }, [])
-  return <video ref={ref} src={src} poster={poster} muted loop playsInline autoPlay className={cn("w-full h-full object-cover", className)} />
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const v = ref.current
+    if (!v) return
+    v.play().catch(() => {})
+  }, [])
+  if (failed && poster) {
+    return <div className={cn("w-full h-full bg-cover bg-center", className)} style={{ backgroundImage: `url(${poster})` }} />
+  }
+  return (
+    <video
+      ref={ref} src={src} poster={poster} muted loop playsInline autoPlay
+      className={cn("w-full h-full object-cover", className)}
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 function useSlider(init = 50, min = 20, max = 80, speed = 0.045) {
@@ -328,7 +342,7 @@ function UpscalerSection() {
               style={{ fontSize: "clamp(7rem,18vw,14rem)", letterSpacing: "-0.05em", lineHeight: 0.82 }}>8K</div>
             <div className="text-white/20 font-black text-2xl mb-8 uppercase tracking-wide">Resolution</div>
             <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2rem,3.5vw,3.2rem)" }}>
-              NOT SCALED.<br /><span>REBUILT.</span>
+              NOT SCALED.<br /><span className="font-heading">REBUILT.</span>
             </h2>
             <p className="text-white/50 text-[15px] max-w-[320px] leading-relaxed mb-10">
               AI synthesizes new detail from scratch — skin texture, hair strands, micro-contrast. Zero artifacts at any resolution.
@@ -537,7 +551,7 @@ function VideoSection() {
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-3">02 / Video Suite</p>
             <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,6vw,7.5rem)" }}>
-              IMAGINE.<br /><span className="text-violet-400">GENERATE.</span>
+              IMAGINE.<br /><span className="font-heading text-violet-400">GENERATE.</span>
             </h2>
           </div>
           <div className="max-w-[280px]">
@@ -657,7 +671,7 @@ function MotionTransfer() {
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">Motion Transfer</p>
             <h2 className="font-black text-white leading-[0.88] mb-6" style={{ fontSize: "clamp(2.4rem,4.5vw,5rem)" }}>
-              ANY MOTION.<br /><span className="text-cyan-400">ANY PERSON.</span>
+              ANY MOTION.<br /><span className="font-heading text-cyan-400">ANY PERSON.</span>
             </h2>
             <p className="text-white/50 text-[15px] leading-relaxed mb-10 max-w-[380px]">
               Take any movement — a dance, a gesture, a walk — from any reference video. Apply it exactly to a different person. No motion capture, no markers.
@@ -793,11 +807,7 @@ function CopyViralReels() {
 function AudioLipSync() {
   const BH = [0.3,0.7,1,0.5,0.85,0.4,0.95,0.6,0.5,0.9,0.35,0.75,0.8,0.45,0.65,0.4,0.9,0.7,0.5,0.8,0.3]
   return (
-    <section className="bg-white py-24 overflow-hidden relative" data-nav-light="true">
-      {/* Gradient fade from black above */}
-      <div className="absolute top-0 left-0 right-0 h-20 pointer-events-none z-20" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)" }} />
-      {/* Gradient fade to dark below */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-20" style={{ background: "linear-gradient(to top, rgba(12,0,22,0.9) 0%, transparent 100%)" }} />
+    <section className="bg-white py-24 overflow-hidden" data-nav-light="true">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
 
         {/* Header row */}
@@ -883,9 +893,7 @@ function SkinEditorSection() {
   const strengthPercent = ((strength - 0.1) / 0.28) * 100
 
   return (
-    <section className="bg-[#0c0016] overflow-hidden relative">
-      {/* Gradient fade from white above */}
-      <div className="absolute top-0 left-0 right-0 h-20 pointer-events-none z-20" style={{ background: "linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, transparent 100%)" }} />
+    <section className="bg-[#0c0016] overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-2" style={{ minHeight: "88vh" }}>
         <div className="relative order-2 lg:order-1 overflow-hidden"
           style={{ minHeight: 640, backgroundImage: `url(${IMG.asian})`, backgroundSize: "cover", backgroundPosition: "center 20%" }}>
@@ -957,53 +965,92 @@ function SkinEditorSection() {
 
 // ─── 11. AI RELIGHTING ────────────────────────────────────────────────────────
 function AIRelighting() {
-  const PRESETS = [
-    { name: "Studio",    color: "#ffffff", brightness: "Bright",   src: IMG.g1a  },
-    { name: "Golden Hr", color: "#ff8800", brightness: "Warm",     src: IMG.asian },
-    { name: "Moonlight", color: "#7eb8ff", brightness: "Cool",     src: IMG.g2b  },
-    { name: "Spotlight", color: "#ffffff", brightness: "Dramatic", src: IMG.bm1a },
-    { name: "Window",    color: "#c8e0ff", brightness: "Soft",     src: IMG.g1b  },
-    { name: "Neon",      color: "#00ffcc", brightness: "Vibrant",  src: IMG.bm1b },
+  const FEATURED = { name: "Golden Hour",  color: "#ff8800", brightness: "Warm golden",  src: IMG.asian,  mood: "Warm outdoor glow · Sunset direction" }
+  const SIDE     = [
+    { name: "Studio",   color: "#e8e8ff", brightness: "Clean",    src: IMG.g1a,  mood: "Overhead front · Diffused"  },
+    { name: "Neon",     color: "#00ffcc", brightness: "Vibrant",  src: IMG.bm1a, mood: "Low-angle · Hard edge"       },
   ]
   return (
-    <section className="bg-black py-24"
-      style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)", backgroundSize: "60px 60px" }}>
+    <section className="bg-black py-24">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Relighting</p>
             <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
-              LIGHT.<br /><span className="text-orange-400">REDEFINED.</span>
+              ANY SCENE.<br /><span className="text-orange-400">ANY LIGHT.</span>
             </h2>
           </div>
-          <div className="max-w-[300px] lg:pb-2">
-            <p className="text-white/50 text-[14px] leading-relaxed mb-5">
-              Change the lighting direction, color, and mood of any portrait. Studio, golden hour, moonlight — applied with photorealistic accuracy.
+          <div className="max-w-[320px] lg:pb-2 flex flex-col gap-4">
+            <p className="text-white/50 text-[14px] leading-relaxed">
+              Swap lighting direction, temperature, and intensity — non-destructively. Studio, golden hour, neon, moonlight. One image, infinite moods.
             </p>
-            <Link href="/app/edit" className="inline-flex items-center gap-2 text-orange-400 font-black text-[13px] uppercase tracking-widest hover:text-white transition-colors">
+            <Link href="/app/edit" className="self-start inline-flex items-center gap-2 border border-orange-400/40 text-orange-400 font-black text-[13px] px-5 py-2.5 rounded-xl hover:bg-orange-400/10 transition-colors">
               Try Relight <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {PRESETS.map((p, i) => (
-            <motion.div key={p.name}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }}
-              className="relative rounded-xl overflow-hidden group cursor-pointer"
-              style={{ aspectRatio: "3/4" }}>
-              <div className="absolute inset-0" style={{ backgroundImage: `url(${p.src})`, backgroundSize: "cover", backgroundPosition: "center 15%" }} />
-              <div className="absolute inset-0 mix-blend-color" style={{ background: p.color, opacity: i === 0 ? 0 : 0.12 }} />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 60%)" }} />
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2.5 h-2.5 rounded-full border border-white/30" style={{ background: p.color }} />
-                  <span className="text-white font-black text-[13px]">{p.name}</span>
-                </div>
-                <span className="text-white/40 text-[10px] uppercase tracking-widest">{p.brightness} light</span>
+
+        {/* Asymmetric 3-image layout: large feature left, two stacked right */}
+        <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: 560 }}>
+          {/* Large feature — left 2/3 */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }} transition={{ duration: 0.6 }}
+            className="lg:flex-[2] relative rounded-2xl overflow-hidden group cursor-pointer"
+            style={{ minHeight: 420 }}>
+            <div className="absolute inset-0" style={{ backgroundImage: `url(${FEATURED.src})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
+            {/* Warm tint */}
+            <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255,136,0,0.22) 0%, transparent 65%)" }} />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)" }} />
+            {/* Top badge */}
+            <div className="absolute top-5 left-5 flex items-center gap-2.5 bg-black/50 backdrop-blur-md border border-orange-400/30 px-3 py-2 rounded-xl">
+              <div className="w-2.5 h-2.5 rounded-full border border-white/30" style={{ background: FEATURED.color }} />
+              <span className="text-white font-black text-[12px]">{FEATURED.name}</span>
+            </div>
+            {/* Bottom info */}
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <div className="text-orange-300/60 text-[10px] font-black uppercase tracking-widest mb-2">{FEATURED.brightness} · Featured</div>
+              <div className="text-white font-black text-xl mb-1">{FEATURED.mood}</div>
+              <div className="inline-flex items-center gap-1.5 mt-3 bg-orange-400/15 border border-orange-400/25 px-3 py-1.5 rounded-lg">
+                <Sparkles className="w-3 h-3 text-orange-300" />
+                <span className="text-orange-300 text-[11px] font-bold">AI-relit in 4 seconds</span>
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
+
+          {/* Two stacked right */}
+          <div className="lg:flex-1 flex flex-row lg:flex-col gap-4">
+            {SIDE.map((p, i) => (
+              <motion.div key={p.name}
+                initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.15 + i * 0.1 }}
+                className="flex-1 relative rounded-2xl overflow-hidden group cursor-pointer"
+                style={{ minHeight: 200 }}>
+                <div className="absolute inset-0" style={{ backgroundImage: `url(${p.src})`, backgroundSize: "cover", backgroundPosition: "center 15%" }} />
+                <div className="absolute inset-0 mix-blend-color" style={{ background: p.color, opacity: 0.10 }} />
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, transparent 55%)" }} />
+                {/* Top badge */}
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-lg">
+                  <div className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+                  <span className="text-white font-bold text-[10px]">{p.name}</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <div className="text-white/40 text-[9px] font-bold uppercase tracking-widest mb-0.5">{p.brightness} light</div>
+                  <div className="text-white/75 text-[12px] font-bold">{p.mood}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Light presets strip */}
+        <div className="mt-6 flex gap-2 flex-wrap">
+          {["Studio", "Golden Hr", "Moonlight", "Campfire", "Spotlight", "Window Light", "Neon", "Horror", "Sunset"].map(preset => (
+            <span key={preset} className="bg-white/[0.05] border border-white/8 text-white/40 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg hover:bg-white/10 hover:text-white/60 cursor-pointer transition-colors">
+              {preset}
+            </span>
           ))}
+          <span className="text-white/20 text-[10px] flex items-center px-2">+40 more</span>
         </div>
       </div>
     </section>
@@ -1011,135 +1058,351 @@ function AIRelighting() {
 }
 
 // ─── 12. IMAGE EDIT STUDIO ────────────────────────────────────────────────────
+const EDIT_DEMO_PROMPTS = [
+  { text: "Smooth skin, remove blemishes", layer: { hex: "#FF4B4B", name: "RED",  maskArea: "face" } },
+  { text: "Change hair color to warm golden blonde", layer: { hex: "#4B8BFF", name: "BLUE", maskArea: "hair" } },
+  { text: "Add soft studio background blur", layer: { hex: "#4BFF8B", name: "GREEN", maskArea: "bg"  } },
+  { text: "Make eyes more vibrant and sharp",        layer: { hex: "#FFD700", name: "GOLD", maskArea: "eyes" } },
+]
+
 function ImageEditStudio() {
-  const LAYER = { hex: "#FF4B4B", label: "RED", prompt: "Smooth skin, remove blemishes, preserve natural texture" }
+  const [stage, setStage]           = useState(0) // 0=idle 1=brushing 2=typed 3=generating 4=result
+  const [typedText, setTypedText]   = useState("")
+  const [brushP, setBrushP]         = useState(0) // 0–1
+  const [demoIdx, setDemoIdx]       = useState(0)
+  const demo = EDIT_DEMO_PROMPTS[demoIdx]!
+
+  useEffect(() => {
+    let raf = 0, timer: ReturnType<typeof setTimeout>
+
+    if (stage === 0) {
+      setTypedText(""); setBrushP(0)
+      timer = setTimeout(() => setStage(1), 1600)
+    } else if (stage === 1) {
+      const start = Date.now(); const dur = 2600
+      const tick = () => {
+        const p = Math.min((Date.now() - start) / dur, 1)
+        setBrushP(p)
+        if (p < 1) raf = requestAnimationFrame(tick)
+        else { timer = setTimeout(() => setStage(2), 200) }
+      }
+      raf = requestAnimationFrame(tick)
+    } else if (stage === 2) {
+      const full = demo.text; let i = 0
+      const type = () => {
+        if (i < full.length) { setTypedText(full.slice(0, ++i)); timer = setTimeout(type, 32) }
+        else { timer = setTimeout(() => setStage(3), 700) }
+      }
+      timer = setTimeout(type, 300)
+    } else if (stage === 3) {
+      timer = setTimeout(() => setStage(4), 1800)
+    } else if (stage === 4) {
+      timer = setTimeout(() => { setDemoIdx(d => (d + 1) % EDIT_DEMO_PROMPTS.length); setStage(0) }, 2800)
+    }
+    return () => { clearTimeout(timer); cancelAnimationFrame(raf) }
+  }, [stage, demoIdx])
+
+  // Brush cursor path across the image (looping horizontally in the mask area)
+  const bx = 10 + brushP * 75
+  const by = demo.layer.maskArea === "hair" ? 5 + Math.sin(brushP * Math.PI * 3) * 5
+           : demo.layer.maskArea === "eyes" ? 28 + Math.sin(brushP * Math.PI * 4) * 3
+           : demo.layer.maskArea === "bg"   ? 15 + brushP * 20
+           : 18 + Math.sin(brushP * Math.PI * 2.5) * 8
+
+  const maskStyle = (() => {
+    const a = stage === 0 ? 0 : stage === 4 ? 0.15 : Math.min(brushP * 0.6, 0.55)
+    if (demo.layer.maskArea === "hair")
+      return { top: "0%",  left: "10%",  width: "80%", height: "28%", background: `${demo.layer.hex}${Math.round(a*255).toString(16).padStart(2,"0")}`, borderRadius: "50% 50% 40% 40%", filter: "blur(14px)" }
+    if (demo.layer.maskArea === "eyes")
+      return { top: "26%", left: "15%",  width: "70%", height: "14%", background: `${demo.layer.hex}${Math.round(a*255).toString(16).padStart(2,"0")}`, borderRadius: "60%",           filter: "blur(8px)"  }
+    if (demo.layer.maskArea === "bg")
+      return { top: "0%",  left: "0%",   width: "100%",height: "100%",background: `${demo.layer.hex}${Math.round(a*165).toString(16).padStart(2,"0")}`, filter: "blur(24px)" }
+    return { top: "12%", left: "8%",   width: "84%", height: "26%", background: `${demo.layer.hex}${Math.round(a*255).toString(16).padStart(2,"0")}`, borderRadius: "60% 50% 55% 60% / 50% 55% 50% 55%", filter: "blur(12px)" }
+  })()
+
+  const isGenerating = stage === 3
+  const isResult     = stage === 4
 
   return (
-    <section className="bg-[#FFFF00] py-20 overflow-hidden relative">
-      {/* Gradient fades: black above, black below */}
-      <div className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-20" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%)" }} />
-      <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none z-20" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)" }} />
-      {/* Section header */}
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-10">
-        <p className="text-black/35 text-[11px] font-black uppercase tracking-[0.35em] mb-5">04 / Image Edit</p>
-        <div className="flex flex-col lg:flex-row items-end justify-between gap-6">
-          <h2 className="font-black text-black leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
-            PRECISE<br />EDITING.
+    <section className="bg-black pt-20 pb-24 overflow-hidden">
+      {/* Header */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 mb-12">
+        <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">04 / Image Edit</p>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
+            MASK. PROMPT.<br /><span className="text-[#FFFF00]">TRANSFORM.</span>
           </h2>
-          <div className="lg:max-w-[360px] lg:pb-1 flex flex-col gap-4">
-            <p className="text-black/60 text-[15px] leading-relaxed">
-              Paint any region with a brush. Write what to change. AI edits only inside your mask — nothing outside is touched.
+          <div className="lg:max-w-[380px] lg:pb-1 flex flex-col gap-4">
+            <p className="text-white/50 text-[15px] leading-relaxed">
+              Paint any region with a brush. Type what to change. AI edits only inside your mask — with surgical precision, zero bleed.
             </p>
-            <Link href="/app/edit" className="self-start inline-flex items-center gap-2 bg-black px-6 py-3 rounded-xl text-white font-black text-sm hover:bg-black/80 transition-colors">
-              Open Magic Editor <ArrowRight className="w-4 h-4" />
-            </Link>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Link href="/app/edit" className="inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
+                Open Magic Editor <ArrowRight className="w-4 h-4" />
+              </Link>
+              <span className="text-white/25 text-[12px]">5 credits per edit · No subscription lock</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* App mockup — yellow outer, dark inner window */}
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
-        <div className="rounded-xl border border-black/15 overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.25)] bg-[#0b0b12]">
+      {/* Animated mockup */}
+      <div className="max-w-[1440px] mx-auto px-4 lg:px-14">
+        <div className="rounded-2xl border border-white/8 overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.7)]" style={{ background: "#09090f" }}>
 
-          {/* Title bar */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-[#080810] border-b border-white/6">
+          {/* macOS title bar */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-[#060609] border-b border-white/6">
             <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-              <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-              <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+              <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+              <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+              <div className="w-3 h-3 rounded-full bg-[#28c840]" />
             </div>
-            <span className="text-white/20 text-[11px] flex-1 text-center font-medium">Magic Editor — sharpii.ai</span>
+            <div className="flex-1 flex items-center justify-center gap-3">
+              {/* Mode tabs */}
+              <div className="flex bg-white/[0.06] rounded-lg p-0.5 gap-0.5">
+                {["Edit", "Relight", "Prompt"].map((m, i) => (
+                  <span key={m} className={cn("px-4 py-1.5 rounded-md text-[11px] font-bold transition-all",
+                    i === 0 ? "bg-[#FFFF00] text-black" : "text-white/30")}>
+                    {m}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-white/20 text-[10px] font-black uppercase tracking-widest">Magic Editor</span>
+            </div>
           </div>
 
-          {/* Workspace */}
-          <div className="flex" style={{ minHeight: 520 }}>
-            {/* Left settings panel */}
-            <div className="w-64 bg-[#09090f] border-r border-white/6 flex flex-col shrink-0">
-              {/* Upload placeholder */}
-              <div className="p-4 border-b border-white/6">
-                <div className="rounded-lg border border-dashed border-white/15 flex flex-col items-center justify-center gap-2 py-5 cursor-pointer hover:border-white/25 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-white/6 flex items-center justify-center">
-                    <Plus className="w-4 h-4 text-white/35" />
-                  </div>
-                  <span className="text-white/30 text-[11px] font-bold">Upload Image</span>
+          {/* Main workspace */}
+          <div className="flex flex-col lg:flex-row" style={{ minHeight: 560 }}>
+
+            {/* ── LEFT PANEL ── */}
+            <div className="w-full lg:w-[360px] bg-[#07070d] border-b lg:border-b-0 lg:border-r border-white/6 flex flex-col shrink-0">
+
+              {/* Image upload strip */}
+              <div className="p-4 border-b border-white/5 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 ring-2 ring-[#FFFF00]/40">
+                  <Image src={IMG.g1a} alt="Source" width={48} height={48} className="object-cover w-full h-full" style={{ objectPosition: "center 5%" }} />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-[12px] font-bold truncate">portrait_edit.jpg</div>
+                  <div className="text-white/30 text-[10px] mt-0.5">3024 × 4032 · 8.2 MB</div>
+                </div>
+                <button className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/8 flex items-center justify-center">
+                  <Plus className="w-3.5 h-3.5 text-white/30" />
+                </button>
               </div>
 
-              {/* Tool buttons */}
-              <div className="p-4 border-b border-white/6">
-                <p className="text-white/20 text-[10px] font-black uppercase tracking-widest mb-3">Tools</p>
+              {/* Tool buttons row */}
+              <div className="p-4 border-b border-white/5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-white/25 text-[10px] font-black uppercase tracking-widest">Tools</p>
+                  <span className="text-[#FFFF00]/60 text-[10px] font-bold">Brush · 28px</span>
+                </div>
                 <div className="flex gap-2">
-                  {[{ Icon: Brush, active: true }, { Icon: Eraser, active: false }, { Icon: Square, active: false }].map((t, i) => (
-                    <div key={i} className={cn("w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer border",
-                      t.active ? "bg-[#FFFF00] text-black border-transparent" : "bg-white/[0.04] text-white/30 border-white/8 hover:bg-white/8")}>
+                  {[
+                    { Icon: Brush,  label: "Brush",  active: true  },
+                    { Icon: Eraser, label: "Eraser", active: false },
+                    { Icon: Square, label: "Rect",   active: false },
+                    { Icon: Type,   label: "Text",   active: false },
+                  ].map(t => (
+                    <div key={t.label} className={cn(
+                      "w-10 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer border transition-all",
+                      t.active ? "bg-[#FFFF00] text-black border-transparent shadow-[0_0_16px_rgba(255,255,0,0.3)]"
+                               : "bg-white/[0.04] text-white/25 border-white/6 hover:bg-white/8")}>
                       <t.Icon className="w-4 h-4" />
                     </div>
                   ))}
-                  <div className="ml-auto flex items-center gap-1.5 text-white/20 text-[11px] font-medium">
-                    <span>Brush</span>
+                  {/* Undo/redo */}
+                  <div className="ml-auto flex gap-1">
+                    {[Layers, Sparkles].map((Icon, i) => (
+                      <div key={i} className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/6 flex items-center justify-center cursor-pointer hover:bg-white/8 transition-colors">
+                        <Icon className="w-3.5 h-3.5 text-white/25" />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Active mask layer */}
-              <div className="p-4 border-b border-white/6">
+              {/* Brush size slider */}
+              <div className="px-4 py-3 border-b border-white/5">
+                <div className="flex items-center gap-3">
+                  <span className="text-white/25 text-[10px] font-black uppercase tracking-widest w-16">Size</span>
+                  <div className="flex-1 relative h-6 flex items-center">
+                    <div className="absolute inset-x-0 h-px bg-white/10 rounded-full" />
+                    <div className="absolute left-0 h-px bg-[#FFFF00]/60 rounded-full" style={{ width: "38%" }} />
+                    <div className="absolute bg-white rounded-full w-3 h-3 shadow-md" style={{ left: "calc(38% - 6px)" }} />
+                  </div>
+                  <span className="text-white/50 text-[11px] font-bold w-8 text-right">28</span>
+                </div>
+              </div>
+
+              {/* Mask layers */}
+              <div className="p-4 border-b border-white/5 flex-1">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">Mask Layer</p>
-                  <div className="w-5 h-5 rounded-full" style={{ background: LAYER.hex, boxShadow: `0 0 8px ${LAYER.hex}80` }} />
+                  <p className="text-white/25 text-[10px] font-black uppercase tracking-widest">Mask Layers</p>
+                  <button className="w-6 h-6 rounded-md bg-white/[0.05] border border-white/8 flex items-center justify-center">
+                    <Plus className="w-3 h-3 text-white/30" />
+                  </button>
                 </div>
-                <div className="bg-[#111118] border border-white/8 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full" style={{ background: LAYER.hex }} />
-                    <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: LAYER.hex }}>{LAYER.label}</span>
-                    <span className="text-white/15 text-[9px] ml-auto">Layer 1</span>
+                {/* Active layer */}
+                <motion.div
+                  key={demoIdx}
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-[#111118] border rounded-xl p-3 mb-2"
+                  style={{ borderColor: `${demo.layer.hex}50` }}>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-3 h-3 rounded-full shrink-0 ring-2 ring-white/10" style={{ background: demo.layer.hex }} />
+                    <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: demo.layer.hex }}>{demo.layer.name}</span>
+                    <span className="text-white/20 text-[9px] ml-auto">Layer {demoIdx + 1}</span>
+                    <div className="w-4 h-4 rounded-md flex items-center justify-center bg-white/[0.04]">
+                      <Layers className="w-2.5 h-2.5 text-white/20" />
+                    </div>
                   </div>
-                  <div className="text-white/35 text-[11px] leading-snug">&ldquo;{LAYER.prompt}&rdquo;</div>
-                </div>
+                  <div className="bg-black/40 border border-white/5 rounded-lg px-2.5 py-2 text-white/35 text-[11px] leading-snug min-h-[36px]">
+                    {stage >= 2 ? `"${typedText}${stage === 2 ? "│" : ""}"` : <span className="text-white/15 italic">Paint a region to begin…</span>}
+                  </div>
+                </motion.div>
+                {/* Ghost layer below */}
+                {demoIdx > 0 && (
+                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 opacity-40">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-3 h-3 rounded-full" style={{ background: EDIT_DEMO_PROMPTS[(demoIdx - 1) % EDIT_DEMO_PROMPTS.length]!.layer.hex }} />
+                      <span className="text-white/30 text-[10px] font-bold uppercase tracking-widest">{EDIT_DEMO_PROMPTS[(demoIdx - 1) % EDIT_DEMO_PROMPTS.length]!.layer.name}</span>
+                      <span className="text-white/15 text-[9px] ml-auto">✓ Done</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Prompt input */}
-              <div className="p-4 flex-1 flex flex-col gap-3">
-                <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">Prompt</p>
-                <div className="flex-1 bg-[#111118] border border-white/8 rounded-lg px-3 py-2.5 flex items-start gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-white/20 mt-0.5 shrink-0" />
-                  <span className="text-white/30 text-[11px] leading-relaxed">&ldquo;Smooth skin, remove blemishes, keep natural texture and pores&rdquo;</span>
+              {/* Generate section */}
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white/25 text-[10px] font-black uppercase tracking-widest">Model</span>
+                  </div>
+                  <span className="text-white/30 text-[10px]">nano-banana-2</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-white/20">
-                  <span>nano-banana-2</span>
-                  <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-[#FFFF00]/40" />5 cr</span>
+                <div className="flex items-center justify-between text-[10px] mb-3">
+                  <span className="text-white/20">Estimated cost</span>
+                  <span className="flex items-center gap-1 text-[#FFFF00]/60">
+                    <Zap className="w-3 h-3" />5 credits
+                  </span>
                 </div>
-                <button className="bg-[#FFFF00] text-black font-black text-[12px] w-full py-3 rounded-lg flex items-center justify-center gap-2">
-                  <Wand2 className="w-3.5 h-3.5" /> GENERATE
-                </button>
+                <motion.button
+                  animate={isGenerating
+                    ? { boxShadow: ["0 0 0px rgba(255,255,0,0)", "0 0 28px rgba(255,255,0,0.6)", "0 0 0px rgba(255,255,0,0)"] }
+                    : isResult
+                    ? { background: "#22c55e", color: "#000" }
+                    : {}}
+                  transition={{ repeat: isGenerating ? Infinity : 0, duration: 0.8 }}
+                  className={cn(
+                    "w-full py-3.5 rounded-xl font-black text-[13px] flex items-center justify-center gap-2 transition-colors",
+                    isResult ? "bg-green-500 text-black" : "bg-[#FFFF00] text-black",
+                  )}>
+                  {isGenerating
+                    ? <><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}><Sparkles className="w-4 h-4" /></motion.div>GENERATING…</>
+                    : isResult
+                    ? <><Sparkles className="w-4 h-4" />DONE — DOWNLOAD</>
+                    : <><Wand2 className="w-4 h-4" />GENERATE</>}
+                </motion.button>
               </div>
             </div>
 
-            {/* Canvas area */}
-            <div className="flex-1 bg-[#05050e] flex items-center justify-center"
-              style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)", backgroundSize: "28px 28px" }}>
-              <div className="relative" style={{ width: 300, height: 420 }}>
-                <div className="absolute inset-0 rounded-xl overflow-hidden shadow-[0_16px_48px_rgba(0,0,0,0.7)]">
-                  <Image src={IMG.g1a} alt="Portrait canvas" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
-                  {/* Mask blob */}
-                  <div className="absolute pointer-events-none"
-                    style={{ top: "12%", left: "6%", width: "88%", height: "24%", borderRadius: "60% 50% 55% 60% / 50% 55% 50% 55%", background: "rgba(255,75,75,0.45)", filter: "blur(12px)" }} />
-                  {/* Brush cursor */}
-                  <div className="absolute z-30 pointer-events-none" style={{ top: "20%", left: "48%", transform: "translate(-50%,-50%)" }}>
-                    <div className="w-7 h-7 rounded-full bg-[#FFFF00]/80"
-                      style={{ boxShadow: "0 0 0 2px rgba(0,0,0,0.5), 0 0 18px rgba(255,255,0,0.5)" }} />
-                  </div>
+            {/* ── CANVAS AREA ── */}
+            <div className="flex-1 relative bg-[#040408] flex items-center justify-center overflow-hidden"
+              style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.018) 1px, transparent 1px)", backgroundSize: "24px 24px", minHeight: 400 }}>
+
+              {/* Canvas container */}
+              <div className="relative" style={{ width: "min(320px, 80vw)", height: "min(440px, 68vw)", maxHeight: 460 }}>
+                {/* Image */}
+                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
+                  <Image src={IMG.g1a} alt="Canvas portrait" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+
+                  {/* Animated mask layer */}
+                  <div className="absolute pointer-events-none" style={{ ...maskStyle }} />
+
+                  {/* Result overlay — fades in at stage 4 */}
+                  <motion.div
+                    className="absolute inset-0"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isResult ? 1 : 0 }}
+                    transition={{ duration: 0.7 }}
+                  >
+                    <Image src={IMG.bm1a} alt="Result" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-black/60 backdrop-blur-md border border-green-500/40 px-4 py-2 rounded-xl flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        <span className="text-green-300 text-[12px] font-black uppercase tracking-wider">AI Edit Complete</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Brush cursor — animates during stage 1 */}
+                  {stage === 1 && (
+                    <div className="absolute pointer-events-none z-30 transition-none"
+                      style={{ left: `${bx}%`, top: `${by}%`, transform: "translate(-50%,-50%)" }}>
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full border-2 border-white/80"
+                          style={{ boxShadow: `0 0 0 1px rgba(0,0,0,0.4), 0 0 16px ${demo.layer.hex}99` }} />
+                        <div className="absolute inset-0 rounded-full animate-ping opacity-40" style={{ background: demo.layer.hex }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {/* Floating layer card */}
-                <div className="absolute bg-[#12121c]/90 backdrop-blur-md border rounded-xl shadow-lg z-20"
-                  style={{ top: 60, right: -16, width: 180, padding: "10px 12px", borderColor: `${LAYER.hex}44` }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full" style={{ background: LAYER.hex }} />
-                    <span className="text-[10px] font-black uppercase tracking-wide" style={{ color: LAYER.hex }}>{LAYER.label}</span>
+
+                {/* Floating layer card — appears after brushing */}
+                <motion.div
+                  initial={{ opacity: 0, x: 16 }} animate={{ opacity: stage >= 2 ? 1 : 0, x: stage >= 2 ? 0 : 16 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute bg-[#0e0e18]/95 backdrop-blur-xl border rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.7)] z-20 hidden lg:block"
+                  style={{ top: "10%", right: -190, width: 180, padding: "12px 14px", borderColor: `${demo.layer.hex}55` }}>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: demo.layer.hex, boxShadow: `0 0 6px ${demo.layer.hex}` }} />
+                    <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: demo.layer.hex }}>{demo.layer.name}</span>
                   </div>
-                  <div className="bg-black/40 border border-white/6 rounded-lg px-2.5 py-2">
-                    <div className="text-white/40 text-[10px] leading-snug">&ldquo;{LAYER.prompt}&rdquo;</div>
+                  <div className="bg-black/50 border border-white/5 rounded-xl px-2.5 py-2">
+                    <div className="text-white/50 text-[10px] leading-snug">
+                      &ldquo;{typedText}{stage === 2 ? "│" : ""}&rdquo;
+                    </div>
                   </div>
+                  {stage >= 3 && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ repeat: Infinity, duration: 1 }}
+                        className="w-1.5 h-1.5 rounded-full bg-[#FFFF00]" />
+                      <span className="text-[#FFFF00]/60 text-[9px] font-bold uppercase tracking-wider">
+                        {isResult ? "Applied ✓" : "Processing…"}
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Stage label */}
+                <div className="absolute -bottom-10 left-0 right-0 flex items-center justify-center gap-6">
+                  {[
+                    { s: [0],    label: "Paint mask" },
+                    { s: [1,2],  label: "Type prompt" },
+                    { s: [3],    label: "Generating" },
+                    { s: [4],    label: "Done" },
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <div className={cn("w-1.5 h-1.5 rounded-full transition-all",
+                        step.s.includes(stage) ? "bg-[#FFFF00]" : "bg-white/15")} />
+                      <span className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors",
+                        step.s.includes(stage) ? "text-white/60" : "text-white/15")}>{step.label}</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              {/* Ambient glow behind canvas */}
+              <div className="absolute inset-0 pointer-events-none">
+                <motion.div
+                  animate={{ opacity: isGenerating ? [0.15, 0.35, 0.15] : 0.08 }}
+                  transition={{ repeat: isGenerating ? Infinity : 0, duration: 1 }}
+                  className="absolute"
+                  style={{ top: "20%", left: "25%", width: "50%", height: "60%", background: `radial-gradient(ellipse, ${demo.layer.hex}55 0%, transparent 70%)`, filter: "blur(30px)" }}
+                />
               </div>
             </div>
           </div>
@@ -1278,10 +1541,7 @@ function ModelsSection() {
 // ─── 16. STATS ────────────────────────────────────────────────────────────────
 function StatsSection() {
   return (
-    <section className="bg-[#FFFF00] relative overflow-hidden" data-nav-light="true">
-      {/* Gradient fades: black above, black below */}
-      <div className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-20" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)" }} />
-      <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none z-20" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)" }} />
+    <section className="bg-[#FFFF00]" data-nav-light="true">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14 py-28">
         <p className="text-black/35 text-[11px] font-black uppercase tracking-[0.35em] mb-14">BY THE NUMBERS</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-12 gap-x-8 lg:gap-0">
@@ -1356,10 +1616,7 @@ function HowItWorksSection() {
     { n: "03", title: "Download in 8K",          desc: "Get your image at up to 8K resolution, print-ready, web-ready, commercial-ready." },
   ]
   return (
-    <section className="bg-white py-28 relative overflow-hidden" data-nav-light="true">
-      {/* Gradient fades: black above, black below */}
-      <div className="absolute top-0 left-0 right-0 h-20 pointer-events-none z-20" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%)" }} />
-      <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-20" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)" }} />
+    <section className="bg-white py-28" data-nav-light="true">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
         <div className="flex flex-col lg:flex-row lg:items-start gap-16">
           <div className="lg:sticky lg:top-24 shrink-0">
@@ -1495,71 +1752,144 @@ function AISkinFixSection() {
 
 // ─── B. AI AVATARS ────────────────────────────────────────────────────────────
 function AIAvatarsSection() {
-  const STYLES = [
-    { label: "Cyberpunk",    color: "#a78bfa", img: IMG.g1a  },
-    { label: "Studio Pro",   color: "#22d3ee", img: IMG.bm1a },
-    { label: "Fantasy",      color: "#f472b6", img: IMG.asian },
-    { label: "Cinematic",    color: "#FFFF00", img: IMG.g2b  },
-    { label: "Street",       color: "#10b981", img: IMG.g1b  },
-    { label: "Editorial",    color: "#f59e0b", img: IMG.bm1b },
+  const ENVIRONMENTS = [
+    { label: "Podcast Host",    color: "#a78bfa", img: IMG.g1a,   bg: "linear-gradient(135deg,#1a0a2e,#0a0a14)",  desc: "Studio setup · Speaking to camera" },
+    { label: "YouTube Creator", color: "#22d3ee", img: IMG.bm1a,  bg: "linear-gradient(135deg,#0a1a2e,#050e18)",  desc: "On-cam reaction · Branded BG"      },
+    { label: "Brand Promo",     color: "#FFFF00", img: IMG.asian,  bg: "linear-gradient(135deg,#1a1a00,#0a0a00)",  desc: "Product pitch · Teleprompter style" },
+    { label: "Social Reel",     color: "#f472b6", img: IMG.g2b,   bg: "linear-gradient(135deg,#2e0a1a,#14050a)",  desc: "Vertical format · Trending vibes"  },
   ]
-  const FEATURES = [
-    "50+ avatar styles",
-    "Consistent persona across generations",
-    "Preserve likeness or go fully AI",
-    "Commercial-use rights included",
-    "1-click style switching",
-    "Batch generate entire portfolios",
+  const SAVINGS = [
+    { stat: "90%",   desc: "Cost reduction vs. studio shoots"     },
+    { stat: "10min", desc: "From photo to publishable reel"       },
+    { stat: "50+",   desc: "Different environments and styles"    },
+    { stat: "∞",     desc: "New content without new shoots"       },
   ]
   return (
-    <section className="bg-black py-24">
+    <section className="bg-black py-24 overflow-hidden">
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-14">
+
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-16">
           <div>
-            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Avatars</p>
+            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Avatar Creator</p>
             <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
-              ONE FACE.<br /><span className="text-purple-400">INFINITE STYLES.</span>
+              YOUR FACE.<br /><span className="text-purple-400">INFINITE CONTENT.</span>
             </h2>
           </div>
-          <div className="lg:max-w-[300px] lg:pb-2">
-            <p className="text-white/50 text-[15px] mb-6 leading-relaxed">
-              Transform any portrait into a styled AI avatar. Cyberpunk, cinematic, editorial — your face, your aesthetic.
+          <div className="lg:max-w-[380px] lg:pb-2 flex flex-col gap-5">
+            <p className="text-white/50 text-[15px] leading-relaxed">
+              Upload one photo. AI makes you speak, present, and perform in 50+ environments — without a camera, studio, or crew. Cut content costs by 90%.
             </p>
-            <ul className="space-y-2 mb-6">
-              {FEATURES.map(f => (
-                <li key={f} className="flex items-center gap-2.5 text-white/45 text-[13px]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="/app/image" className="inline-flex items-center gap-2 bg-purple-500 px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-purple-400 transition-colors">
-              Create Your Avatar <ArrowRight className="w-4 h-4" />
+            <Link href="/app/image" className="self-start inline-flex items-center gap-2 bg-purple-500 px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-purple-400 transition-colors">
+              Create Your AI Avatar <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
-        {/* Avatar grid */}
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
-          {STYLES.map((s, i) => (
-            <motion.div key={s.label}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }}
-              className="relative rounded-xl overflow-hidden group cursor-pointer" style={{ aspectRatio: "3/4" }}>
-              <Image src={s.img} alt={s.label} fill className="object-cover object-center transition-transform duration-700 group-hover:scale-105" />
-              {/* Color tint overlay */}
-              <div className="absolute inset-0 transition-opacity duration-300 group-hover:opacity-60 opacity-30"
-                style={{ background: `linear-gradient(180deg, transparent 40%, ${s.color}55 100%)` }} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-              {/* Style badge */}
-              <div className="absolute top-3 left-3">
-                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm"
-                  style={{ color: s.color }}>{s.label}</span>
+
+        {/* Flow diagram: Photo → AI → Output videos */}
+        <div className="flex flex-col lg:flex-row items-center gap-4 lg:gap-6 mb-16">
+          {/* Input: Your photo */}
+          <div className="shrink-0 flex flex-col items-center">
+            <div className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-3">Your Photo</div>
+            <div className="relative w-28 h-36 rounded-2xl overflow-hidden ring-2 ring-purple-500/50 shadow-[0_0_30px_rgba(168,139,250,0.3)]">
+              <Image src={IMG.g1a} alt="Input photo" fill className="object-cover" style={{ objectPosition: "center 5%" }} />
+              <div className="absolute inset-0 flex items-end p-2">
+                <span className="bg-purple-500/80 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">1 photo</span>
               </div>
-              <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="text-white font-bold text-xs">Apply style</div>
-              </div>
+            </div>
+          </div>
+
+          {/* Arrow + AI Processing */}
+          <div className="flex flex-col items-center gap-2 px-2 lg:px-4 flex-shrink-0">
+            <div className="w-px h-4 bg-white/10 lg:hidden" />
+            <div className="hidden lg:block w-12 h-px bg-white/10" />
+            <div className="bg-[#0e0818] border border-purple-500/30 rounded-2xl px-5 py-4 flex flex-col items-center gap-2 shadow-[0_0_40px_rgba(168,139,250,0.15)]">
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}>
+                <Sparkles className="w-6 h-6 text-purple-400" />
+              </motion.div>
+              <span className="text-purple-300 text-[10px] font-black uppercase tracking-wider text-center">AI Avatar<br />Engine</span>
+              <div className="w-full h-px bg-purple-500/20" />
+              <span className="text-white/30 text-[9px] text-center">Lip sync · Voice · Style</span>
+            </div>
+            <div className="hidden lg:block w-12 h-px bg-white/10" />
+            <div className="w-px h-4 bg-white/10 lg:hidden" />
+          </div>
+
+          {/* Output: Multiple video styles */}
+          <div className="flex-1">
+            <div className="text-white/30 text-[10px] font-black uppercase tracking-widest mb-3 text-center lg:text-left">Output Reels</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {ENVIRONMENTS.map((env, i) => (
+                <motion.div key={env.label}
+                  initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
+                  className="relative rounded-2xl overflow-hidden group cursor-pointer"
+                  style={{ aspectRatio: "9/14", background: env.bg }}>
+                  {/* Face centered */}
+                  <div className="absolute bottom-0 left-0 right-0 top-4 flex items-end justify-center overflow-hidden">
+                    <div className="w-[85%] relative" style={{ aspectRatio: "3/4" }}>
+                      <Image src={env.img} alt={env.label} fill className="object-cover rounded-xl" style={{ objectPosition: "center 5%" }} />
+                    </div>
+                  </div>
+                  {/* Overlay gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
+                  {/* Play button */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
+                      <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                    </div>
+                  </div>
+                  {/* Style label top */}
+                  <div className="absolute top-3 left-3 right-3">
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-black/50 backdrop-blur-sm" style={{ color: env.color }}>
+                      {env.label}
+                    </span>
+                  </div>
+                  {/* Description bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <div className="text-white/50 text-[9px] leading-tight">{env.desc}</div>
+                  </div>
+                  {/* Animated "speaking" bar at bottom */}
+                  <div className="absolute bottom-2 right-3 flex items-end gap-[2px]">
+                    {[0.4, 0.7, 1, 0.6, 0.8].map((h, j) => (
+                      <motion.div key={j} className="w-[3px] rounded-sm"
+                        style={{ background: env.color, opacity: 0.6 }}
+                        animate={{ scaleY: [h * 0.3, h, h * 0.5] }}
+                        transition={{ repeat: Infinity, duration: 0.3 + j * 0.07, delay: j * 0.04, ease: "easeInOut" }} />
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Savings stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          {SAVINGS.map((s, i) => (
+            <motion.div key={s.stat}
+              initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.07 }}
+              className="bg-purple-500/[0.07] border border-purple-500/20 rounded-2xl p-5">
+              <div className="font-black text-purple-300 mb-1" style={{ fontSize: "clamp(1.8rem,4vw,3rem)" }}>{s.stat}</div>
+              <div className="text-white/40 text-[12px] leading-snug">{s.desc}</div>
             </motion.div>
           ))}
+        </div>
+
+        {/* Features list + CTA */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pt-8 border-t border-white/6">
+          <div className="flex flex-wrap gap-x-8 gap-y-2">
+            {["Lip sync to any voice", "50+ styles & environments", "Consistent AI persona", "Commercial rights included", "Batch generate reels", "No studio needed"].map(f => (
+              <div key={f} className="flex items-center gap-2 text-white/40 text-[13px]">
+                <div className="w-1 h-1 rounded-full bg-purple-400" />
+                {f}
+              </div>
+            ))}
+          </div>
+          <Link href="/app/image" className="shrink-0 inline-flex items-center gap-2 bg-purple-500 px-8 py-4 rounded-xl text-white font-black text-sm hover:bg-purple-400 transition-colors">
+            Start for Free <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     </section>
@@ -1577,7 +1907,7 @@ function ImageGallerySection() {
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Output Gallery</p>
             <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(3rem,6vw,7.5rem)" }}>
-              MADE WITH<br /><span className="text-[#FFFF00]">SHARPII.</span>
+              MADE WITH<br /><span className="font-heading text-[#FFFF00]">SHARPII.</span>
             </h2>
           </div>
           <div className="lg:max-w-[280px] lg:pb-2">
