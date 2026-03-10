@@ -975,7 +975,7 @@ function SkinEditorSection() {
                     style={{ left: `${s.pct}%`, transform: "translate(-50%,-50%)", width: 3, height: 32, background: "rgba(255,255,255,0.95)", boxShadow: "0 0 10px rgba(251,191,36,0.6), 0 0 0 1px rgba(0,0,0,0.3)" }} />
                   {/* Native input */}
                   <input type="range" min={s.min} max={s.max} step={s.step} value={s.val}
-                    onChange={e => s.set(Number(e.target.value) as never)}
+                    onChange={e => (s.set as (v: number) => void)(Number(e.target.value))}
                     className="pslider absolute inset-0 opacity-0" />
                 </div>
               </div>
