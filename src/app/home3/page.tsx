@@ -222,7 +222,7 @@ function Hero() {
                 </button>
               </Link>
             </div>
-            <p className="text-white/30 text-xs">Drag slider above to compare · 8K output · 50+ AI models</p>
+            <p className="text-white/30 text-xs">Drag slider above to compare · 8K output · 20+ AI models</p>
           </div>
         </motion.div>
       </div>
@@ -232,8 +232,8 @@ function Hero() {
 
 // ─── 2. TICKER ────────────────────────────────────────────────────────────────
 function Ticker() {
-  const items = ["Smart Upscaler", "8K Output", "50+ AI Models", "Skin Editor", "Video Generation",
-    "Lip Sync", "Motion Transfer", "Image Editing", "AI Portraits", "Video Upscaling", "AI Influencer", "Relight AI"]
+  const items = ["Smart Upscaler", "8K Output", "20+ AI Models", "Skin Editor", "Video Generation",
+    "Lip Sync", "Motion Transfer", "Image Editing", "AI Portraits", "Image to Video", "AI Influencer", "Relight AI"]
   const all = [...items, ...items]
   return (
     <div className="bg-[#FFFF00] overflow-hidden py-[14px] border-y border-[#e6e600]">
@@ -259,7 +259,7 @@ function FeaturesReel() {
     { name: "Motion Transfer",tag: "Kling",  src: VID.motion,       poster: VID.motionT,       portrait: false },
     { name: "AI Influencer",  tag: "Brand",  src: VID.aiInfluencer, poster: VID.aiInfluencerT, portrait: true  },
     { name: "Image Edit",     tag: "Mask",   src: VID.editVideo,    poster: VID.editVideoT,    portrait: false },
-    { name: "Video Upscale",  tag: "4K",     src: VID.nanoModel,    poster: VID.nanoModelT,    portrait: true  },
+    { name: "Image to Video",  tag: "Ref2Vid", src: VID.nanoModel,    poster: VID.nanoModelT,    portrait: true  },
     { name: "Soul Cinematic", tag: "Film",   src: VID.soul2,        poster: VID.soul2T,        portrait: false },
     { name: "AI Video Edit",  tag: "Prompt", src: VID.editVideo,    poster: VID.editVideoT,    portrait: false },
   ]
@@ -364,7 +364,7 @@ function UpscalerSection() {
               { l: "4K Output", v: "4096 × 4096 px", n: "80 credits" },
               { l: "8K Output", v: "7680 × 4320 px", n: "120 credits" },
               { l: "Processing", v: "~90 seconds",    n: "per image" },
-              { l: "Formats",   v: "JPEG · PNG · WEBP", n: "RAW input" },
+              { l: "Formats",   v: "JPEG · PNG · WEBP", n: "Input formats" },
             ].map(s => (
               <div key={s.l} className="flex items-center justify-between py-4">
                 <span className="text-white/40 text-[13px] font-medium">{s.l}</span>
@@ -565,7 +565,7 @@ function VideoSection() {
             </h2>
           </div>
           <div className="max-w-[280px]">
-            <p className="text-white/50 text-[14px] mb-5 leading-relaxed">11 AI video tools. Create, sync, transfer, edit — one subscription.</p>
+            <p className="text-white/50 text-[14px] mb-5 leading-relaxed">12+ AI video models. Create, sync, transfer, edit — one subscription.</p>
             <Link href="/app/video" className="inline-flex items-center gap-2 border border-white/15 px-5 py-2.5 rounded-xl text-white/70 font-bold text-sm hover:bg-white/8 transition-colors">
               Explore Video <ArrowRight className="w-4 h-4" />
             </Link>
@@ -624,9 +624,9 @@ function VideoCategories() {
     { name: "Lip Sync",        desc: "Any audio animates any face",       src: VID.lipsync,     poster: VID.lipsyncT,     accent: "#34d399" },
     { name: "Motion Transfer", desc: "Copy movement to new subjects",     src: VID.motion,      poster: VID.motionT,      accent: "#22d3ee" },
     { name: "AI Video Edit",   desc: "Prompt-based scene changes",        src: VID.editVideo,   poster: VID.editVideoT,   accent: "#fb923c" },
-    { name: "Video Upscale",   desc: "4K from any source footage",        src: VID.upscale,     poster: VID.upscaleT,     accent: "#FFFF00" },
+    { name: "Image to Video",  desc: "Turn any image into motion",        src: VID.upscale,     poster: VID.upscaleT,     accent: "#FFFF00" },
     { name: "AI Influencer",   desc: "Consistent AI persona videos",      src: VID.aiInfluencer,poster: VID.aiInfluencerT,accent: "#e879f9" },
-    { name: "Nano Fast Gen",   desc: "Ultra-fast generation mode",        src: VID.nanoModel,   poster: VID.nanoModelT,   accent: "#94a3b8" },
+    { name: "Kling Effects",   desc: "Stylized visual effects on video",  src: VID.nanoModel,   poster: VID.nanoModelT,   accent: "#94a3b8" },
   ]
   const all = [...CATS, ...CATS]
 
@@ -643,10 +643,17 @@ function VideoCategories() {
       </div>
 
       <div className="px-8 lg:px-14 mb-16 max-w-[1440px] mx-auto relative z-10">
-        <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">11 Video Formats</p>
-        <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
-          EVERY KIND<br /><span className="font-heading text-violet-400">OF VIDEO.</span>
-        </h2>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div>
+            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">12+ Video Models</p>
+            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6rem)" }}>
+              EVERY KIND<br /><span className="font-heading text-violet-400">OF VIDEO.</span>
+            </h2>
+          </div>
+          <p className="text-white/40 text-[15px] max-w-[400px] leading-relaxed lg:pb-1">
+            From AI-generated films to instant lip syncs, motion transfer to image-to-video — 12+ video AI models, one subscription.
+          </p>
+        </div>
       </div>
 
       {/* Full-width auto-scroll, doubled size */}
@@ -701,7 +708,7 @@ function MotionTransfer() {
               ))}
             </div>
             <div className="flex gap-5 flex-wrap mb-10">
-              {["Kling 2.1", "No Markers", "Any Genre", "60fps"].map(tag => (
+              {["Kling O3", "No Markers", "Any Genre", "Frame-by-Frame"].map(tag => (
                 <span key={tag} className="text-cyan-400 text-[11px] font-black uppercase tracking-widest">{tag}</span>
               ))}
             </div>
@@ -716,7 +723,7 @@ function MotionTransfer() {
               <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
                 <div>
                   <div className="text-cyan-300 text-[10px] font-black uppercase tracking-widest mb-1">Motion Transfer</div>
-                  <div className="text-white font-black text-sm">Kling 2.1 Model</div>
+                  <div className="text-white font-black text-sm">Kling O3 Model</div>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-white/15 border border-white/25 flex items-center justify-center">
                   <Play className="w-4 h-4 text-white fill-white" />
@@ -840,17 +847,17 @@ function AudioLipSync() {
       <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
 
         {/* Header row */}
-        <div className="flex flex-col lg:flex-row items-start justify-between gap-8 mb-10">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
           <div>
             <p className="text-black/25 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Audio &amp; Lip Sync</p>
-            <h2 className="font-black text-black leading-[0.88]" style={{ fontSize: "clamp(3rem,6vw,7rem)" }}>
+            <h2 className="font-black text-black leading-[0.88] mb-5" style={{ fontSize: "clamp(3rem,6vw,7rem)" }}>
               YOUR WORDS.<br /><span className="text-[#e91e8c]">ANY FACE.</span>
             </h2>
-          </div>
-          <div className="max-w-[300px] lg:pt-8">
-            <p className="text-black/40 text-[15px] leading-relaxed mb-6">
+            <p className="text-black/40 text-[15px] leading-relaxed max-w-[460px]">
               Upload any audio — voice, song, or script. AI syncs lip movement frame-by-frame with natural micro-expressions.
             </p>
+          </div>
+          <div className="shrink-0 lg:pb-1">
             <Link href="/app/video" className="inline-flex items-center gap-2 bg-black px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-black/75 transition-colors">
               Try Lip Sync <ArrowRight className="w-4 h-4" />
             </Link>
@@ -979,7 +986,7 @@ function SkinEditorSection() {
             Open Skin Editor <ArrowRight className="w-4 h-4" />
           </Link>
           <div className="grid grid-cols-3 divide-x divide-white/8 pt-8 border-t border-white/8 max-w-[380px]">
-            {[["90%","Quality"],["~90s","Speed"],["8K","Max"]].map(([n,l]) => (
+            {[["90%","Quality"],["~90s","Speed"],["4K","Max"]].map(([n,l]) => (
               <div key={l} className="px-5 first:pl-0 last:pr-0">
                 <div className="text-white font-black text-2xl">{n}</div>
                 <div className="text-white/30 text-[11px] mt-1 uppercase tracking-wide">{l}</div>
@@ -1437,7 +1444,7 @@ function ImageGenSection() {
             </h2>
           </div>
           <div className="max-w-[300px] lg:pb-3">
-            <p className="text-white/50 text-[15px] mb-6 leading-relaxed">Studio-quality portraits from a text prompt. 50+ styles — editorial, fashion, cinematic.</p>
+            <p className="text-white/50 text-[15px] mb-6 leading-relaxed">Studio-quality portraits from a text prompt. Editorial, fashion, cinematic and more.</p>
             <Link href="/app/image" className="inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
               Generate Now <ArrowRight className="w-4 h-4" />
             </Link>
@@ -1476,15 +1483,15 @@ function ImageGenSection() {
 // ─── 14. AI MODELS SHOWCASE — replaces ToolsCarousel ─────────────────────────
 function ModelsSection() {
   const MODELS = [
-    { name: "nano-banana-2",      cat: "Image Edit",       desc: "Precision brush masking",     tag: "Most Used", color: "#10b981", vid: VID.editVideo,    vidT: VID.editVideoT,    href: "/app/edit"      },
-    { name: "nano-banana-2 Pro",  cat: "Image Edit",       desc: "High-res output + detail",    tag: "Pro",       color: "#34d399", vid: VID.nanoBanana,   vidT: VID.nanoBananaT,   href: "/app/edit"      },
-    { name: "Soul Cinematic",     cat: "Video Gen",        desc: "Text to cinematic video",     tag: "New",       color: "#a78bfa", vid: VID.soul2,        vidT: VID.soul2T,        href: "/app/video"     },
-    { name: "Kling 2.1",          cat: "Motion Transfer",  desc: "Frame-accurate pose cloning", tag: "Kling",     color: "#22d3ee", vid: VID.motion,       vidT: VID.motionT,       href: "/app/video"     },
-    { name: "Smart Upscaler 8K",  cat: "Image Enhancement","desc": "AI-synthesized 8K detail",  tag: "8K",        color: "#FFFF00", vid: VID.upscale,      vidT: VID.upscaleT,      href: "/app/upscaler"  },
-    { name: "Skin Editor AI",     cat: "Skin Retouching",  desc: "Granular texture control",    tag: "AI",        color: "#f59e0b", vid: VID.nanoBanana,   vidT: VID.nanoBananaT,   href: "/app/skineditor"},
-    { name: "Lip Sync Studio",    cat: "Video Sync",       desc: "Audio-to-face animation",     tag: "Audio",     color: "#f472b6", vid: VID.lipsync,      vidT: VID.lipsyncT,      href: "/app/video"     },
-    { name: "AI Influencer",      cat: "Brand Content",    desc: "Consistent AI personas",      tag: "Brand",     color: "#e879f9", vid: VID.aiInfluencer, vidT: VID.aiInfluencerT, href: "/app/video"     },
-    { name: "Nano Fast Gen",      cat: "Image Gen",        desc: "Ultra-fast generation",       tag: "Fast",      color: "#94a3b8", vid: VID.nanoModel,    vidT: VID.nanoModelT,    href: "/app/image"     },
+    { name: "Nano Banana 2",      cat: "Image Generation", desc: "Fast generation with optional reference image",            tag: "Fast",     color: "#FFFF00", vid: VID.nanoBanana,   vidT: VID.nanoBananaT,   href: "/app/image"     },
+    { name: "Nano Banana Pro",    cat: "Image Generation", desc: "High-quality with strict reference matching, up to 16 refs",tag: "Pro",      color: "#10b981", vid: VID.editVideo,    vidT: VID.editVideoT,    href: "/app/image"     },
+    { name: "Seedream 5.0 Lite",  cat: "Image Generation", desc: "ByteDance — photorealistic multi-ref generation",          tag: "ByteDance",color: "#f59e0b", vid: VID.nanoModel,    vidT: VID.nanoModelT,    href: "/app/image"     },
+    { name: "Kling 3.0 Pro",      cat: "Video Generation", desc: "Kuaishou — multi-shot cinematic video, up to 15s",         tag: "Premium",  color: "#a78bfa", vid: VID.kling3,       vidT: VID.kling3T,       href: "/app/video"     },
+    { name: "Kling O3 OMNI",      cat: "Video Generation", desc: "Advanced video generation with superior motion quality",    tag: "Advanced", color: "#22d3ee", vid: VID.motion,       vidT: VID.motionT,       href: "/app/video"     },
+    { name: "Veo 3.1",            cat: "Video Generation", desc: "Google — cinematic video with audio sync, up to 8s",       tag: "Google",   color: "#34d399", vid: VID.soul2,        vidT: VID.soul2T,        href: "/app/video"     },
+    { name: "Sora 2",             cat: "Video Generation", desc: "OpenAI — image-to-video cinematic generation, up to 15s",  tag: "OpenAI",   color: "#e879f9", vid: VID.soulCin,      vidT: VID.soulCinT,      href: "/app/video"     },
+    { name: "Smart Upscaler",     cat: "Enhancement",      desc: "AI-synthesized 8K detail — up to 7680 × 4320px output",   tag: "8K",       color: "#fbbf24", vid: VID.upscale,      vidT: VID.upscaleT,      href: "/app/upscaler"  },
+    { name: "Skin Editor",        cat: "Retouching",       desc: "Granular AI skin texture control — non-destructive edits", tag: "AI",       color: "#f472b6", vid: VID.lipsync,      vidT: VID.lipsyncT,      href: "/app/skineditor"},
   ]
   const all = [...MODELS, ...MODELS]
 
@@ -1503,7 +1510,7 @@ function ModelsSection() {
             EVERY MODEL<br /><span className="text-[#FFFF00]">WE OFFER.</span>
           </h2>
           <p className="text-white/50 text-[14px] max-w-[280px] leading-relaxed lg:pb-1">
-            50+ specialized AI models. Each built for a specific task — pick what you need.
+            20+ specialized AI models. Each built for a specific task — pick what you need.
           </p>
         </div>
       </div>
@@ -1552,7 +1559,7 @@ function StatsSection() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-12 gap-x-8 lg:gap-0">
           {[
             { n: "8K",    d: "Max Output", s: "7680 × 4320px"      },
-            { n: "50+",   d: "AI Models",  s: "Across all tools"    },
+            { n: "20+",   d: "AI Models",  s: "Across all tools"    },
             { n: "90%", d: "Quality",    s: "User satisfaction"   },
             { n: "20×",   d: "Faster",     s: "vs. manual editing"  },
           ].map(({ n, d, s }, i) => (
@@ -1616,7 +1623,7 @@ function TestimonialsSection() {
 // ─── 18. HOW IT WORKS — white bg ──────────────────────────────────────────────
 function HowItWorksSection() {
   const steps = [
-    { n: "01", title: "Upload Your Photo",       desc: "Drop any portrait, RAW file, or batch folder. JPEG, PNG, RAW, TIFF — all accepted." },
+    { n: "01", title: "Upload Your Photo",       desc: "Drop any portrait or batch folder. JPEG, PNG, and WEBP accepted." },
     { n: "02", title: "AI Processes in Seconds", desc: "Our models synthesize new detail, correct skin tone, sharpen edges — fully automated." },
     { n: "03", title: "Download in 8K",          desc: "Get your image at up to 8K resolution, print-ready, web-ready, commercial-ready." },
   ]
@@ -1865,9 +1872,9 @@ function AIAvatarsSection() {
         <div className="border-t border-white/6 pt-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex flex-wrap gap-x-10 gap-y-4">
             {[
-              { n: "60s",  d: "Photo to finished video" },
-              { n: "50+",  d: "Styles and environments" },
+              { n: "~3min", d: "Photo to finished video" },
               { n: "Any",  d: "Language and voice"      },
+              { n: "Any",  d: "Face or persona"         },
             ].map(s => (
               <div key={s.n} className="flex items-center gap-3">
                 <div className="text-white font-black text-2xl">{s.n}</div>
@@ -1905,7 +1912,7 @@ function ImageGallerySection() {
           </div>
           <div className="lg:max-w-[280px] lg:pb-2">
             <p className="text-white/50 text-[15px] leading-relaxed mb-5">
-              Every portrait was created or enhanced with Sharpii.ai. Pure AI output — no filters, no presets.
+              Examples of portrait enhancement and AI generation — what Sharpii.ai produces for photographers and creators.
             </p>
             <Link href="/signup" className="inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
               Create Yours <ArrowRight className="w-4 h-4" />
