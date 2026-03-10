@@ -74,11 +74,11 @@ function NavStyleOverride() {
       .auto-scroll-x:hover { animation-play-state: paused; }
       input[type=range].pslider { -webkit-appearance:none; appearance:none; width:100%; height:36px; background:transparent; cursor:pointer; padding:0; margin:0; }
       input[type=range].pslider::-webkit-slider-runnable-track { height:2px; border-radius:99px; background:rgba(255,255,255,0.08); }
-      input[type=range].pslider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#fff; margin-top:-9px; cursor:pointer; box-shadow:0 0 0 2.5px #0c0016, 0 0 0 4.5px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); transition:box-shadow 0.15s, transform 0.1s; }
-      input[type=range].pslider:hover::-webkit-slider-thumb, input[type=range].pslider:active::-webkit-slider-thumb { box-shadow:0 0 0 2.5px #0c0016, 0 0 0 5.5px #fbbf24, 0 0 20px rgba(251,191,36,0.5), 0 2px 12px rgba(0,0,0,0.8); transform:scale(1.15); }
+      input[type=range].pslider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#fff; margin-top:-9px; cursor:pointer; box-shadow:0 0 0 2.5px #080808, 0 0 0 4.5px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); transition:box-shadow 0.15s, transform 0.1s; }
+      input[type=range].pslider:hover::-webkit-slider-thumb, input[type=range].pslider:active::-webkit-slider-thumb { box-shadow:0 0 0 2.5px #080808, 0 0 0 5.5px #fbbf24, 0 0 20px rgba(251,191,36,0.5), 0 2px 12px rgba(0,0,0,0.8); transform:scale(1.15); }
       input[type=range].pslider::-moz-range-track { height:2px; border-radius:99px; background:rgba(255,255,255,0.08); }
       input[type=range].pslider::-moz-range-progress { height:2px; border-radius:99px; background:linear-gradient(90deg,#f59e0b,#fbbf24); }
-      input[type=range].pslider::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#fff; border:2.5px solid #0c0016; cursor:pointer; box-shadow:0 0 0 3px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); }
+      input[type=range].pslider::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:#fff; border:2.5px solid #080808; cursor:pointer; box-shadow:0 0 0 3px rgba(251,191,36,0.75), 0 2px 12px rgba(0,0,0,0.8); }
     `}</style>
   )
 }
@@ -208,7 +208,7 @@ function Hero() {
           </div>
           <div className="lg:max-w-[400px] flex flex-col gap-5">
             <p className="text-white/55 text-lg leading-relaxed">
-              Upload any portrait — AI rebuilds it at 8K. Real skin texture, real hair strands, real detail. Not sharpened, rebuilt.
+              Stop your AI photos from looking plastic. Real skin texture, 8K detail, zero artificiality — plus generation, editing, video creation, and AI avatars. One platform, 20+ models.
             </p>
             <div className="flex items-center gap-3">
               <Link href="/signup">
@@ -222,7 +222,7 @@ function Hero() {
                 </button>
               </Link>
             </div>
-            <p className="text-white/30 text-xs">Drag the slider above · 8K output · 20+ AI models</p>
+            <p className="text-white/30 text-xs">Drag the slider to compare · 8K upscaling · Real skin texture · 20+ AI models</p>
           </div>
         </motion.div>
       </div>
@@ -631,15 +631,28 @@ function VideoCategories() {
   const all = [...CATS, ...CATS]
 
   return (
-    <section className="bg-black overflow-hidden relative pt-36 pb-32">
+    <section className="overflow-hidden relative pt-36 pb-32"
+      style={{
+        background: "#040410",
+        backgroundImage: [
+          "radial-gradient(circle, rgba(139,92,246,0.10) 1px, transparent 1px)",
+          "radial-gradient(circle, rgba(34,211,238,0.05) 1px, transparent 1px)",
+          "linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px)",
+          "linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px)",
+        ].join(", "),
+        backgroundSize: "36px 36px, 72px 72px, 36px 36px, 36px 36px",
+        backgroundPosition: "0 0, 18px 18px, 0 0, 0 0",
+      }}>
       {/* Ambient glow — 3 large blurred color blobs for depth */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Violet blob — upper left */}
-        <div style={{ position: "absolute", top: "-10%", left: "-5%", width: "55%", height: "70%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(139,92,246,0.18) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", top: "-10%", left: "-5%", width: "55%", height: "70%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(139,92,246,0.22) 0%, transparent 70%)", filter: "blur(60px)" }} />
         {/* Cyan blob — lower right */}
-        <div style={{ position: "absolute", bottom: "0%", right: "-5%", width: "50%", height: "65%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(34,211,238,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", bottom: "0%", right: "-5%", width: "50%", height: "65%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(34,211,238,0.15) 0%, transparent 70%)", filter: "blur(60px)" }} />
         {/* Yellow center — subtle warm accent in middle */}
-        <div style={{ position: "absolute", top: "30%", left: "35%", width: "30%", height: "40%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(255,255,0,0.07) 0%, transparent 65%)", filter: "blur(30px)" }} />
+        <div style={{ position: "absolute", top: "30%", left: "35%", width: "30%", height: "40%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(255,255,0,0.07) 0%, transparent 65%)", filter: "blur(40px)" }} />
+        {/* Edge vignette to fade the pattern into the section edges */}
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at center, transparent 40%, rgba(4,4,16,0.85) 100%)" }} />
       </div>
 
       <div className="px-8 lg:px-14 mb-16 max-w-[1440px] mx-auto relative z-10">
@@ -850,17 +863,19 @@ function AudioLipSync() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
           <div>
             <p className="text-black/25 text-[11px] font-black uppercase tracking-[0.35em] mb-4">Audio &amp; Lip Sync</p>
-            <h2 className="font-black text-black leading-[0.88] mb-5" style={{ fontSize: "clamp(3rem,6vw,7rem)" }}>
+            <h2 className="font-black text-black leading-[0.88]" style={{ fontSize: "clamp(3rem,6vw,7rem)" }}>
               YOUR WORDS.<br /><span className="text-[#e91e8c]">ANY FACE.</span>
             </h2>
-            <p className="text-black/40 text-[15px] leading-relaxed max-w-[460px]">
-              Upload any audio — voice, song, or script. AI syncs lip movement frame-by-frame with natural micro-expressions.
-            </p>
           </div>
-          <div className="shrink-0 lg:pb-1">
-            <Link href="/app/video" className="inline-flex items-center gap-2 bg-black px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-black/75 transition-colors">
-              Try Lip Sync <ArrowRight className="w-4 h-4" />
-            </Link>
+          <div className="lg:max-w-[400px] flex flex-col gap-5 lg:pb-1">
+            <p className="text-black/40 text-[15px] leading-relaxed">
+              Upload any audio — voice, song, or script. AI syncs lip movement frame-by-frame with natural micro-expressions. Any face, any language, in seconds.
+            </p>
+            <div>
+              <Link href="/app/video" className="inline-flex items-center gap-2 bg-black px-6 py-3.5 rounded-xl text-white font-black text-sm hover:bg-black/75 transition-colors">
+                Try Lip Sync <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -929,12 +944,12 @@ function SkinEditorSection() {
   const strengthPercent = ((strength - 0.1) / 0.28) * 100
 
   return (
-    <section className="bg-[#0c0016] overflow-hidden">
+    <section className="bg-[#080808] overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-2" style={{ minHeight: "88vh" }}>
         <div className="relative order-2 lg:order-1 overflow-hidden"
           style={{ minHeight: 640, backgroundImage: `url(${IMG.asian})`, backgroundSize: "cover", backgroundPosition: "center 20%" }}>
-          <div className="absolute inset-0 hidden lg:block" style={{ background: "linear-gradient(to right, transparent 65%, #0c0016 100%)" }} />
-          <div className="absolute inset-0 lg:hidden" style={{ background: "linear-gradient(to bottom, transparent 60%, #0c0016 100%)" }} />
+          <div className="absolute inset-0 hidden lg:block" style={{ background: "linear-gradient(to right, transparent 65%, #080808 100%)" }} />
+          <div className="absolute inset-0 lg:hidden" style={{ background: "linear-gradient(to bottom, transparent 60%, #080808 100%)" }} />
         </div>
         <div className="flex flex-col justify-center px-8 lg:pl-4 lg:pr-14 py-16 order-1 lg:order-2 relative z-10">
           <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">03 / Skin Editor</p>
@@ -1002,79 +1017,98 @@ function SkinEditorSection() {
 // ─── 11. AI RELIGHTING ────────────────────────────────────────────────────────
 function AIRelighting() {
   const MOODS = [
-    { name: "Golden Hour", color: "#ff8800", src: IMG.asian,  tint: "rgba(255,136,0,0.28)",  dir: "275°",  temp: "3200K · Warm", desc: "Outdoor sunset glow" },
-    { name: "Studio",      color: "#e0e8ff", src: IMG.g1a,   tint: "rgba(224,232,255,0.12)", dir: "0°",    temp: "5500K · Neutral", desc: "Clean overhead front" },
-    { name: "Neon",        color: "#00ffcc", src: IMG.bm1a,  tint: "rgba(0,255,204,0.22)",   dir: "180°",  temp: "Colored · Hard", desc: "Low-angle neon edge" },
-    { name: "Moonlight",   color: "#8ab0e0", src: IMG.g2b,   tint: "rgba(138,176,224,0.20)", dir: "210°",  temp: "8000K · Cool", desc: "Night ambient soft" },
+    { name: "Golden Hour", color: "#ff8f00", src: IMG.asian,  tint: "rgba(255,143,0,0.32)",   temp: "3200K · Warm",    desc: "Outdoor sunset glow" },
+    { name: "Studio",      color: "#c8d8ff", src: IMG.g1a,   tint: "rgba(200,216,255,0.14)",  temp: "5500K · Neutral", desc: "Clean overhead front" },
+    { name: "Neon Edge",   color: "#00ffcc", src: IMG.bm1a,  tint: "rgba(0,255,200,0.26)",    temp: "Colored · Hard",  desc: "Low-angle neon edge" },
+    { name: "Moonlight",   color: "#7ab0e8", src: IMG.g2b,   tint: "rgba(122,176,232,0.22)",  temp: "8000K · Cool",    desc: "Night ambient soft" },
   ]
   return (
-    <section className="bg-black pt-24 pb-24">
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
-
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-14">
+    <section className="bg-black overflow-hidden">
+      {/* Header */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 pt-24 pb-14">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
             <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Relighting</p>
             <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
               RESHAPE<br /><span className="text-orange-400">THE LIGHT.</span>
             </h2>
           </div>
-          <div className="lg:max-w-[360px] lg:pb-2 flex flex-col gap-5">
+          <div className="lg:max-w-[400px] lg:pb-2 flex flex-col gap-5">
             <p className="text-white/50 text-[15px] leading-relaxed">
-              Change lighting direction, temperature, and intensity — non-destructively. Studio white, golden hour warmth, neon edge, moonlight cool. One portrait, infinite moods.
+              Change lighting direction, temperature, and intensity — non-destructively. Studio white, golden hour warmth, neon edge, moonlight cool. One portrait, infinite moods. No reshooting, no studio.
             </p>
             <Link href="/app/edit" className="self-start inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3.5 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
               Try Relighting <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
+      </div>
 
-        {/* 4-quadrant grid — same face, 4 lighting moods */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {MOODS.map((m, i) => (
-            <motion.div key={m.name}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.08 }}
-              className="relative rounded-xl overflow-hidden group cursor-pointer"
-              style={{ aspectRatio: "3/4" }}>
+      {/* Full-width 4-panel cinematic strip — no container constraints */}
+      <div className="grid grid-cols-2 lg:grid-cols-4" style={{ height: "clamp(420px, 55vw, 680px)" }}>
+        {MOODS.map((m, i) => (
+          <div key={m.name} className="relative overflow-hidden group cursor-pointer">
+            {/* Photo — scales on hover */}
+            <div
+              className="absolute inset-0 transition-transform duration-700 group-hover:scale-[1.06]"
+              style={{ backgroundImage: `url(${m.src})`, backgroundSize: "cover", backgroundPosition: "center 12%" }}
+            />
 
-              {/* Photo */}
-              <div className="absolute inset-0" style={{ backgroundImage: `url(${m.src})`, backgroundSize: "cover", backgroundPosition: "center 10%" }} />
+            {/* Lighting tint */}
+            <div className="absolute inset-0" style={{ background: m.tint, mixBlendMode: "screen" }} />
 
-              {/* Lighting tint overlay */}
-              <div className="absolute inset-0" style={{ background: m.tint, mixBlendMode: "screen" }} />
+            {/* Dark gradient — bottom heavy */}
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.35) 45%, transparent 100%)" }} />
 
-              {/* Bottom gradient */}
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 55%)" }} />
+            {/* Top fade */}
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 22%)" }} />
 
-              {/* Light direction dot — top right */}
-              <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full" style={{ background: m.color, boxShadow: `0 0 6px ${m.color}` }} />
+            {/* Vertical color accent line on left edge */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-[3px] opacity-70 group-hover:opacity-100 transition-opacity duration-500"
+              style={{ background: `linear-gradient(to bottom, transparent 0%, ${m.color} 50%, transparent 100%)` }}
+            />
+
+            {/* Index badge — top left */}
+            <div className="absolute top-5 left-5">
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: `${m.color}18`, border: `1px solid ${m.color}45` }}
+              >
+                <span className="font-black text-[12px]" style={{ color: m.color }}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
               </div>
-
-              {/* Bottom info */}
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <div className="text-white font-black text-[13px] mb-0.5">{m.name}</div>
-                <div className="text-white/40 text-[10px] mb-1">{m.desc}</div>
-                <div className="text-white/25 text-[9px] font-bold uppercase tracking-widest">{m.temp}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Stats row */}
-        <div className="mt-8 pt-8 border-t border-white/6 flex flex-wrap gap-x-12 gap-y-4 items-center">
-          {[
-            { n: "360°", d: "Light direction control" },
-            { n: "4s",   d: "Average processing time" },
-            { n: "12+",  d: "Preset lighting moods"   },
-          ].map(s => (
-            <div key={s.n} className="flex items-center gap-4">
-              <div className="text-white font-black text-2xl">{s.n}</div>
-              <div className="text-white/30 text-[12px] max-w-[100px] leading-snug">{s.d}</div>
             </div>
-          ))}
-        </div>
+
+            {/* Bottom info */}
+            <div className="absolute bottom-0 left-0 right-0 px-5 pb-6">
+              <div className="text-white font-black text-lg mb-1">{m.name}</div>
+              <div className="text-white/45 text-[12px] mb-3">{m.desc}</div>
+              <div
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+                style={{ background: `${m.color}14`, border: `1px solid ${m.color}30` }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: m.color, boxShadow: `0 0 6px ${m.color}` }} />
+                <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: m.color }}>{m.temp}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats row — below the panels */}
+      <div className="max-w-[1440px] mx-auto px-8 lg:px-14 py-8 border-t border-white/6 flex flex-wrap gap-x-12 gap-y-4 items-center">
+        {[
+          { n: "360°", d: "Light direction control" },
+          { n: "4s",   d: "Average processing time"  },
+          { n: "12+",  d: "Preset lighting moods"    },
+        ].map(s => (
+          <div key={s.n} className="flex items-center gap-4">
+            <div className="text-white font-black text-2xl">{s.n}</div>
+            <div className="text-white/30 text-[12px] max-w-[100px] leading-snug">{s.d}</div>
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -1772,123 +1806,129 @@ function AIAvatarsSection() {
   ]
   const BH = [0.5, 0.9, 0.6, 1, 0.4, 0.8, 0.65, 0.95, 0.55, 0.75]
   return (
-    <section className="bg-black pt-24 pb-24 overflow-hidden">
-      <div className="max-w-[1440px] mx-auto px-8 lg:px-14">
+    <section className="bg-black overflow-hidden">
+      <div className="flex flex-col lg:flex-row" style={{ minHeight: "92vh" }}>
 
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-16">
-          <div>
-            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-5">AI Avatar Creator</p>
-            <h2 className="font-black text-white leading-[0.82]" style={{ fontSize: "clamp(2.8rem,5.5vw,6.5rem)" }}>
-              ONE PHOTO.<br /><span className="text-purple-400">SPEAKS FOR YOU.</span>
+        {/* LEFT: Big stat + content — mirrors UpscalerSection pattern */}
+        <div className="lg:w-[40%] flex flex-col px-8 lg:px-14 py-16 lg:py-24 border-r border-white/5 relative">
+          {/* Subtle purple ambient glow */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div style={{ position: "absolute", bottom: "0%", left: "-20%", width: "80%", height: "60%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(168,139,250,0.10) 0%, transparent 70%)", filter: "blur(50px)" }} />
+          </div>
+
+          <div className="flex-1 relative z-10">
+            <p className="text-white/20 text-[11px] font-black uppercase tracking-[0.35em] mb-8">AI Avatar Creator</p>
+
+            {/* Giant "1" stat — like the 8K in upscaler */}
+            <div className="font-black text-[#FFFF00] leading-none mb-1"
+              style={{ fontSize: "clamp(7rem,18vw,14rem)", letterSpacing: "-0.05em", lineHeight: 0.82 }}>1</div>
+            <div className="text-white/20 font-black text-2xl mb-7 uppercase tracking-wide">Photo</div>
+
+            <h2 className="font-black text-white leading-[0.88] mb-5" style={{ fontSize: "clamp(2rem,3.5vw,3.2rem)" }}>
+              SPEAKS<br /><span className="font-heading">FOR YOU.</span>
             </h2>
-          </div>
-          <div className="lg:max-w-[360px] lg:pb-2 flex flex-col gap-5">
-            <p className="text-white/50 text-[15px] leading-relaxed">
-              Upload any portrait. AI makes that person speak any script — lip-synced, voice-matched, in any video format. Podcast, YouTube, brand ad, or social reel.
+            <p className="text-white/50 text-[15px] max-w-[340px] leading-relaxed mb-10">
+              Upload any portrait. AI makes that person speak any script — lip-synced, voice-matched, in any video format. Podcast, YouTube, brand ad, or short reel.
             </p>
-            <Link href="/app/image" className="self-start inline-flex items-center gap-2 bg-[#FFFF00] px-6 py-3.5 rounded-xl text-black font-black text-sm hover:bg-white transition-colors">
-              Create Your Avatar <ArrowRight className="w-4 h-4" />
-            </Link>
           </div>
+
+          {/* Feature spec table */}
+          <div className="space-y-0 divide-y divide-white/6 mb-8 relative z-10">
+            {[
+              { l: "Lip Sync",    v: "Frame-perfect sync", n: "any audio"     },
+              { l: "Voice Clone", v: "Match any voice",    n: "any language"  },
+              { l: "Formats",     v: "Podcast · YT · Reel",n: "all sizes"     },
+              { l: "Speed",       v: "~3 minutes",         n: "photo to video"},
+            ].map(s => (
+              <div key={s.l} className="flex items-center justify-between py-4">
+                <span className="text-white/40 text-[13px] font-medium">{s.l}</span>
+                <div className="text-right">
+                  <span className="text-white text-[13px] font-bold">{s.v}</span>
+                  <span className="text-white/25 text-[11px] ml-2">{s.n}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Link href="/app/image"
+            className="inline-flex items-center gap-2.5 bg-[#FFFF00] px-8 py-4 rounded-xl text-black font-black text-[15px] hover:bg-white transition-colors duration-200 self-start relative z-10">
+            Create Your Avatar <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
 
-        {/* Main visual: input → 4 outputs */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-stretch mb-14">
-
-          {/* Input photo */}
-          <div className="shrink-0 flex flex-col gap-3">
-            <p className="text-white/25 text-[10px] font-black uppercase tracking-widest">Input · 1 photo</p>
-            <div className="relative w-52 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(168,139,250,0.2)]" style={{ aspectRatio: "3/4" }}>
-              <Image src={IMG.g1a} alt="Source photo" fill sizes="208px" className="object-cover" style={{ objectPosition: "center 5%" }} />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)" }} />
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-1">Source Portrait</div>
-                <div className="text-white font-black text-[13px]">Any photo works</div>
-              </div>
-            </div>
+        {/* RIGHT: Output showcase grid */}
+        <div className="flex-1 flex flex-col justify-center p-8 lg:p-14 relative">
+          {/* Background ambient glow */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div style={{ position: "absolute", top: "15%", right: "-10%", width: "60%", height: "70%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(168,139,250,0.12) 0%, transparent 70%)", filter: "blur(50px)" }} />
+            <div style={{ position: "absolute", bottom: "10%", left: "10%", width: "40%", height: "40%", borderRadius: "50%", background: "radial-gradient(ellipse, rgba(34,211,238,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
           </div>
 
-          {/* Arrow connector */}
-          <div className="flex lg:flex-col items-center justify-center gap-2 lg:gap-0 shrink-0">
-            <div className="hidden lg:block w-px flex-1 bg-gradient-to-b from-transparent via-purple-500/30 to-transparent" />
-            <div className="w-10 h-10 rounded-full bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
-              <ArrowRight className="w-4 h-4 text-purple-400" />
-            </div>
-            <div className="hidden lg:block w-px flex-1 bg-gradient-to-b from-transparent via-purple-500/30 to-transparent" />
+          <p className="text-white/25 text-[10px] font-black uppercase tracking-widest mb-5 relative z-10">Output · Any format</p>
+
+          {/* 2×2 output grid */}
+          <div className="grid grid-cols-2 gap-3 relative z-10" style={{ maxWidth: 520 }}>
+            {OUTPUTS.map((o, i) => (
+              <motion.div key={o.label}
+                initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ duration: 0.45, delay: i * 0.08 }}
+                className="relative rounded-xl overflow-hidden group cursor-pointer bg-[#09090f]"
+                style={{ aspectRatio: "9/13", border: `1px solid ${o.accent}20` }}>
+
+                {/* Face */}
+                <div className="absolute inset-0">
+                  <Image src={o.img} alt={o.label} fill sizes="(max-width:768px) 42vw, 22vw"
+                    className="object-cover opacity-65 group-hover:scale-105 transition-transform duration-700"
+                    style={{ objectPosition: "center 5%" }} />
+                </div>
+
+                {/* Color tint */}
+                <div className="absolute inset-0" style={{ background: `${o.accent}16` }} />
+
+                {/* Dark gradient */}
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)" }} />
+
+                {/* Accent line — top */}
+                <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `${o.accent}80` }} />
+
+                {/* Format label */}
+                <div className="absolute top-3 left-3">
+                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md"
+                    style={{ background: `${o.accent}22`, color: o.accent, border: `1px solid ${o.accent}40` }}>
+                    {o.label}
+                  </span>
+                </div>
+
+                {/* Speaking waveform */}
+                <div className="absolute bottom-10 left-3 right-3 flex items-end gap-[2px] h-5">
+                  {BH.map((h, j) => (
+                    <motion.div key={j} className="flex-1 rounded-sm"
+                      style={{ background: o.accent, opacity: 0.45 }}
+                      animate={{ scaleY: [h * 0.2, h, h * 0.4] }}
+                      transition={{ repeat: Infinity, duration: 0.32 + j * 0.06, delay: j * 0.03, ease: "easeInOut" }} />
+                  ))}
+                </div>
+
+                {/* Script preview */}
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <div className="text-white/30 text-[9px] italic leading-snug line-clamp-1">{o.script}</div>
+                </div>
+              </motion.div>
+            ))}
           </div>
 
-          {/* Output cards — 4 video formats */}
-          <div className="flex-1">
-            <p className="text-white/25 text-[10px] font-black uppercase tracking-widest mb-3">Output · Any format</p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {OUTPUTS.map((o, i) => (
-                <motion.div key={o.label}
-                  initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }} transition={{ duration: 0.45, delay: i * 0.08 }}
-                  className="relative rounded-xl overflow-hidden group cursor-pointer bg-[#09090f]"
-                  style={{ aspectRatio: "9/14" }}>
-
-                  {/* Face */}
-                  <div className="absolute inset-0">
-                    <Image src={o.img} alt={o.label} fill sizes="(max-width:768px) 40vw, 18vw" className="object-cover opacity-70" style={{ objectPosition: "center 5%" }} />
-                  </div>
-
-                  {/* Color tint overlay */}
-                  <div className="absolute inset-0" style={{ background: `${o.accent}18` }} />
-
-                  {/* Dark gradient */}
-                  <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.2) 55%, transparent 100%)" }} />
-
-                  {/* Top: format label */}
-                  <div className="absolute top-2.5 left-2.5">
-                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md"
-                      style={{ background: `${o.accent}22`, color: o.accent, border: `1px solid ${o.accent}40` }}>
-                      {o.label}
-                    </span>
-                  </div>
-
-                  {/* Speaking waveform */}
-                  <div className="absolute bottom-14 left-2.5 right-2.5 flex items-end gap-[2px] h-6">
-                    {BH.map((h, j) => (
-                      <motion.div key={j} className="flex-1 rounded-sm"
-                        style={{ background: o.accent, opacity: 0.5 }}
-                        animate={{ scaleY: [h * 0.2, h, h * 0.4] }}
-                        transition={{ repeat: Infinity, duration: 0.32 + j * 0.06, delay: j * 0.03, ease: "easeInOut" }} />
-                    ))}
-                  </div>
-
-                  {/* Script text preview */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <div className="text-white/30 text-[9px] italic leading-snug line-clamp-2">{o.script}</div>
-                  </div>
-                </motion.div>
+          {/* Source photo indicator */}
+          <div className="mt-5 flex items-center gap-3 relative z-10">
+            <span className="text-white/20 text-[10px] font-black uppercase tracking-widest">From 1 photo</span>
+            <ArrowRight className="w-3.5 h-3.5 text-white/20" />
+            <div className="relative w-9 rounded-lg overflow-hidden shadow-lg ring-1 ring-purple-400/30" style={{ aspectRatio: "3/4" }}>
+              <Image src={IMG.g1a} alt="Source" fill sizes="36px" className="object-cover" style={{ objectPosition: "center 5%" }} />
+            </div>
+            <div className="flex gap-1.5">
+              {OUTPUTS.map(o => (
+                <div key={o.label} className="w-2 h-2 rounded-full" style={{ background: o.accent, opacity: 0.65 }} />
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Bottom strip: simple stats + features */}
-        <div className="border-t border-white/6 pt-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="flex flex-wrap gap-x-10 gap-y-4">
-            {[
-              { n: "~3min", d: "Photo to finished video" },
-              { n: "Any",  d: "Language and voice"      },
-              { n: "Any",  d: "Face or persona"         },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="text-white font-black text-2xl">{s.n}</div>
-                <div className="text-white/30 text-[12px] max-w-[90px] leading-snug">{s.d}</div>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {["Lip sync", "Voice clone", "Any background", "No studio", "Batch export"].map(f => (
-              <div key={f} className="flex items-center gap-1.5 text-white/30 text-[12px]">
-                <div className="w-1 h-1 rounded-full bg-purple-400/60" />
-                {f}
-              </div>
-            ))}
           </div>
         </div>
       </div>
