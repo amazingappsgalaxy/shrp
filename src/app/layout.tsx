@@ -24,26 +24,57 @@ const ubuntu = Ubuntu({
 });
 
 export const metadata: Metadata = {
-  title: "Sharpii.ai - AI-Powered Image Enhancement & Skin Upscaler",
-  description: "Transform your images with professional-grade AI enhancement. Sharpii.ai delivers cinematic quality skin upscaling and image enhancement in seconds.",
-  keywords: ["AI image enhancement", "skin upscaler", "photo editing", "AI photography", "image quality", "portrait enhancement"],
+  metadataBase: new URL("https://sharpii.ai"),
+  title: {
+    default: "Sharpii.ai — AI Image Upscaler, Skin Enhancer & Photo Editor Online",
+    template: "%s | Sharpii.ai",
+  },
+  description: "Upscale photos to 4K/8K, fix skin texture with AI, generate images with 20+ models, and edit with AI masks — all in one platform. No downloads. From $9/month.",
+  keywords: [
+    "ai image upscaler",
+    "upscale photo online",
+    "ai skin enhancer",
+    "ai photo enhancer",
+    "4k image upscaler",
+    "8k image upscaler",
+    "ai portrait enhancer",
+    "photo enhancer online",
+    "ai image generator",
+    "skin retouching ai",
+    "upscale image without losing quality",
+    "ai photo editor online",
+  ],
   authors: [{ name: "Sharpii.ai Team" }],
   creator: "Sharpii.ai",
   publisher: "Sharpii.ai",
-  robots: "index, follow",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://sharpii.ai",
-    title: "Sharpii.ai - AI-Powered Image Enhancement",
-    description: "Professional-grade AI image enhancement and skin upscaling technology. Transform your photos with cinematic quality in seconds.",
+    title: "Sharpii.ai — AI Image Upscaler, Skin Enhancer & Photo Editor",
+    description: "Upscale photos to 4K/8K, fix skin texture with AI, generate and edit images — all in one platform. No downloads. From $9/month.",
     siteName: "Sharpii.ai",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Sharpii.ai AI Image Upscaler and Enhancer" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sharpii.ai - AI-Powered Image Enhancement",
-    description: "Transform your images with professional-grade AI enhancement technology.",
+    title: "Sharpii.ai — AI Image Upscaler & Photo Enhancer",
+    description: "Upscale to 4K/8K, fix skin texture, generate & edit images with AI. No downloads. From $9/month.",
     creator: "@sharpii_ai",
+    images: ["/og-image.png"],
+  },
+  alternates: {
+    canonical: "https://sharpii.ai",
   },
 };
 
