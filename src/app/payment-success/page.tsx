@@ -115,6 +115,18 @@ function PaymentSuccessClient() {
   }, [status, countdown])
 
   useEffect(() => {
+    if (status === 'completed' || status === 'async') {
+      // Fire GA4 purchase conversion once on payment success
+      if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+        window.gtag('event', 'purchase', {
+          transaction_id: searchParams.get('payment_id') || searchParams.get('subscription_id') || Date.now().toString(),
+          currency: 'USD',
+        })
+      }
+    }
+  }, [status]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if ((status === 'completed' || status === 'async') && countdown === 0) {
       router.push('/app/dashboard')
     }

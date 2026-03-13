@@ -37,6 +37,11 @@ export async function signUp(email: string, password: string, name: string) {
   // Prime SWR cache after signup
   mutate(APP_DATA_KEY)
 
+  // GA4: track sign_up event
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', 'sign_up', { method: 'email' })
+  }
+
   return data
 }
 
@@ -56,6 +61,11 @@ export async function signIn(email: string, password: string) {
 
   // Prime SWR cache after signin
   mutate(APP_DATA_KEY)
+
+  // GA4: track login event
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', 'login', { method: 'email' })
+  }
 
   return data
 }

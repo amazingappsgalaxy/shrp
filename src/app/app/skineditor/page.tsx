@@ -32,6 +32,7 @@ import { ComparisonView } from "@/components/ui/ComparisonView"
 import { startSmartProgress, type TaskStatus, type TaskEntry } from "@/lib/task-progress"
 import { SKIN_EDITOR_TASK_DURATION_SECS } from "@/models/skin-editor/config"
 import { useCredits } from "@/lib/hooks/use-credits"
+import { track } from "@/lib/analytics"
 
 // --- TYPES ---
 interface AreaProtectionSettings {
@@ -341,16 +342,27 @@ function EditorContent() {
 
     // No credits at all → show pricing plans popup
     if (!creditsLoading && creditBalance <= 0) {
+      track.creditsEmpty({ tool: 'skin-editor', model: selectedModel })
+      track.upgradePrompted({ source: 'skin-editor' })
       openPlansPopup()
       return
     }
     // Has some credits but not enough for this task → small top-up notice
     if (!creditsLoading && creditCost !== null && creditCost !== undefined && creditBalance < creditCost) {
+      track.creditsInsufficient({ tool: 'skin-editor', model: selectedModel, available: creditBalance, required: creditCost ?? undefined })
       const toastId = `${Date.now()}-topup`
       setToasts(prev => [...prev, { id: toastId, message: 'Not enough credits. Top up your account from the dashboard.', type: 'error' }])
       setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 5000)
       return
     }
+
+    track.toolStarted({
+      tool: 'skin-editor',
+      model: selectedModel,
+      mode: enhancementMode,
+      style: selectedStyle,
+      credit_cost: creditCost ?? undefined,
+    })
 
     setIsSubmitting(true)
     const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -494,8 +506,10 @@ function EditorContent() {
               setActiveTasks(prev => { const m = new Map(prev); m.delete(taskId); return m })
               setDismissedTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s })
             }, 4000)
+            track.toolCompleted({ tool: 'skin-editor', model: selectedModel, credit_cost: creditCost ?? undefined })
             stopPoll('success')
           } else if (pollData.status === 'failed') {
+            track.toolFailed({ tool: 'skin-editor', model: selectedModel, error: pollData.error })
             stopPoll('failed', pollData.error || 'Enhancement failed')
           }
           // status === 'running': keep polling, progress animation keeps going
@@ -639,7 +653,7 @@ function EditorContent() {
                   {STYLES.map(style => (
                     <button
                       key={style.id}
-                      onClick={() => setSelectedStyle(style.id)}
+                      onClick={() => { track.styleSelected({ tool: 'skin-editor', style: style.id, previous_style: selectedStyle }); setSelectedStyle(style.id) }}
                       className={cn(
                         "flex flex-row items-center justify-start px-3 h-10 rounded-md border transition-all gap-3",
                         selectedStyle === style.id
@@ -944,7 +958,7 @@ function EditorContent() {
                   ].map(mode => (
                     <button
                       key={mode.id}
-                      onClick={() => setEnhancementMode(mode.id)}
+                      onClick={() => { track.skinModeSelected({ mode: mode.id, previous_mode: enhancementMode }); setEnhancementMode(mode.id) }}
                       className={cn(
                         "relative h-14 rounded-lg overflow-hidden group border transition-all flex items-center justify-center",
                         enhancementMode === mode.id

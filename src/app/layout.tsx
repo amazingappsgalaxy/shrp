@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Syne, Manrope, Ubuntu } from "next/font/google";
 import { Toaster } from "sonner";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { SWRProvider } from "@/lib/providers/swr-provider";
 import "./globals.css";
 
@@ -123,6 +124,7 @@ export default function RootLayout({
           }}
         />
       </body>
+      <GoogleAnalytics gaId="G-0SSWVGTG5X" />
     </html>
   );
 }

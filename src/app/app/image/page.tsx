@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallba
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { track } from "@/lib/analytics"
 import { GenerationAnimation } from "@/components/ui/GenerationAnimation"
 import { CreditIcon } from "@/components/ui/CreditIcon"
 import {
@@ -1050,6 +1051,15 @@ export default function ImagePage() {
       ...(referenceUrls.length > 0 && modelSupportsRef ? { referenceUrls } : {}),
     }
 
+    track.toolStarted({
+      tool: 'image-generation',
+      model: modelId,
+      resolution,
+      count,
+      has_reference: referenceUrls.length > 0,
+      credit_cost: activeModel.credits * count,
+    })
+
     // Show request immediately — responses filled in when task completes
     setDebugEntries(prev => [...prev, {
       id: indicatorId,
@@ -1075,6 +1085,7 @@ export default function ImagePage() {
       })
       .catch(err => {
         const msg = err instanceof Error ? err.message : "Generation failed"
+        track.toolFailed({ tool: 'image-generation', model: modelId, error: msg })
         setImages(prev => prev.filter(img => !placeholders.some(p => p.id === img.id)))
         setGenTasks(prev => [...prev, { id: indicatorId, status: 'error', progress: 0, message: msg }])
         setTimeout(() => setGenTasks(prev => prev.filter(t => t.id !== indicatorId)), 6000)
@@ -1555,7 +1566,7 @@ export default function ImagePage() {
                                 const active = aspect === a
                                 return (
                                   <button key={a}
-                                    onClick={() => { setAspect(a); setOpenPicker(null) }}
+                                    onClick={() => { track.aspectRatioSelected({ aspect: a }); setAspect(a); setOpenPicker(null) }}
                                     className={cn(
                                       "flex flex-col items-center gap-1 p-2.5 rounded-md border transition-all",
                                       active
@@ -1648,6 +1659,7 @@ export default function ImagePage() {
                                       setPendingModelId(m.id)
                                       setOpenPicker(null)
                                     } else {
+                                      track.modelSelected({ tool: 'image-generation', model: m.id, previous_model: modelId })
                                       setModelId(m.id)
                                       setOpenPicker(null)
                                     }
@@ -1751,7 +1763,7 @@ export default function ImagePage() {
 
                 <div className={cn(PILL_TRACK, "shrink-0")}>
                   {([1, 2, 4] as Count[]).map(n => (
-                    <button key={n} onClick={() => setCount(n)}
+                    <button key={n} onClick={() => { track.generationCountSelected({ count: n }); setCount(n) }}
                       className={cn(PILL_BASE, "w-8", count === n ? PILL_ON : PILL_OFF)}
                     >{n}</button>
                   ))}

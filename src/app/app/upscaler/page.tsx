@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
+import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
 import MyLoadingProcessIndicator from "@/components/ui/MyLoadingProcessIndicator"
@@ -160,15 +161,26 @@ function UpscalerContent() {
     if (!uploadedImage) return
 
     if (!creditsLoading && creditBalance <= 0) {
+      track.creditsEmpty({ tool: 'upscaler', model: selectedModel })
+      track.upgradePrompted({ source: 'upscaler' })
       openPlansPopup()
       return
     }
     if (!creditsLoading && creditBalance < creditCost) {
+      track.creditsInsufficient({ tool: 'upscaler', model: selectedModel, available: creditBalance, required: creditCost })
       const toastId = `${Date.now()}-topup`
       setToasts(prev => [...prev, { id: toastId, message: 'Not enough credits. Top up your account from the dashboard.', type: 'error' }])
       setTimeout(() => setToasts(prev => prev.filter(t => t.id !== toastId)), 5000)
       return
     }
+
+    track.toolStarted({
+      tool: 'upscaler',
+      model: selectedModel,
+      resolution: selectedModel === 'pro-upscaler' ? maxResolution : smartResolution,
+      mode: selectedModel === 'pro-upscaler' ? skinPreset : undefined,
+      credit_cost: creditCost,
+    })
 
     setIsSubmitting(true)
     const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -295,6 +307,12 @@ function UpscalerContent() {
             if (latestTaskIdRef.current === taskId && latestImageRef.current === inputImage) {
               setUpscaledImage(outputUrl)
             }
+            track.toolCompleted({
+              tool: 'upscaler',
+              model: selectedModel,
+              resolution: selectedModel === 'pro-upscaler' ? maxResolution : smartResolution,
+              credit_cost: creditCost,
+            })
             void mutate(APP_DATA_KEY) // refresh credit balance
             setActiveTasks(prev => {
               const newMap = new Map(prev)
@@ -308,6 +326,7 @@ function UpscalerContent() {
             }, 4000)
             stopPoll('success')
           } else if (pollData.status === 'failed') {
+            track.toolFailed({ tool: 'upscaler', model: selectedModel, error: pollData.error })
             stopPoll('failed', pollData.error || 'Upscaling failed')
           }
         } catch (pollError) {
@@ -450,7 +469,7 @@ function UpscalerContent() {
                   {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
                     <button
                       key={m}
-                      onClick={() => { setSelectedModel(m); if (upscaledImage !== DEMO_OUTPUT_URL) setUpscaledImage(null) }}
+                      onClick={() => { track.modelSelected({ tool: 'upscaler', model: m, previous_model: selectedModel }); setSelectedModel(m); if (upscaledImage !== DEMO_OUTPUT_URL) setUpscaledImage(null) }}
                       className={cn(
                         "w-full py-2.5 px-2 text-xs font-[900] rounded-md transition-all uppercase tracking-wider text-center",
                         selectedModel === m
@@ -493,7 +512,7 @@ function UpscalerContent() {
                       {skinPresets.map((preset) => (
                         <button
                           key={preset}
-                          onClick={() => setSkinPreset(preset)}
+                          onClick={() => { track.skinModeSelected({ mode: preset, previous_mode: skinPreset }); setSkinPreset(preset) }}
                           className={cn(
                             "py-1.5 px-3 text-[11px] font-black rounded-md transition-all uppercase tracking-wider",
                             skinPreset === preset

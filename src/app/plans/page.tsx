@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { MyPricingPlans2 } from "@/components/ui/mypricingplans2"
+import { PricingPageTracker } from "./_tracker"
 
 export const metadata: Metadata = {
   title: "Pricing — AI Image Upscaler & Photo Enhancer Plans",
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 export default function PlansPage() {
   return (
     <div className="min-h-screen">
+      <PricingPageTracker />
       <div className="pt-20">
         <MyPricingPlans2
           title="Start Your Journey."

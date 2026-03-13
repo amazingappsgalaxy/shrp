@@ -5,8 +5,6 @@ import { DODO_PAYMENTS_CONFIG } from '@/lib/dodo-payments-config'
 export async function GET(request: NextRequest) {
   try {
     console.log('📋 [LIST] Listing all available products')
-    console.log('📋 [LIST] API Key:', DODO_PAYMENTS_CONFIG.apiKey?.substring(0, 10) + '...')
-    console.log('📋 [LIST] Environment:', DODO_PAYMENTS_CONFIG.environment)
     
     const dodo = new DodoPayments({
       bearerToken: DODO_PAYMENTS_CONFIG.apiKey,
@@ -15,8 +13,6 @@ export async function GET(request: NextRequest) {
     
     // List all products
     const products = await dodo.products.list()
-    console.log('📋 [LIST] Raw products response:', JSON.stringify(products, null, 2))
-    
     // Handle the response structure properly
     const productItems = Array.isArray(products) ? products : (products.items || [])
     
