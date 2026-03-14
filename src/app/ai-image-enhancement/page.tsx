@@ -482,7 +482,8 @@ function SharpiiAIWebsite() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <HeroSection />
-      <ProofSection />
+      {/* TEMPORARILY HIDDEN — unverified social proof claims pending verification (re-enable when approved) */}
+      {/* <ProofSection /> */}
       <FeaturesSection />
       <PricingSection />
       <TestimonialsSection />

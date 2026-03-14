@@ -104,15 +104,15 @@ export function HeroSection() {
               </Link>
             </div>
 
-            {/* Trust Badges */}
-            <div className="mt-12 flex items-center gap-6 text-white/30 text-sm font-medium">
+            {/* Trust Badges — TEMPORARILY HIDDEN pending verification (re-enable when approved) */}
+            {/* <div className="mt-12 flex items-center gap-6 text-white/30 text-sm font-medium">
               <span className="flex items-center gap-2">
                 <Star className="w-4 h-4 fill-current" />
                 4.9/5 Rating
               </span>
               <span className="w-1 h-1 bg-white/20 rounded-full" />
               <span>Used by 50k+ Creators</span>
-            </div>
+            </div> */}
           </motion.div>
 
           {/* Right Content: Visual */}

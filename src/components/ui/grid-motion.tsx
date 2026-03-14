@@ -43,12 +43,13 @@ const features: FeatureCard[] = [
     description: "Studio-grade results that rival professional photo editing software",
     gradient: "from-accent-neon to-accent-purple"
   },
-  {
-    icon: <Award className="h-8 w-8" />,
-    title: "Award Winning",
-    description: "Recognized by industry leaders for innovation in AI image processing",
-    gradient: "from-accent-blue to-accent-pink"
-  }
+  // TEMPORARILY HIDDEN — unverified claim pending verification (re-enable when approved)
+  // {
+  //   icon: <Award className="h-8 w-8" />,
+  //   title: "Award Winning",
+  //   description: "Recognized by industry leaders for innovation in AI image processing",
+  //   gradient: "from-accent-blue to-accent-pink"
+  // }
 ]
 
 export function GridMotion() {

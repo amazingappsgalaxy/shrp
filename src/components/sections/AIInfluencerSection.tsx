@@ -10,6 +10,10 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 export function AIInfluencerSection() {
+  // TEMPORARILY HIDDEN — pending payment gateway content review (re-enable when approved)
+  return null
+
+  // eslint-disable-next-line no-unreachable
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-100px" })
   const [activeComparison, setActiveComparison] = useState(0)

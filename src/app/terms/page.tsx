@@ -91,6 +91,24 @@ export default function TermsPage() {
           </section>
 
           <section>
+            <h2 className="text-white font-semibold text-base uppercase tracking-widest mb-3">Content Safety & Prohibited Content</h2>
+            <p>
+              Sharpii.ai is strictly prohibited from being used to generate, process, or distribute sexually
+              explicit, pornographic, or NSFW (Not Safe For Work) content of any kind. This includes but is
+              not limited to nudity, sexual acts, or content that sexualises real or fictional individuals.
+            </p>
+            <p className="mt-3">
+              You may not use our platform to create content that depicts minors in any sexual or inappropriate
+              context. Any attempt to do so will result in immediate account termination, reporting to the
+              appropriate authorities, and permanent ban from the service.
+            </p>
+            <p className="mt-3">
+              We employ automated and manual moderation to detect and prevent prohibited content. Violations
+              will be actioned without notice and without refund.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-white font-semibold text-base uppercase tracking-widest mb-3">Service Availability</h2>
             <p>
               We are committed to maintaining a reliable platform, though we cannot guarantee uninterrupted
