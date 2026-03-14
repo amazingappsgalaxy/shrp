@@ -34,7 +34,7 @@ export function PricingConfigPanel({ className }: PricingConfigPanelProps) {
   // Update resolution tier
   const updateResolutionTier = (index: number, updates: Partial<ResolutionTier>) => {
     const newTiers = [...config.resolutionTiers]
-    newTiers[index] = { ...newTiers[index], ...updates }
+    newTiers[index] = { ...newTiers[index], ...updates } as ResolutionTier
     setConfig({ ...config, resolutionTiers: newTiers })
   }
 
