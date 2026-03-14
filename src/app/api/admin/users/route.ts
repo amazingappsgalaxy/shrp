@@ -1,58 +1,123 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+function checkAdminAuth(request: NextRequest): boolean {
+  const adminEmail = request.headers.get('x-admin-email')
+  return !!(adminEmail && adminEmail.toLowerCase() === (process.env.ADMIN_EMAIL || '').toLowerCase())
+}
 
 export async function GET(request: NextRequest) {
-  try {
-    // Simple admin authentication check
-    const adminEmail = request.headers.get('X-Admin-Email')
+  if (!checkAdminAuth(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-    if (!adminEmail || adminEmail !== process.env.ADMIN_EMAIL) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+  try {
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search') || ''
+    const status = searchParams.get('status') || 'all'
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
+    const offset = (page - 1) * limit
+
+    // Build base query
+    let query = supabase
+      .from('users')
+      .select('id, email, name, created_at, updated_at, subscription_status, last_login_at', {
+        count: 'exact',
+      })
+
+    if (search) {
+      query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`)
     }
 
-    // Mock user data - in a real app, you'd query your database
-    const users = [
-      {
-        id: 'user1',
-        email: 'user@example.com',
-        name: 'John Doe',
-        subscription_status: 'free',
-        api_usage: 45,
-        monthly_api_limit: 100,
-        created_at: '2024-01-15T10:30:00Z',
-        last_login_at: '2024-01-20T14:22:00Z'
-      },
-      {
-        id: 'user2',
-        email: 'jane@example.com',
-        name: 'Jane Smith',
-        subscription_status: 'pro',
-        api_usage: 230,
-        monthly_api_limit: 1000,
-        created_at: '2024-01-10T09:15:00Z',
-        last_login_at: '2024-01-21T11:45:00Z'
-      },
-      {
-        id: 'user3',
-        email: 'premium@example.com',
-        name: 'Premium User',
-        subscription_status: 'enterprise',
-        api_usage: 1500,
-        monthly_api_limit: 10000,
-        created_at: '2024-01-05T16:20:00Z',
-        last_login_at: '2024-01-21T09:30:00Z'
+    if (status !== 'all') {
+      query = query.eq('subscription_status', status)
+    }
+
+    const { data: users, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (error) throw error
+
+    const userList = users || []
+    const userIds = userList.map((u) => u.id)
+
+    // Fetch credits for all users in one query
+    const creditsByUser: Record<string, number> = {}
+    if (userIds.length > 0) {
+      const now = new Date().toISOString()
+      const { data: creditsData } = await supabase
+        .from('credits')
+        .select('user_id, amount')
+        .in('user_id', userIds)
+        .eq('is_active', true)
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+
+      for (const row of creditsData || []) {
+        creditsByUser[row.user_id] = (creditsByUser[row.user_id] || 0) + (row.amount || 0)
       }
-    ]
+    }
 
-    return NextResponse.json(users)
+    // Fetch task counts for all users
+    const tasksByUser: Record<string, number> = {}
+    if (userIds.length > 0) {
+      const { data: taskData } = await supabase
+        .from('history_items')
+        .select('user_id')
+        .in('user_id', userIds)
 
+      for (const row of taskData || []) {
+        tasksByUser[row.user_id] = (tasksByUser[row.user_id] || 0) + 1
+      }
+    }
+
+    // Fetch active subscriptions for plan_name
+    const planByUser: Record<string, string> = {}
+    if (userIds.length > 0) {
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('user_id, plan_name, status, current_period_end')
+        .in('user_id', userIds)
+        .in('status', ['active', 'pending_cancellation'])
+        .order('current_period_end', { ascending: false })
+
+      // Keep only the latest active sub per user
+      for (const row of subData || []) {
+        if (!planByUser[row.user_id]) {
+          planByUser[row.user_id] = row.plan_name || ''
+        }
+      }
+    }
+
+    const enrichedUsers = userList.map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      created_at: u.created_at,
+      subscription_status: u.subscription_status,
+      last_login_at: u.last_login_at,
+      credit_balance: creditsByUser[u.id] || 0,
+      task_count: tasksByUser[u.id] || 0,
+      plan_name: planByUser[u.id] || null,
+    }))
+
+    const total = count || 0
+    const pages = Math.max(1, Math.ceil(total / limit))
+
+    return NextResponse.json({
+      users: enrichedUsers,
+      total,
+      page,
+      pages,
+    })
   } catch (error) {
-    console.error('Users API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('Admin users list error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

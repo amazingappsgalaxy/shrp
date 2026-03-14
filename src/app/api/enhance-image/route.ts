@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { checkAIRateLimit } from '@/lib/rate-limit';
 import { EnhancementService } from '../../../services/ai-providers';
 import type { EnhancementRequest } from '../../../services/ai-providers';
 import { createClient } from '@supabase/supabase-js';
@@ -76,6 +77,10 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id
+
+    // Rate limit check
+    const rateLimitResponse = await checkAIRateLimit(userId)
+    if (rateLimitResponse) return rateLimitResponse
 
     const body = await request.json()
     const { imageUrl, settings, imageId = `img-${Date.now()}`, modelId } = body

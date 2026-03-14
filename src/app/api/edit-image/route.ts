@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
+import { checkAIRateLimit } from '@/lib/rate-limit'
 import { uploadBuffer, uploadFromUrl, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = session.user.id
+
+    // Rate limit check
+    const rateLimitResponse = await checkAIRateLimit(userId)
+    if (rateLimitResponse) return rateLimitResponse
 
     const body = await request.json()
     const {
