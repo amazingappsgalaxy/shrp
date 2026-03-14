@@ -236,7 +236,7 @@ async function processPendingTask(
   if (settings._type === 'image-generation' || settings._type === 'edit-generation') {
     const ageMs = Date.now() - new Date(task.created_at).getTime()
     if (ageMs > 15 * 60 * 1000) {
-      await supabase
+      const { data: won } = await supabase
         .from('history_items')
         .update({
           status: 'failed',
@@ -245,6 +245,22 @@ async function processPendingTask(
         })
         .eq('id', task.id)
         .eq('status', 'processing')
+        .select('id')
+        .maybeSingle()
+
+      // Refund credits that were deducted upfront if after() never ran
+      if (won && settings._creditsAlreadyDeducted) {
+        const credits = (settings.creditsToDeduct || settings.creditCost || 0) as number
+        if (credits > 0) {
+          await UnifiedCreditsService.allocatePermanentCredits(
+            task.user_id,
+            credits,
+            `refund_${task.id}`,
+            `Refund: ${settings._type} timed out`
+          )
+        }
+      }
+
       console.warn(`process-pending: timed out ${settings._type} task ${task.id} (age=${Math.round(ageMs / 60000)}min)`)
       return 'failed'
     }
@@ -313,7 +329,8 @@ async function processPendingTask(
         .select('id')
         .maybeSingle()
 
-      if (won && creditsToDeduct > 0) {
+      // Only deduct if not already deducted upfront (new flow: credits deducted before RunningHub call)
+      if (won && creditsToDeduct > 0 && !settings._creditsAlreadyDeducted) {
         const deductResult = await UnifiedCreditsService.deductCredits(
           task.user_id,
           creditsToDeduct,
@@ -331,7 +348,7 @@ async function processPendingTask(
     }
 
     if (check.status === 'failed') {
-      await supabase
+      const { data: won } = await supabase
         .from('history_items')
         .update({
           status: 'failed',
@@ -340,6 +357,18 @@ async function processPendingTask(
         })
         .eq('id', task.id)
         .eq('status', 'processing')
+        .select('id')
+        .maybeSingle()
+
+      // Refund credits if they were deducted upfront
+      if (won && creditsToDeduct > 0 && settings._creditsAlreadyDeducted) {
+        await UnifiedCreditsService.allocatePermanentCredits(
+          task.user_id,
+          creditsToDeduct,
+          `refund_${task.id}`,
+          'Refund: enhancement task failed'
+        )
+      }
 
       return 'failed'
     }
@@ -347,7 +376,7 @@ async function processPendingTask(
     // Tasks that have been stuck for > 2 hours are assumed permanently failed
     const ageMs = Date.now() - new Date(task.created_at).getTime()
     if (ageMs > 2 * 60 * 60 * 1000) {
-      await supabase
+      const { data: won } = await supabase
         .from('history_items')
         .update({
           status: 'failed',
@@ -356,6 +385,19 @@ async function processPendingTask(
         })
         .eq('id', task.id)
         .eq('status', 'processing')
+        .select('id')
+        .maybeSingle()
+
+      // Refund credits if they were deducted upfront
+      if (won && creditsToDeduct > 0 && settings._creditsAlreadyDeducted) {
+        await UnifiedCreditsService.allocatePermanentCredits(
+          task.user_id,
+          creditsToDeduct,
+          `refund_${task.id}`,
+          'Refund: enhancement task timed out'
+        )
+      }
+
       return 'failed'
     }
 
@@ -397,14 +439,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'DB error' }, { status: 500 })
   }
 
-  // Always expire stale subscription credits, even if no tasks are pending
+  // Always expire stale credits AND sync subscription_status — even if no tasks pending
   try {
-    const { data: expiredCount } = await supabase.rpc('expire_subscription_credits')
-    if (expiredCount > 0) {
-      console.log(`process-pending: expired ${expiredCount} stale subscription credit(s)`)
-    }
+    await supabase.rpc('expire_and_sync')
   } catch (expireErr) {
-    console.error('process-pending: failed to expire credits:', expireErr)
+    console.error('process-pending: failed to expire_and_sync:', expireErr)
   }
 
   if (!pendingTasks || pendingTasks.length === 0) {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { checkAIRateLimit } from '@/lib/rate-limit';
 import { EnhancementService } from '../../../services/ai-providers';
 import type { EnhancementRequest } from '../../../services/ai-providers';
 import { createClient } from '@supabase/supabase-js';
@@ -77,10 +76,6 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id
-
-    // Rate limit check
-    const rateLimitResponse = await checkAIRateLimit(userId)
-    if (rateLimitResponse) return rateLimitResponse
 
     const body = await request.json()
     const { imageUrl, settings, imageId = `img-${Date.now()}`, modelId } = body
@@ -269,6 +264,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Deduct credits upfront (before queuing to RunningHub) ────────────────
+    // Prevents concurrent requests exploiting the check→deduct gap.
+    // process-pending will NOT re-deduct. If task fails, credits are refunded.
+    const deductResult = await UnifiedCreditsService.deductCredits(
+      userId,
+      estimatedCredits,
+      taskId,
+      `Enhancement: ${getModelDisplayName(modelId)}`
+    )
+    if (!deductResult.success) {
+      await supabase.from('history_items').delete().eq('id', taskId)
+      return NextResponse.json({ error: 'Insufficient credits', required: estimatedCredits }, { status: 402 })
+    }
+
     // Start the RunningHub task asynchronously (non-blocking)
     const provider = AIProviderFactory.getProvider(ProviderType.RUNNINGHUB) as RunningHubProvider
     const enhancementRequest: EnhancementRequest = { imageUrl, settings, userId, imageId }
@@ -286,6 +295,10 @@ export async function POST(request: NextRequest) {
           settings: { ...historySettings, failure_reason: taskStart.error || 'Failed to start task' }
         })
         .eq('id', taskId)
+      // Refund credits since RunningHub rejected the task
+      await UnifiedCreditsService.allocatePermanentCredits(
+        userId, estimatedCredits, `refund_${taskId}`, `Refund: RunningHub start failed (${getModelDisplayName(modelId)})`
+      )
       return NextResponse.json(
         { error: taskStart.error || 'Failed to start enhancement task' },
         { status: 500 }
@@ -293,8 +306,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Store RunningHub task metadata in DB settings for the poll endpoint and cron to use.
-    // CRITICAL: if this update fails, the cron can never find the RunningHub task ID
-    // and credits won't be deducted — mark the task as failed immediately.
+    // CRITICAL: if this update fails, the cron can never find the RunningHub task ID.
+    // Mark _creditsAlreadyDeducted: true so process-pending skips re-deduction.
     const { error: settingsUpdateError } = await supabase
       .from('history_items')
       .update({
@@ -302,7 +315,8 @@ export async function POST(request: NextRequest) {
           ...historySettings,
           _runningHubTaskId: taskStart.runningHubTaskId,
           _expectedNodeIds: taskStart.expectedNodeIds,
-          _creditsToDeduct: estimatedCredits
+          _creditsToDeduct: estimatedCredits,
+          _creditsAlreadyDeducted: true,
         }
       })
       .eq('id', taskId)
@@ -317,6 +331,10 @@ export async function POST(request: NextRequest) {
           settings: { ...historySettings, failure_reason: 'Failed to store task state — please retry' }
         })
         .eq('id', taskId)
+      // Refund since task will never be processed
+      await UnifiedCreditsService.allocatePermanentCredits(
+        userId, estimatedCredits, `refund_${taskId}`, `Refund: task state storage failed (${getModelDisplayName(modelId)})`
+      )
       return NextResponse.json({ error: 'Failed to store task state — please retry' }, { status: 500 })
     }
 

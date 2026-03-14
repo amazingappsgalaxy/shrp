@@ -3,7 +3,6 @@ import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { v4 as uuidv4 } from 'uuid'
 import { getSession } from '@/lib/auth-simple'
-import { checkAIRateLimit } from '@/lib/rate-limit'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { config } from '@/lib/config'
 import { getModel } from '@/services/models'
@@ -68,10 +67,6 @@ export async function POST(request: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const userId = session.user.id
-
-  // Rate limit check
-  const rateLimitResponse = await checkAIRateLimit(userId)
-  if (rateLimitResponse) return rateLimitResponse
 
   // ── Parse body ────────────────────────────────────────────────────────────
   let body: {
@@ -158,6 +153,38 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // ── Deduct credits upfront (before AI call) ───────────────────────────────
+  // This prevents concurrent requests from exploiting the gap between credit
+  // check and deduction. The atomic RPC prevents overdraft. If AI fails,
+  // credits are refunded inside after().
+  const deductResult = await UnifiedCreditsService.deductCredits(
+    userId,
+    totalCredits,
+    taskId,
+    `Image generation: ${modelConfig.label} ×${count}`
+  )
+  if (!deductResult.success) {
+    // Roll back the history row and return error
+    await supabase.from('history_items').delete().eq('id', taskId)
+    return NextResponse.json(
+      { error: 'Insufficient credits', required: totalCredits },
+      { status: 402 }
+    )
+  }
+
+  // Mark credits as deducted so process-pending can refund if after() times out
+  await supabase.from('history_items').update({
+    settings: {
+      prompt: prompt.trim(),
+      aspect_ratio: aspect_ratio ?? null,
+      referenceUrls: referenceUrls.length > 0 ? referenceUrls : null,
+      count,
+      creditsToDeduct: totalCredits,
+      _type: 'image-generation',
+      _creditsAlreadyDeducted: true,
+    }
+  }).eq('id', taskId)
+
   // ── Build provider request ────────────────────────────────────────────────
   const generateReq: SynvowGenerateRequest = {
     model: modelId,
@@ -218,13 +245,20 @@ export async function POST(request: NextRequest) {
             aspect_ratio: aspect_ratio ?? null,
             referenceUrls: referenceUrls.length > 0 ? referenceUrls : null,
             count,
-            creditsToDeduct: totalCredits,
+            creditsToDeduct: 0,
             _type: 'image-generation',
             failure_reason: firstError ?? 'No output returned',
           },
         })
         .eq('id', taskId)
       console.error(`❌ generate-image: task ${taskId} failed — ${firstError ?? 'no output'}`)
+      // Refund the upfront deduction since no images were produced
+      await UnifiedCreditsService.allocatePermanentCredits(
+        userId,
+        totalCredits,
+        `refund_${taskId}`,
+        `Refund: generation failed (${modelConfig.label})`
+      )
       return
     }
 
@@ -249,16 +283,15 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', taskId)
 
-    // ── Deduct credits ──────────────────────────────────────────────────────
-    const deductResult = await UnifiedCreditsService.deductCredits(
-      userId,
-      actualCredits,
-      taskId,
-      `Image generation: ${modelConfig.label} ×${outputUrls.length}`
-    )
-    if (!deductResult.success) {
-      console.error(
-        `🚨 CRITICAL generate-image: credit deduction FAILED for user=${userId} task=${taskId} amount=${actualCredits} — ${deductResult.error}`
+    // ── Refund unused credits if fewer images were produced than requested ───
+    // Credits were deducted upfront for `count` images. Refund the difference.
+    if (actualCredits < totalCredits) {
+      const refundAmount = totalCredits - actualCredits
+      await UnifiedCreditsService.allocatePermanentCredits(
+        userId,
+        refundAmount,
+        `refund_partial_${taskId}`,
+        `Partial refund: ${count - outputUrls.length} image(s) failed (${modelConfig.label})`
       )
     }
 

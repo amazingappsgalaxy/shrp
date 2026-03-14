@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
-import { checkAIRateLimit } from '@/lib/rate-limit'
 import { uploadBuffer, uploadFromUrl, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
@@ -25,10 +24,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const userId = session.user.id
-
-    // Rate limit check
-    const rateLimitResponse = await checkAIRateLimit(userId)
-    if (rateLimitResponse) return rateLimitResponse
 
     const body = await request.json()
     const {
@@ -150,34 +145,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Single Synvow call with ALL images and ONE combined prompt ─────────────
-    const synvow = getSynvowProvider()
-    const result = await synvow.submitTask({
-      model,
-      prompt: combinedPrompt,
-      images,
-    })
-
-    if (!result.immediateOutput) {
-      return NextResponse.json({ error: 'Generation returned no output' }, { status: 500 })
-    }
-
-    // ── Upload output to Bunny CDN (Synvow URLs expire in ~1 day) ─────────────
-    const rawOutputUrl = result.immediateOutput
-    const ext = extFromUrl(rawOutputUrl) || 'jpg'
-    const outputUrl = await uploadFromUrl(getOutputPath(userId, ext), rawOutputUrl, mimeFromExt(ext))
-    const generationMs = Date.now() - startTime
-
-    // ── Mark history record as completed BEFORE deducting credits ────────────
-    // This ensures the DB state is always correct even if credit deduction fails.
-    // The user has already received the output; DB must reflect that.
-    await supabase.from('history_items').update({
-      output_urls: [{ type: 'image', url: outputUrl }],
-      status: 'completed',
-      generation_time_ms: generationMs,
-    }).eq('id', historyId)
-
-    // ── Deduct credits ONCE — covers all masks in a single generation ──────────
+    // ── Deduct credits upfront (before AI call) ───────────────────────────────
+    // Prevents concurrent requests from exploiting the check→deduct gap.
     const activeMaskCount = masks.filter(m => m.prompt.trim()).length
     const description = mode === 'edit'
       ? `Image edit (${activeMaskCount} mask${activeMaskCount !== 1 ? 's' : ''} combined) — ${modelConfig.label}`
@@ -187,11 +156,50 @@ export async function POST(request: NextRequest) {
 
     const deductResult = await UnifiedCreditsService.deductCredits(userId, creditCost, taskId, description)
     if (!deductResult.success) {
-      // Output already delivered and DB marked completed — log critically for manual recovery.
-      console.error(
-        `🚨 CRITICAL edit-image: credit deduction FAILED for user=${userId} task=${taskId} amount=${creditCost} — ${deductResult.error}`
-      )
+      if (historyId) {
+        await supabase.from('history_items').update({
+          status: 'failed',
+          settings: { model, creditCost, mode, failure_reason: 'Insufficient credits' },
+        }).eq('id', historyId)
+      }
+      return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
     }
+
+    // Stamp so process-pending can refund if the server crashes mid-request
+    if (historyId) {
+      await supabase.from('history_items').update({
+        settings: { model, creditCost, mode, _type: 'edit-generation', _creditsAlreadyDeducted: true },
+      }).eq('id', historyId)
+    }
+
+    // ── Single Synvow call with ALL images and ONE combined prompt ─────────────
+    const synvow = getSynvowProvider()
+    const result = await synvow.submitTask({
+      model,
+      prompt: combinedPrompt,
+      images,
+    })
+
+    if (!result.immediateOutput) {
+      // Refund credits — AI returned nothing
+      await UnifiedCreditsService.allocatePermanentCredits(
+        userId, creditCost, `refund_${taskId}`, `Refund: edit returned no output (${modelConfig.label})`
+      )
+      return NextResponse.json({ error: 'Generation returned no output' }, { status: 500 })
+    }
+
+    // ── Upload output to Bunny CDN (Synvow URLs expire in ~1 day) ─────────────
+    const rawOutputUrl = result.immediateOutput
+    const ext = extFromUrl(rawOutputUrl) || 'jpg'
+    const outputUrl = await uploadFromUrl(getOutputPath(userId, ext), rawOutputUrl, mimeFromExt(ext))
+    const generationMs = Date.now() - startTime
+
+    // ── Mark history record as completed ─────────────────────────────────────
+    await supabase.from('history_items').update({
+      output_urls: [{ type: 'image', url: outputUrl }],
+      status: 'completed',
+      generation_time_ms: generationMs,
+    }).eq('id', historyId)
 
     return NextResponse.json({
       success: true,

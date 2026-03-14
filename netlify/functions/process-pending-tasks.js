@@ -1,11 +1,9 @@
 /**
  * Netlify Scheduled Function — runs every minute.
  *
- * Calls /api/tasks/process-pending to check all in-progress RunningHub tasks
- * and update the database with their results.
- *
- * This ensures tasks complete correctly even when users close their browsers.
- * Works for all models: skin-editor, smart-upscaler, and any future models.
+ * Primary scheduler for processing in-progress enhancement tasks.
+ * pg_cron serves as a backup (runs every 2 minutes).
+ * Atomic DB updates in process-pending prevent any double-processing.
  *
  * Schedule is configured in netlify.toml:
  *   [functions."process-pending-tasks"]
@@ -13,35 +11,64 @@
  */
 
 exports.handler = async function (event, context) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3003'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
   const cronSecret = process.env.CRON_SECRET
 
   if (!cronSecret) {
-    console.error('CRON_SECRET env var is not set — skipping task processing')
+    console.error('[process-pending-tasks] CRON_SECRET env var is not set — skipping')
     return { statusCode: 500, body: 'CRON_SECRET not configured' }
   }
 
+  if (!appUrl) {
+    console.error('[process-pending-tasks] NEXT_PUBLIC_APP_URL env var is not set — skipping')
+    return { statusCode: 500, body: 'NEXT_PUBLIC_APP_URL not configured' }
+  }
+
   try {
-    const response = await fetch(`${appUrl}/api/tasks/process-pending`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-cron-secret': cronSecret
-      }
-    })
+    // 25-second timeout — gives the API route time to process tasks
+    // without holding the Netlify function open indefinitely
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 25000)
+
+    let response
+    try {
+      response = await fetch(`${appUrl}/api/tasks/process-pending`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': cronSecret,
+        },
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
+    // Guard against HTML error pages or empty bodies
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      const text = await response.text()
+      console.error(`[process-pending-tasks] Non-JSON response (${response.status}):`, text.slice(0, 200))
+      return { statusCode: response.status, body: 'Non-JSON response from API' }
+    }
 
     const data = await response.json()
-    console.log('process-pending-tasks scheduled run result:', data)
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(data)
+    if (!response.ok) {
+      console.error(`[process-pending-tasks] API returned ${response.status}:`, data)
+      return { statusCode: response.status, body: JSON.stringify(data) }
     }
+
+    console.log('[process-pending-tasks] completed:', JSON.stringify(data))
+    return { statusCode: 200, body: JSON.stringify(data) }
+
   } catch (error) {
-    console.error('process-pending-tasks scheduled function error:', error)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+    if (error.name === 'AbortError') {
+      // Timeout is not a failure — the API route is still running on the server
+      console.log('[process-pending-tasks] fetch timed out (25s) — API route continues processing')
+      return { statusCode: 202, body: 'Processing continues async' }
     }
+    console.error('[process-pending-tasks] error:', error.message)
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) }
   }
 }

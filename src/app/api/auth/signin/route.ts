@@ -5,6 +5,10 @@ import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { findUserByEmail, createUser, createSession } from '@/lib/supabase-server'
 import { generateSessionToken, verifyPassword } from '@/lib/auth-simple'
 
+// Brute-force limits: 10 failed attempts per email or IP in 15 minutes
+const MAX_ATTEMPTS = 10
+const WINDOW_MS = 15 * 60 * 1000
+
 function getAdminClient() {
   return createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +29,38 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
+    const rawIp = request.headers.get('x-forwarded-for') || '127.0.0.1'
+    const clientIp = rawIp.split(',')[0]?.trim() || '127.0.0.1'
+
+    // Brute-force check
+    const adminClient = getAdminClient()
+    const windowStart = new Date(Date.now() - WINDOW_MS).toISOString()
+
+    const [{ count: emailCount }, { count: ipCount }] = await Promise.all([
+      adminClient
+        .from('login_attempts')
+        .select('*', { count: 'exact', head: true })
+        .eq('email', normalizedEmail)
+        .gte('attempted_at', windowStart),
+      adminClient
+        .from('login_attempts')
+        .select('*', { count: 'exact', head: true })
+        .eq('ip_address', clientIp)
+        .gte('attempted_at', windowStart),
+    ])
+
+    if ((emailCount ?? 0) >= MAX_ATTEMPTS || (ipCount ?? 0) >= MAX_ATTEMPTS) {
+      return NextResponse.json(
+        { error: 'Too many failed attempts. Please wait 15 minutes and try again.' },
+        { status: 429 }
+      )
+    }
+    // Helper: record a failed attempt and return 401
+    const recordFailure = async (msg: string) => {
+      await adminClient.from('login_attempts').insert({ email: normalizedEmail, ip_address: clientIp })
+      return NextResponse.json({ error: msg }, { status: 401 })
+    }
+
     let userId: string | undefined
     let appUser: Awaited<ReturnType<typeof findUserByEmail>> = null
 
@@ -52,14 +88,14 @@ export async function POST(request: NextRequest) {
       appUser = await findUserByEmail(normalizedEmail)
       userId = appUser?.id
       if (!userId) {
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+        return recordFailure('Invalid email or password')
       }
     } else {
       // Supabase Auth failed — fallback to legacy bcrypt for existing users
       appUser = await findUserByEmail(normalizedEmail)
       const hash = appUser?.passwordHash
 
-      // Give a helpful error for Google-only accounts (including trigger-created ones not yet stamped)
+      // Give a helpful error for Google-only accounts
       if (appUser && (hash === 'google-oauth-managed' || hash === 'managed_by_supabase_auth')) {
         return NextResponse.json(
           { error: 'This account was created with Google. Please sign in with Google.' },
@@ -67,18 +103,18 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Only attempt bcrypt if we have a real bcrypt hash (starts with $2b$ or $2a$)
+      // Only attempt bcrypt if we have a real bcrypt hash
       if (!appUser || !hash || !hash.startsWith('$2')) {
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+        return recordFailure('Invalid email or password')
       }
       const validPassword = await verifyPassword(password, hash)
       if (!validPassword) {
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+        return recordFailure('Invalid email or password')
       }
       userId = appUser.id
       // Lazily migrate this user into Supabase Auth so future logins use it
       try {
-        await getAdminClient().auth.admin.createUser({
+        await adminClient.auth.admin.createUser({
           email: normalizedEmail,
           password,
           email_confirm: true,
@@ -94,14 +130,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to resolve user account' }, { status: 500 })
     }
 
+    // Clear failed attempts on successful login + clean old records
+    await Promise.allSettled([
+      adminClient.from('login_attempts').delete().eq('email', normalizedEmail),
+      adminClient.rpc('cleanup_old_login_attempts'),
+    ])
+
     // Bridge: create custom session so middleware + all existing API routes work unchanged
     const sessionToken = generateSessionToken()
-    const rawIp = request.headers.get('x-forwarded-for') || '127.0.0.1'
     await createSession({
       userId,
       token: sessionToken,
       expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000),
-      ipAddress: rawIp.split(',')[0]?.trim() || '127.0.0.1',
+      ipAddress: clientIp,
     })
 
     const cookieStore = await cookies()

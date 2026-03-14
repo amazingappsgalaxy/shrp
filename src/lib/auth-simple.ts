@@ -75,7 +75,7 @@ export async function signUpUser(email: string, password: string, name: string, 
       sessionId = await createSession({
         userId,
         token: sessionToken,
-        expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+        expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
         ipAddress,
       });
     } catch (e) {
@@ -132,7 +132,7 @@ export async function signInUser(email: string, password: string, ipAddress?: st
     const sessionId = await createSession({
       userId: foundUser.id,
       token: sessionToken,
-      expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
       ipAddress,
     });
 

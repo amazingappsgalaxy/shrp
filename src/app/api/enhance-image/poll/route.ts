@@ -136,7 +136,8 @@ export async function GET(request: NextRequest) {
         .select('id')
         .maybeSingle()
 
-      if (won && creditsToDeduct > 0) {
+      // Only deduct if credits were NOT already deducted upfront (new tasks have _creditsAlreadyDeducted=true)
+      if (won && creditsToDeduct > 0 && !settings._creditsAlreadyDeducted) {
         const deductResult = await UnifiedCreditsService.deductCredits(userId, creditsToDeduct, taskId, 'Image enhancement')
         if (!deductResult.success) {
           console.error(
@@ -149,7 +150,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (check.status === 'failed') {
-      await supabase
+      const { data: won } = await supabase
         .from('history_items')
         .update({
           status: 'failed',
@@ -158,6 +159,18 @@ export async function GET(request: NextRequest) {
         })
         .eq('id', taskId)
         .eq('status', 'processing')
+        .select('id')
+        .maybeSingle()
+
+      // Refund upfront-deducted credits on failure
+      if (won && creditsToDeduct > 0 && settings._creditsAlreadyDeducted) {
+        await UnifiedCreditsService.allocatePermanentCredits(
+          userId,
+          creditsToDeduct,
+          `refund_${taskId}`,
+          'Refund: enhancement task failed'
+        )
+      }
 
       return NextResponse.json({ status: 'failed', error: check.error || 'Enhancement failed' })
     }
