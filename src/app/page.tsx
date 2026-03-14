@@ -1954,7 +1954,8 @@ export default function Home3Page() {
       <ImageGallerySection />
       <ModelsSection />
       <StatsSection />
-      <TestimonialsSection />
+      {/* TEMPORARILY HIDDEN — "TRUSTED BY THOUSANDS" testimonials section pending verification (re-enable when approved) */}
+      {/* <TestimonialsSection /> */}
       <HowItWorksSection />
       <PricingSection />
       <FAQSection />
