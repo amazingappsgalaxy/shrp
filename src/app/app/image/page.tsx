@@ -57,6 +57,7 @@ const MODEL_LOGO: Record<string, string> = {
   'gemini-3.1-flash-image-preview':      '/images/google_logo.webp',
   'doubao-seedream-5-0-260128':          '/images/bytedance_logo.webp',
   'doubao-seedream-4-5-251128':          '/images/bytedance_logo.webp',
+  'soul-2':                              '/images/sharpiifavicon.webp',
 }
 
 // De-duplicated list for the model picker — show one entry per quality group
@@ -845,7 +846,7 @@ export default function ImagePage() {
 
         setProcessingDbIds(prev => prev.filter(id => !resolvedIds.has(id)))
       } catch { /* ignore — retry next tick */ }
-    }, 15000)
+    }, 5000)
     return () => clearInterval(timer)
   }, [processingDbIds])
 
@@ -1323,7 +1324,14 @@ export default function ImagePage() {
                   {refCount} image{refCount !== 1 ? 's' : ''} will be removed.
                 </span>
                 <button
-                  onClick={() => { setModelId(pendingModelId); setPendingModelId(null) }}
+                  onClick={() => {
+                    const pendingModel = IMAGE_MODELS.find(m => m.id === pendingModelId)
+                    setModelId(pendingModelId)
+                    if (pendingModel?.controls.aspectRatios && !pendingModel.controls.aspectRatios.includes(aspect)) {
+                      setAspect((pendingModel.controls.aspectRatios[0] as Aspect) ?? '1:1')
+                    }
+                    setPendingModelId(null)
+                  }}
                   className="shrink-0 px-3 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 font-semibold transition-colors"
                 >
                   Switch anyway
@@ -1338,12 +1346,12 @@ export default function ImagePage() {
             )
           })()}
           <div
-            className="relative rounded-lg border bg-[#0c0c0e] transition-colors duration-150"
+            className="relative rounded-lg border bg-[#161618] transition-colors duration-150"
             style={{
               borderColor: isDragOver && modelSupportsRef ? 'rgba(255,255,0,0.55)' : 'rgba(255,255,255,0.10)',
               boxShadow: isDragOver && modelSupportsRef
                 ? "0 -4px 32px rgba(255,255,0,0.08), 0 0 0 0.5px rgba(255,255,0,0.08)"
-                : "0 -4px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03)",
+                : "0 -4px 32px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.06)",
             }}
             onDragEnter={e => { e.preventDefault(); if (modelSupportsRef) setIsDragOver(true) }}
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = modelSupportsRef ? "copy" : "none"; if (modelSupportsRef) setIsDragOver(true) }}
@@ -1661,6 +1669,10 @@ export default function ImagePage() {
                                     } else {
                                       track.modelSelected({ tool: 'image-generation', model: m.id, previous_model: modelId })
                                       setModelId(m.id)
+                                      // Reset aspect ratio if current one isn't supported by the new model
+                                      if (m.controls.aspectRatios && !m.controls.aspectRatios.includes(aspect)) {
+                                        setAspect((m.controls.aspectRatios[0] as Aspect) ?? '1:1')
+                                      }
                                       setOpenPicker(null)
                                     }
                                   }}

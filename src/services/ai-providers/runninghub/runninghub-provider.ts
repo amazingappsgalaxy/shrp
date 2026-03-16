@@ -168,6 +168,41 @@ export class RunningHubProvider extends BaseAIProvider {
         pricing: { costPerImage: 0.01, currency: 'USD' }
       },
       {
+        id: 'crisp-upscaler',
+        name: 'Crisp Upscaler',
+        displayName: 'Crisp Upscaler',
+        description: 'Crisp Upscaler intelligently increases image resolution while preserving textures, edges, and natural detail using SeedVR2 AI.',
+        provider: {
+          name: ProviderType.RUNNINGHUB,
+          displayName: 'RunningHub.ai',
+          description: 'ComfyUI cloud platform for advanced image processing',
+          supportedFeatures: ['upscaling', 'ai-upscaling', 'detail-preservation']
+        },
+        version: '1.0',
+        capabilities: ['upscaling', 'detail-preservation'],
+        parameters: {},
+        pricing: { costPerImage: 0.012, currency: 'USD' }
+      },
+      {
+        id: 'soul-2',
+        name: 'Soul 2.0',
+        displayName: 'Soul 2.0',
+        description: 'Sharpii Soul 2.0 — photorealistic text-to-image generation.',
+        provider: {
+          name: ProviderType.RUNNINGHUB,
+          displayName: 'RunningHub.ai',
+          description: 'ComfyUI cloud platform for advanced image processing',
+          supportedFeatures: ['text-to-image', 'photorealistic']
+        },
+        version: '2.0',
+        capabilities: ['text-to-image'],
+        parameters: {
+          prompt: { type: 'string', default: '', description: 'Text prompt for image generation' },
+          aspect_ratio: { type: 'select', default: '1:1', options: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'], description: 'Output aspect ratio' },
+        },
+        pricing: { costPerImage: 0.005, currency: 'USD' }
+      },
+      {
         id: 'skin-editor',
         name: 'Skin Editor',
         displayName: 'Skin Editor',
@@ -254,6 +289,14 @@ export class RunningHubProvider extends BaseAIProvider {
 
       if (modelId === 'pro-upscaler') {
         return this.handleProUpscalerRequest(request, model)
+      }
+
+      if (modelId === 'crisp-upscaler') {
+        return this.handleCrispUpscalerRequest(request, model)
+      }
+
+      if (modelId === 'soul-2') {
+        return this.handleSoul2Request(request, model)
       }
 
       if (modelId === 'skin-editor') {
@@ -520,6 +563,125 @@ export class RunningHubProvider extends BaseAIProvider {
     }
   }
 
+  private async handleCrispUpscalerRequest(
+    request: EnhancementRequest,
+    model: ModelInfo
+  ): Promise<EnhancementResponse> {
+    const { CRISP_UPSCALER_WORKFLOW_ID, CRISP_UPSCALER_NODES } = await import('../../../models/crisp-upscaler/config')
+
+    console.log(`🚀 RunningHub: Processing Crisp Upscaler request`, {
+      workflowId: CRISP_UPSCALER_WORKFLOW_ID
+    })
+
+    const nodeInfoListOverride = [
+      {
+        nodeId: CRISP_UPSCALER_NODES.LOAD_IMAGE,
+        fieldName: 'image',
+        fieldValue: request.imageUrl.trim()
+      }
+    ]
+
+    const taskResponse = await this.createTask(request.imageUrl, {
+      workflowId: CRISP_UPSCALER_WORKFLOW_ID,
+      nodeInfoListOverride
+    } as any)
+
+    if (!taskResponse.success) {
+      return this.createErrorResponse(taskResponse.error || 'Failed to create Crisp Upscaler task')
+    }
+
+    const result = await this.pollTaskCompletion(taskResponse.taskId!, [CRISP_UPSCALER_NODES.SAVE_IMAGE])
+
+    if (!result.success) {
+      return this.createErrorResponse(result.error || 'Crisp Upscaler task failed')
+    }
+
+    console.log(`✅ RunningHub: Crisp Upscaler completed successfully`)
+
+    return {
+      success: true,
+      enhancedUrl: result.outputUrl,
+      metadata: {
+        modelVersion: model.version,
+        processingTime: result.processingTime,
+        settings: request.settings as any,
+        userId: request.userId,
+        imageId: request.imageId,
+        outputFormat: 'png',
+        provider: this.getProviderName(),
+        model: model.id,
+        timestamp: Date.now(),
+        details: {
+          taskId: taskResponse.taskId,
+          workflowId: CRISP_UPSCALER_WORKFLOW_ID
+        }
+      }
+    }
+  }
+
+  private async handleSoul2Request(
+    request: EnhancementRequest,
+    model: ModelInfo
+  ): Promise<EnhancementResponse> {
+    const { SOUL2_WORKFLOW_ID, SOUL2_NODES, SOUL2_ASPECT_RATIO_MAP, SOUL2_LONG_EDGE } = await import('../../../models/soul-2/config')
+
+    const settings = request.settings as any
+    const prompt: string = settings.prompt || ''
+    const aspectRatio: string = settings.aspect_ratio || '1:1'
+    const rhAspectRatio = SOUL2_ASPECT_RATIO_MAP[aspectRatio] || '1:1 (Square)'
+
+    console.log(`🚀 RunningHub: Processing Soul 2.0 request`, {
+      prompt: prompt.substring(0, 60),
+      aspectRatio,
+      rhAspectRatio,
+      workflowId: SOUL2_WORKFLOW_ID
+    })
+
+    const nodeInfoListOverride = [
+      { nodeId: SOUL2_NODES.PROMPT,       fieldName: 'text',         fieldValue: prompt },
+      { nodeId: SOUL2_NODES.ASPECT_RATIO, fieldName: 'aspect_ratio', fieldValue: rhAspectRatio },
+      { nodeId: SOUL2_NODES.ASPECT_RATIO, fieldName: 'long_edge',    fieldValue: SOUL2_LONG_EDGE },
+    ]
+
+    const taskResponse = await this.createTask('', {
+      workflowId: SOUL2_WORKFLOW_ID,
+      nodeInfoListOverride
+    } as any)
+
+    if (!taskResponse.success) {
+      return this.createErrorResponse(taskResponse.error || 'Failed to create Soul 2.0 task')
+    }
+
+    const result = await this.pollTaskCompletion(taskResponse.taskId!, [SOUL2_NODES.SAVE_IMAGE])
+
+    if (!result.success) {
+      return this.createErrorResponse(result.error || 'Soul 2.0 task failed')
+    }
+
+    console.log(`✅ RunningHub: Soul 2.0 completed successfully`)
+
+    return {
+      success: true,
+      enhancedUrl: result.outputUrl,
+      metadata: {
+        modelVersion: model.version,
+        processingTime: result.processingTime,
+        settings: request.settings as any,
+        userId: request.userId,
+        imageId: request.imageId,
+        outputFormat: 'png',
+        provider: this.getProviderName(),
+        model: model.id,
+        timestamp: Date.now(),
+        details: {
+          taskId: taskResponse.taskId,
+          workflowId: SOUL2_WORKFLOW_ID,
+          aspectRatio
+        }
+      }
+    }
+  }
+
   private async handleSkinEditorRequest(
     request: EnhancementRequest,
     model: ModelInfo
@@ -740,6 +902,32 @@ export class RunningHubProvider extends BaseAIProvider {
     error?: string
   }> {
     try {
+      // Empty imageUrl = text-to-image model (e.g. Soul 2.0) — skip image upload entirely
+      if (!imageUrl || !imageUrl.trim()) {
+        const workflowId = (settings as any).workflowId
+        const nodeInfoList = (settings as any).nodeInfoListOverride || []
+        const requestPayload: any = { apiKey: this.apiKey, workflowId, nodeInfoList }
+        console.log(`🔍 RunningHub: Text-to-image task payload for workflow ${workflowId}`)
+        const response = await fetch(`${this.baseUrl}/task/openapi/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestPayload)
+        })
+        if (!response.ok) {
+          return { success: false, error: `API request failed with status ${response.status}` }
+        }
+        const data = await response.json() as any
+        if (data.code !== 0 || !data.data) {
+          return { success: false, error: data.msg || 'Task creation failed' }
+        }
+        const taskId = data.data.taskId || data.data.task_id
+        if (!taskId) {
+          return { success: false, error: 'No task ID returned from RunningHub' }
+        }
+        console.log(`✅ RunningHub: Text-to-image task created: ${taskId}`)
+        return { success: true, taskId: String(taskId) }
+      }
+
       let processedImageUrl = imageUrl.trim()
 
       const uploadToRunningHub = async (buffer: Buffer, mimeType: string, extension: string) => {
@@ -1375,7 +1563,10 @@ export class RunningHubProvider extends BaseAIProvider {
     modelId: string
   ): Promise<{ success: boolean; runningHubTaskId?: string; expectedNodeIds?: string[]; error?: string }> {
     try {
-      this.validateRequest(request)
+      // Soul 2.0 is text-to-image — no imageUrl required
+      if (modelId !== 'soul-2') {
+        this.validateRequest(request)
+      }
 
       if (modelId === 'smart-upscaler') {
         const { SMART_UPSCALER_WORKFLOW_ID, SMART_UPSCALER_NODES, SMART_UPSCALER_RESOLUTION_SETTINGS } = await import('../../../models/smart-upscaler/config')
@@ -1473,6 +1664,33 @@ export class RunningHubProvider extends BaseAIProvider {
         const taskResponse = await this.createTask(request.imageUrl, { workflowId: workflow.workflowId, nodeInfoListOverride } as any)
         if (!taskResponse.success) return { success: false, error: taskResponse.error }
         return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: [workflow.outputNodeId] }
+      }
+
+      if (modelId === 'crisp-upscaler') {
+        const { CRISP_UPSCALER_WORKFLOW_ID, CRISP_UPSCALER_NODES } = await import('../../../models/crisp-upscaler/config')
+        const nodeInfoListOverride = [
+          { nodeId: CRISP_UPSCALER_NODES.LOAD_IMAGE, fieldName: 'image', fieldValue: request.imageUrl.trim() }
+        ]
+        const taskResponse = await this.createTask(request.imageUrl, { workflowId: CRISP_UPSCALER_WORKFLOW_ID, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: [String(CRISP_UPSCALER_NODES.SAVE_IMAGE)] }
+      }
+
+      if (modelId === 'soul-2') {
+        const { SOUL2_WORKFLOW_ID, SOUL2_NODES, SOUL2_ASPECT_RATIO_MAP, SOUL2_LONG_EDGE } = await import('../../../models/soul-2/config')
+        const settings = request.settings as any
+        const prompt: string = settings.prompt || ''
+        const aspectRatio: string = settings.aspect_ratio || '1:1'
+        const rhAspectRatio = SOUL2_ASPECT_RATIO_MAP[aspectRatio] || '1:1 (Square)'
+        const nodeInfoListOverride = [
+          { nodeId: SOUL2_NODES.PROMPT,       fieldName: 'text',         fieldValue: prompt },
+          { nodeId: SOUL2_NODES.ASPECT_RATIO, fieldName: 'aspect_ratio', fieldValue: rhAspectRatio },
+          { nodeId: SOUL2_NODES.ASPECT_RATIO, fieldName: 'long_edge',    fieldValue: SOUL2_LONG_EDGE },
+        ]
+        // Soul 2.0 is text-to-image — no input image upload needed
+        const taskResponse = await this.createTask('', { workflowId: SOUL2_WORKFLOW_ID, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: [String(SOUL2_NODES.SAVE_IMAGE)] }
       }
 
       return { success: false, error: `Unknown model: ${modelId}` }

@@ -25,6 +25,7 @@ import {
   getProUpscalerCredits,
   type SkinPreset,
 } from "@/models/pro-upscaler/config"
+import { CRISP_UPSCALER_TASK_DURATION_SECS, CRISP_UPSCALER_CREDITS } from "@/models/crisp-upscaler/config"
 
 // --- Demo images ---
 const DEMO_INPUT_URL = 'https://i.postimg.cc/vTtwPDVt/90s-Futuristic-Portrait-3.png'
@@ -33,7 +34,7 @@ const DEMO_OUTPUT_URL = 'https://i.postimg.cc/NjJBqyPS/Comfy-UI-00022-psmsy-1770
 // --- Credits by resolution (Smart Upscaler) ---
 const SMART_UPSCALER_CREDITS = { '4k': 80, '8k': 120 } as const
 
-type UpscalerModel = 'pro-upscaler' | 'smart-upscaler'
+type UpscalerModel = 'pro-upscaler' | 'smart-upscaler' | 'crisp-upscaler'
 
 // ─── Small toggle switch ─────────────────────────────────────────────────────
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -83,6 +84,8 @@ function UpscalerContent() {
   // Compute credit cost based on selected model + settings
   const creditCost = selectedModel === 'pro-upscaler'
     ? getProUpscalerCredits(maxmode, maxResolution)
+    : selectedModel === 'crisp-upscaler'
+    ? CRISP_UPSCALER_CREDITS
     : SMART_UPSCALER_CREDITS[smartResolution]
 
   // Upload-on-drop state
@@ -200,6 +203,8 @@ function UpscalerContent() {
     try {
       const durationSecs = selectedModel === 'pro-upscaler'
         ? PRO_UPSCALER_TASK_DURATION_SECS
+        : selectedModel === 'crisp-upscaler'
+        ? CRISP_UPSCALER_TASK_DURATION_SECS
         : SMART_UPSCALER_TASK_DURATION_SECS
       const progressInterval = startSmartProgress(taskId, durationSecs, setActiveTasks)
       taskIntervalsRef.current.set(taskId, progressInterval)
@@ -229,6 +234,12 @@ function UpscalerContent() {
             skinPreset: skinPreset === 'Subtle' ? '1' : skinPreset === 'Real' ? '2' : '3',
             customPrompt,
             resolution: maxResolution,
+            imageWidth: imageMetadata.width,
+            imageHeight: imageMetadata.height,
+            pageName: 'app/upscaler',
+          }
+        : selectedModel === 'crisp-upscaler'
+        ? {
             imageWidth: imageMetadata.width,
             imageHeight: imageMetadata.height,
             pageName: 'app/upscaler',
@@ -310,7 +321,7 @@ function UpscalerContent() {
             track.toolCompleted({
               tool: 'upscaler',
               model: selectedModel,
-              resolution: selectedModel === 'pro-upscaler' ? maxResolution : smartResolution,
+              resolution: selectedModel === 'pro-upscaler' ? maxResolution : selectedModel === 'crisp-upscaler' ? 'ai' : smartResolution,
               credit_cost: creditCost,
             })
             void mutate(APP_DATA_KEY) // refresh credit balance
@@ -366,6 +377,8 @@ function UpscalerContent() {
     if (!upscaledImage) return
     const suffix = selectedModel === 'pro-upscaler'
       ? `pro-${maxmode ? maxResolution : 'std'}`
+      : selectedModel === 'crisp-upscaler'
+      ? 'crisp'
       : `smart-${smartResolution}`
     try {
       const response = await fetch(upscaledImage)
@@ -466,7 +479,7 @@ function UpscalerContent() {
               {/* Model selector */}
               <div className="flex flex-col justify-start pt-0.5 gap-2">
                 <div className="flex bg-[rgb(255_255_255_/_0.04)] p-1 rounded-lg border border-[rgb(255_255_255_/_0.04)] flex-col gap-1">
-                  {(['pro-upscaler', 'smart-upscaler'] as UpscalerModel[]).map((m) => (
+                  {(['pro-upscaler', 'smart-upscaler', 'crisp-upscaler'] as UpscalerModel[]).map((m) => (
                     <button
                       key={m}
                       onClick={() => { track.modelSelected({ tool: 'upscaler', model: m, previous_model: selectedModel }); setSelectedModel(m); if (upscaledImage !== DEMO_OUTPUT_URL) setUpscaledImage(null) }}
@@ -477,13 +490,15 @@ function UpscalerContent() {
                           : "text-gray-400 hover:text-white"
                       )}
                     >
-                      {m === 'pro-upscaler' ? 'Professional Upscaler' : 'Smart Upscaler'}
+                      {m === 'pro-upscaler' ? 'Professional Upscaler' : m === 'smart-upscaler' ? 'Smart Upscaler' : 'Crisp Upscaler'}
                     </button>
                   ))}
                 </div>
                 <p className="text-[10px] text-gray-500 leading-relaxed px-1">
                   {selectedModel === 'pro-upscaler'
                     ? 'Unblur anything. Enhances clarity in heavily blurred images, making them sharper and more defined. Advanced upscaling to improve detail and recover lost visual information.'
+                    : selectedModel === 'crisp-upscaler'
+                    ? 'Intelligently increases image resolution while preserving textures, edges, and natural detail using SeedVR2 AI.'
                     : 'Performs Smart Upscale to produce a sharper, high-detail output. Maintains existing details.'
                   }
                 </p>
@@ -567,7 +582,7 @@ function UpscalerContent() {
                             : "text-gray-500 hover:text-white"
                         )}
                       >
-                        {res === '4k' ? '4K Crisp' : '8K Ultra'}
+                        {res === '4k' ? '4K Sharp' : '8K Ultra'}
                       </button>
                     ))}
                   </div>
@@ -599,6 +614,24 @@ function UpscalerContent() {
             </div>
           )}
 
+          {/* INPUT IMAGE INFO (Crisp Upscaler only) */}
+          {selectedModel === 'crisp-upscaler' && (
+            <div className="border-b border-white/5 px-5 py-5">
+              <span className="text-xs font-black text-gray-500 uppercase tracking-wider block mb-3">Input Image</span>
+              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#FFFF00]/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <IconUpload className="w-4 h-4 text-[#FFFF00]" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white mb-1">Upload your image above</p>
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                    Crisp Upscaler processes your image through the SeedVR2 AI model. No additional settings needed — just upload and upscale.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* UPSCALE FACTOR (Smart Upscaler only) */}
           {selectedModel === 'smart-upscaler' && (
             <div className="border-b border-white/5 px-5 py-5">
@@ -617,7 +650,7 @@ function UpscalerContent() {
                         : "text-gray-500 hover:text-white"
                     )}
                   >
-                    {res === '4k' ? '4K Crisp' : '8K Ultra'}
+                    {res === '4k' ? '4K Sharp' : '8K Ultra'}
                   </button>
                 ))}
               </div>
@@ -683,6 +716,8 @@ function UpscalerContent() {
                         ? portrait
                           ? `Upscale Portrait${maxmode ? ` to ${maxResolution.toUpperCase()}` : ''}`
                           : `Upscale${maxmode ? ` to ${maxResolution.toUpperCase()}` : ''}`
+                        : selectedModel === 'crisp-upscaler'
+                        ? 'Crisp Upscale'
                         : `Upscale to ${smartResolution.toUpperCase()}`
                       }
                     </span>

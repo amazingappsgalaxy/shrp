@@ -204,6 +204,28 @@ export const MODEL_PRICING_CONFIGS: Record<string, ModelPricingConfiguration> = 
     description: 'Flat pricing based on output resolution. 4K = 80 credits, 8K = 120 credits.'
   },
 
+  // Crisp Upscaler Pricing (flat pricing — single AI upscale tier)
+  'crisp-upscaler': {
+    modelId: 'crisp-upscaler',
+    modelName: 'Crisp Upscaler',
+    enabled: true,
+    globalMultiplier: 1.0,
+    flatFee: 0,
+    resolutionPricing: [
+      {
+        resolution: 'Any Input',
+        width: 99999,
+        height: 99999,
+        megapixels: 9999,
+        baseCredits: 120,
+        description: 'AI Upscale (120 credits)'
+      }
+    ],
+    settingIncrements: [],
+    lastUpdated: Date.now(),
+    description: 'Flat pricing: 120 credits per upscale.'
+  },
+
   // Professional Upscaler Pricing (flat pricing based on mode)
   'pro-upscaler': {
     modelId: 'pro-upscaler',

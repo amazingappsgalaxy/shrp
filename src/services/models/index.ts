@@ -214,6 +214,19 @@ const IMAGE_MODELS: ModelConfig[] = [
     },
     providers: ['synvow'],
   },
+  {
+    id: 'soul-2',
+    label: 'Soul 2.0',
+    type: 'image',
+    description: 'Sharpii Soul 2.0 — photorealistic text-to-image generation',
+    credits: 50,
+    costUsd: 0.05,
+    tag: 'Sharpii',
+    controls: {
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+    },
+    providers: ['runninghub'],
+  },
 ]
 
 // ─── Video models ──────────────────────────────────────────────────────────────

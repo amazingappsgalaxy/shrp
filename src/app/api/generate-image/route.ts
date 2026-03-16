@@ -10,6 +10,9 @@ import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import type { SynvowGenerateRequest } from '@/services/ai-providers/synvow'
 import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
+import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
+import { ProviderType } from '@/services/ai-providers/common/types'
+import { RunningHubProvider } from '@/services/ai-providers/runninghub/runninghub-provider'
 
 /**
  * POST /api/generate-image
@@ -84,7 +87,6 @@ export async function POST(request: NextRequest) {
   }
 
   const { model: modelId, prompt, aspect_ratio, imageSize } = body
-  const count = Math.min(Math.max(Number(body.count ?? 1), 1), 4)
   const rawRefs: string[] = Array.isArray(body.referenceUrls) ? body.referenceUrls : []
 
   if (!modelId || !prompt?.trim()) {
@@ -97,6 +99,10 @@ export async function POST(request: NextRequest) {
   if (modelConfig.type !== 'image') {
     return NextResponse.json({ error: 'Only image models are supported by this endpoint' }, { status: 400 })
   }
+
+  // RunningHub models always produce 1 image per task (async workflow)
+  const isRunningHub = modelConfig.providers[0] === 'runninghub'
+  const count = isRunningHub ? 1 : Math.min(Math.max(Number(body.count ?? 1), 1), 4)
 
   const creditsPerImage = modelConfig.credits
   const totalCredits = creditsPerImage * count
@@ -184,6 +190,42 @@ export async function POST(request: NextRequest) {
       _creditsAlreadyDeducted: true,
     }
   }).eq('id', taskId)
+
+  // ── RunningHub models (async, cron-polled) ────────────────────────────────
+  if (modelConfig.providers[0] === 'runninghub') {
+    AIProviderFactory.clearCache()
+    const provider = AIProviderFactory.getProvider(ProviderType.RUNNINGHUB) as RunningHubProvider
+
+    const taskStart = await provider.startTaskForModel(
+      { imageUrl: '', settings: { prompt: prompt.trim(), aspect_ratio: aspect_ratio ?? '1:1' }, userId, imageId: taskId },
+      modelId
+    )
+
+    if (!taskStart.success) {
+      await supabase.from('history_items').update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+        settings: { prompt: prompt.trim(), aspect_ratio: aspect_ratio ?? null, creditsToDeduct: 0, _type: 'image-generation', failure_reason: taskStart.error }
+      }).eq('id', taskId)
+      await UnifiedCreditsService.allocatePermanentCredits(userId, totalCredits, `refund_${taskId}`, `Refund: RunningHub start failed (${modelConfig.label})`)
+      return NextResponse.json({ error: taskStart.error || 'Failed to start generation' }, { status: 500 })
+    }
+
+    // Store RunningHub task ID so process-pending can poll it
+    await supabase.from('history_items').update({
+      settings: {
+        prompt: prompt.trim(),
+        aspect_ratio: aspect_ratio ?? null,
+        creditsToDeduct: totalCredits,
+        _creditsAlreadyDeducted: true,
+        _runningHubTaskId: taskStart.runningHubTaskId,
+        _expectedNodeIds: taskStart.expectedNodeIds,
+      }
+    }).eq('id', taskId)
+
+    console.log(`✅ generate-image: RunningHub task started — taskId=${taskId} rhTaskId=${taskStart.runningHubTaskId}`)
+    return NextResponse.json({ taskId, status: 'processing' })
+  }
 
   // ── Build provider request ────────────────────────────────────────────────
   const generateReq: SynvowGenerateRequest = {

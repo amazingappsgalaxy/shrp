@@ -1,0 +1,10 @@
+model name: Crisp Upscaler
+Company provider sharpii.ai
+description: Crisp Upscaler intelligently increases image resolution while preserving textures, edges, and natural detail.
+https://www.runninghub.ai/workflow/2033549152264654849?source=workspace
+
+
+#80 Input image.
+
+
+#70 Save image as output.

@@ -1,0 +1,17 @@
+model name: sharpii soul
+Company provider sharpii.ai
+https://www.runninghub.ai/workflow/2033529679528861697?source=workspace
+
+#45: Enter prompt by user
+
+#77 - Select aspect ratio
+16:9 (Wide)
+4:3 (Standard)
+3:2 (Photo)
+1:1 (Square)
+2:3 (Portrait Photo)
+3:4 (Portrait Standard)
+9:16 (Portrait Wide)
+
+
+#63 Save image as output.
