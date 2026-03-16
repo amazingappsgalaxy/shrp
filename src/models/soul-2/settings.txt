@@ -1,17 +1,46 @@
-model name: sharpii soul
-Company provider sharpii.ai
-https://www.runninghub.ai/workflow/2033529679528861697?source=workspace
+# Soul 2.0 — Model Settings
 
-#45: Enter prompt by user
+Model Name: Sharpii Soul 2.0
+Model ID: soul-2
+Provider: RunningHub (ComfyUI workflow)
+Type: Text-to-image (no input image required)
+Credits: 50 per generation
+Config file: src/models/soul-2/config.ts
+API Route: POST /api/generate-image (RunningHub async branch)
 
-#77 - Select aspect ratio
-16:9 (Wide)
-4:3 (Standard)
-3:2 (Photo)
-1:1 (Square)
-2:3 (Portrait Photo)
-3:4 (Portrait Standard)
-9:16 (Portrait Wide)
+## RunningHub Workflow
+URL: https://www.runninghub.ai/workflow/2033529679528861697
+Workflow ID: 2033529679528861697
+Task duration estimate: 90 seconds (used only for progress animation)
 
+## Node Mappings
+| Node | Field | Type | Description |
+|------|-------|------|-------------|
+| #45  | text  | string | User's text prompt |
+| #77  | aspect_ratio | string (combo) | Aspect ratio — must use RunningHub combo format (see below) |
+| #77  | long_edge | number | Long edge in pixels — always 1920 |
+| #63  | (output) | — | SaveImage — output node |
 
-#63 Save image as output.
+## Aspect Ratio Mapping
+The UI uses short form; RunningHub requires the full combo label:
+| UI Value | RunningHub Value |
+|----------|-----------------|
+| 16:9 | 16:9 (Wide) |
+| 4:3  | 4:3 (Standard) |
+| 3:2  | 3:2 (Photo) |
+| 1:1  | 1:1 (Square) — default fallback |
+| 2:3  | 2:3 (Portrait Photo) |
+| 3:4  | 3:4 (Portrait Standard) |
+| 9:16 | 9:16 (Portrait Wide) |
+
+NOTE: 21:9 is NOT supported by this model. Only the 7 values above.
+
+## Expected Output Node
+expectedNodeIds: ['63']
+
+## Implementation Notes
+- Text-to-image only — imageUrl is passed as '' (empty string) to createTask
+- validateRequest() is skipped for soul-2 since there is no imageUrl requirement
+- Aspect ratio default fallback: '1:1 (Square)' if value not in map
+- This model runs through startTaskForModel() (async, cron-polled flow)
+  NOT through the synchronous handleSoul2Request() which is legacy code

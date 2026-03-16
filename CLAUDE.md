@@ -84,6 +84,16 @@ src/
 All reference documentation lives in `docs/`:
 - `docs/app-ui-components.md` — **Read before building any /app/* page** — layout, tokens, patterns
 - `docs/knowledge/` — System knowledge (payments, auth, credits, AI providers, database)
+- `docs/knowledge/model-registry.md` — **Complete model registry** — all models, providers, credits, adding new models
+- `docs/knowledge/ai-providers.md` — Provider API reference (Synvow, RunningHub, Evolink)
+
+## Model Settings
+Each RunningHub model has a `settings.txt` in `src/models/<model-id>/`:
+- `src/models/smart-upscaler/settings.txt` — node mappings, resolution settings
+- `src/models/pro-upscaler/settings.txt` — 4 workflow variants, portrait/maxmode logic
+- `src/models/crisp-upscaler/settings.txt` — simple image-in/image-out
+- `src/models/soul-2/settings.txt` — aspect ratio map, text-to-image flow
+- `src/models/skin-editor/settings.txt` — all mode defaults, node overrides
 
 ## Claude Code Memory
 Claude's auto-memory for this project is at:

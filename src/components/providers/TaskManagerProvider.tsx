@@ -55,17 +55,24 @@ function playSuccessSound() {
     // @ts-ignore
     const AudioContext = window.AudioContext || window.webkitAudioContext
     const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(700, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.08)
-    gain.gain.setValueAtTime(0.12, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.002, ctx.currentTime + 0.1)
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start()
-    osc.stop(ctx.currentTime + 0.12)
+    const play = () => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(700, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.08)
+      gain.gain.setValueAtTime(0.12, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.002, ctx.currentTime + 0.1)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.12)
+    }
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(play).catch(() => {})
+    } else {
+      play()
+    }
   } catch {}
 }
 

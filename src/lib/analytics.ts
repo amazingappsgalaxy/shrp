@@ -15,7 +15,7 @@ type GtagFn = Window['gtag']
 
 function gtag(...args: Parameters<GtagFn>) {
   if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
-    window.gtag(...args)
+    try { window.gtag(...args) } catch {}
   }
 }
 

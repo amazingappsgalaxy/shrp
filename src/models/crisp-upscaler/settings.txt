@@ -1,10 +1,36 @@
-model name: Crisp Upscaler
-Company provider sharpii.ai
-description: Crisp Upscaler intelligently increases image resolution while preserving textures, edges, and natural detail.
-https://www.runninghub.ai/workflow/2033549152264654849?source=workspace
+# Crisp Upscaler — Model Settings
 
+Model Name: Crisp Upscaler
+Model ID: crisp-upscaler
+Provider: RunningHub (ComfyUI workflow — SeedVR2 AI model)
+Type: Image-to-image upscaler (input image required)
+Credits: 120 per generation (flat — no resolution variants)
+Config file: src/models/crisp-upscaler/config.ts
+API Route: POST /api/enhance-image
 
-#80 Input image.
+## RunningHub Workflow
+URL: https://www.runninghub.ai/workflow/2033549152264654849
+Workflow ID: 2033549152264654849
+Task duration estimate: 200 seconds (used only for progress animation)
 
+## Node Mappings
+| Node | Field | Type | Description |
+|------|-------|------|-------------|
+| #80  | image | string | Input image — must be a RunningHub-uploaded file key (not a remote URL) |
+| #70  | (output) | — | SaveImage — output node |
 
-#70 Save image as output.
+## User Settings → Node Mapping
+There are NO user-configurable settings for this model.
+The only input is the image itself (uploaded via the upscaler page).
+The workflow runs the SeedVR2 model with its default parameters.
+
+## Expected Output Node
+expectedNodeIds: ['70']
+
+## Implementation Notes
+- Image is uploaded to RunningHub first (via createTask upload step)
+- No additional nodeInfoListOverride fields beyond LOAD_IMAGE are needed
+- No resolution choice — the workflow determines output resolution internally
+- Runs through startTaskForModel() in runninghub-provider.ts
+- This model appears as the third option in /app/upscaler alongside
+  smart-upscaler and pro-upscaler

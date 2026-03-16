@@ -1,0 +1,57 @@
+# Pro Upscaler — Model Settings
+
+Model Name: Professional Upscaler
+Model ID: pro-upscaler
+Provider: RunningHub (ComfyUI workflows — 4 workflow variants)
+Type: Image-to-image upscaler with skin enhancement (input image required)
+Credits: 100 (standard) | 140 (max mode 4K) | 200 (max mode 8K)
+Config file: src/models/pro-upscaler/config.ts
+API Route: POST /api/enhance-image
+
+## RunningHub Workflows (selected by portrait + maxmode flags)
+| portrait | maxmode | Workflow ID | Output Node |
+|----------|---------|-------------|-------------|
+| false    | false   | 2026681654638551042 | #400 |
+| false    | true    | 2026681286101831681 | #400 |
+| true     | false   | 2026681014017331201 | #224 |
+| true     | true    | 2026564061286109185 | #400 |
+
+Task duration estimate: 240 seconds (used only for progress animation)
+
+## Node Mappings
+| Node | Field | Type | Description |
+|------|-------|------|-------------|
+| #331 | image | string | Input image (always set) |
+| #341 | path_index | number | Skin preset path: 1=Subtle, 2=Real, 3=Cinema (portrait mode only) |
+| #337 | text | string | Custom prompt text (portrait mode only) |
+| #378 | width | number | Output width in pixels (max mode only) |
+| #378 | height | number | Output height in pixels (max mode only) |
+
+## User Settings → Node Mapping
+| Setting | Node | Field | Values |
+|---------|------|-------|--------|
+| imageUrl (uploaded image) | #331 | image | RunningHub file key |
+| skinPreset (1=Subtle, 2=Real, 3=Cinema) | #341 | path_index | 1, 2, or 3 |
+| customPrompt | #337 | text | free text string |
+| resolution (max mode) | #378 | width + height | 4096 (4K) or 8192 (8K) |
+
+## Credit Costs
+| Mode | Credits |
+|------|---------|
+| Standard (no max mode) | 100 |
+| Max Mode 4K | 140 |
+| Max Mode 8K | 200 |
+
+## Portrait vs Landscape Mode
+- portrait=true (default): Uses skin-enhancement workflow with node #341 and #337 active
+- portrait=false: Uses alternative workflow, #341 and #337 not overridden
+
+## Resolution (Max Mode only)
+- Max mode OFF: output resolution determined by workflow
+- Max mode ON + 4K: #378 width=4096, height=4096 → label "4K Sharp"
+- Max mode ON + 8K: #378 width=8192, height=8192 → label "8K Ultra"
+
+## Implementation Notes
+- Workflow selection is done via getProUpscalerWorkflow(portrait, maxmode) helper
+- skinPreset sent from frontend as string '1'|'2'|'3' (from Subtle/Real/Cinema selection)
+- Runs through startTaskForModel() in runninghub-provider.ts
