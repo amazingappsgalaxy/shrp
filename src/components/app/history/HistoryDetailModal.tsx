@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Download, Maximize2, Sparkles, AlertCircle } from "lucide-react";
 import { generateMediaFilename, downloadMedia } from "@/lib/media-filename";
-import { IconWand } from '@tabler/icons-react';
+import { IconWand, IconBadgeHd } from '@tabler/icons-react';
 import { cn } from "@/lib/utils";
 import { EditModal } from '@/components/app/edit/EditModal';
 
@@ -43,6 +44,7 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
     const [meta, setMeta] = useState<{ width?: number; height?: number; size?: string }>({});
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editImageUrl, setEditImageUrl] = useState<string | null>(null);
+    const [isUpscaling, setIsUpscaling] = useState(false);
 
     // Reset index when item opens
     useEffect(() => {
@@ -92,6 +94,25 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
             .catch(() => { });
 
     }, [currentOutput]);
+
+    const handleUpscale = async (imageUrl: string) => {
+        if (isUpscaling) return
+        setIsUpscaling(true)
+        try {
+            const res = await fetch('/api/enhance-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageUrl, modelId: 'crisp-upscaler', settings: { pageName: 'app/history' } }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data?.error || 'Failed to start upscale')
+            toast.success('Upscaling started — find the result in History shortly.')
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to start upscale')
+        } finally {
+            setIsUpscaling(false)
+        }
+    }
 
     if (!item) return null;
 
@@ -205,15 +226,25 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
 
                                 <div className="flex flex-col gap-2 w-full">
                                     {item.status !== 'failed' && currentOutput && currentOutput.type === 'image' && (
-                                        <button
-                                            onClick={() => {
-                                                setEditImageUrl(currentOutput.url);
-                                                setIsEditModalOpen(true);
-                                            }}
-                                            className="w-full bg-white/[0.09] text-[#FFFF00] font-semibold h-10 rounded-md hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
-                                        >
-                                            <IconWand className="w-4 h-4" /> Edit Image
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    setEditImageUrl(currentOutput.url);
+                                                    setIsEditModalOpen(true);
+                                                }}
+                                                className="w-full bg-white/[0.09] text-[#FFFF00] font-semibold h-10 rounded-md hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
+                                            >
+                                                <IconWand className="w-4 h-4" /> Edit Image
+                                            </button>
+                                            <button
+                                                onClick={() => handleUpscale(currentOutput.url)}
+                                                disabled={isUpscaling}
+                                                className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <IconBadgeHd className="w-4 h-4" />
+                                                {isUpscaling ? 'Starting…' : 'Upscale'}
+                                            </button>
+                                        </>
                                     )}
                                     {item.status !== 'failed' && currentOutput && (
                                         <button

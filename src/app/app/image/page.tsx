@@ -9,6 +9,7 @@ import { CreditIcon } from "@/components/ui/CreditIcon"
 import {
   IconArrowUp, IconSparkles,
   IconDownload, IconRefresh, IconX, IconPlus, IconChevronDown, IconCheck, IconBug, IconWand,
+  IconDots, IconBadgeHd,
 } from "@tabler/icons-react"
 import { getImageModels } from "@/services/models"
 import { uploadImageToCdn } from "@/lib/upload-image"
@@ -161,7 +162,7 @@ function AspectShape({ aspect, active }: { aspect: Aspect; active: boolean }) {
 
 // ─── Image modal ──────────────────────────────────────────────────────────────
 function ImageModal({
-  images, index, onClose, onNavigate, onAddImage, onAddLoadingImage,
+  images, index, onClose, onNavigate, onAddImage, onAddLoadingImage, onUpscale,
 }: {
   images: GridImage[]
   index: number | null
@@ -169,6 +170,7 @@ function ImageModal({
   onNavigate: (index: number) => void
   onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string, aspect: Aspect) => void
   onAddLoadingImage?: (historyId: string, mode: string, aspect: Aspect) => void
+  onUpscale?: (imageUrl: string) => void
 }) {
   const img = index !== null ? images[index] ?? null : null
 
@@ -362,6 +364,14 @@ function ImageModal({
             >
               <IconWand size={13} /> Edit Image
             </button>
+            {onUpscale && (
+              <button
+                onClick={() => onUpscale(img.url)}
+                className="flex items-center justify-center gap-2 w-full h-11 bg-white/[0.09] text-white/80 text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.12] hover:text-white transition-all mb-2"
+              >
+                <IconBadgeHd size={13} /> Upscale
+              </button>
+            )}
             <button
               onClick={() => { const ext = img.url.split('?')[0]?.match(/\.(\w+)$/)?.[1]?.toLowerCase() || 'jpg'; downloadMedia(img.url, generateMediaFilename(ext, img.prompt)) }}
               className="flex items-center justify-center gap-2 w-full h-11 bg-[#FFFF00] text-black text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#e6e600] transition-all">
@@ -388,12 +398,14 @@ function ImageModal({
 
 // ─── Justified grid ───────────────────────────────────────────────────────────
 function JustifiedGrid({
-  images, generatedIds, onOpen, onVary, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy,
+  images, generatedIds, onOpen, onVary, onEdit, onUpscale, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy,
 }: {
   images: GridImage[]
   generatedIds: Set<string>
   onOpen: (img: GridImage) => void
   onVary: (img: GridImage) => void
+  onEdit: (img: GridImage) => void
+  onUpscale: (img: GridImage) => void
   selectedIds: string[]
   onToggleSelect: (img: GridImage) => void
   showSelectButton: boolean
@@ -404,6 +416,20 @@ function JustifiedGrid({
   const [containerW, setContainerW] = useState(0)
   // React-state hover is more reliable than CSS group-hover at card edges
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!openDropdownId) return
+    const handle = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [openDropdownId])
 
   useEffect(() => {
     const el = containerRef.current; if (!el) return
@@ -418,14 +444,21 @@ function JustifiedGrid({
 
   return (
     <div ref={containerRef} className="w-full">
+      <style>{`
+        @keyframes dropdownIn {
+          from { opacity: 0; transform: translateY(-5px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+      `}</style>
       {rows.map((row) => (
         <div key={row.images[0]!.id} style={{ display: "flex", gap: GAP, marginBottom: GAP, height: row.height }}>
           {row.images.map((img, ii) => {
             const isSelected = selectedIds.includes(img.id)
             const isGenerated = generatedIds.has(img.id)
             const isHovered = hoveredId === img.id
-            // Show overlay when hovered OR when selected (so user always sees the + checkmark)
-            const showOverlay = isHovered || isSelected
+            const isDropdownOpen = openDropdownId === img.id
+            // Show overlay when hovered, selected, or dropdown is open
+            const showOverlay = isHovered || isSelected || isDropdownOpen
             return (
               <div
                 key={img.id}
@@ -451,6 +484,15 @@ function JustifiedGrid({
 
                 {!img.loading && (
                   <>
+                    {/* Top gradient — keeps dots icon readable */}
+                    <div
+                      className="absolute inset-x-0 top-0 h-12 pointer-events-none z-10 transition-opacity duration-200"
+                      style={{
+                        background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.18) 60%, transparent 100%)",
+                        opacity: showOverlay ? 1 : 0,
+                      }}
+                    />
+
                     {/* Bottom gradient */}
                     <div
                       className="absolute inset-x-0 bottom-0 h-16 pointer-events-none z-10 transition-opacity duration-200"
@@ -459,6 +501,50 @@ function JustifiedGrid({
                         opacity: showOverlay ? 1 : 0,
                       }}
                     />
+
+                    {/* Top-right dropdown — visible on hover or when open */}
+                    <div
+                      className="absolute top-1.5 right-1.5 z-30 transition-opacity duration-200"
+                      style={{ opacity: showOverlay ? 1 : 0 }}
+                      ref={isDropdownOpen ? dropdownRef : undefined}
+                    >
+                      <button
+                        onClick={e => { e.stopPropagation(); setOpenDropdownId(isDropdownOpen ? null : img.id) }}
+                        className="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        title="More options"
+                      >
+                        <IconDots size={14} />
+                      </button>
+                      {isDropdownOpen && (
+                        <div
+                          className="absolute top-full right-0 mt-1.5 rounded-xl"
+                          style={{
+                            background: 'rgba(18,18,20,0.96)',
+                            border: '1px solid rgba(255,255,255,0.09)',
+                            boxShadow: '0 4px 24px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.4)',
+                            minWidth: 136,
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            animation: 'dropdownIn 0.14s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+                          }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => { setOpenDropdownId(null); onEdit(img) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white/60 hover:text-white hover:bg-white/[0.07] transition-colors text-left rounded-t-xl"
+                          >
+                            <IconWand size={12} className="shrink-0" /> Edit Image
+                          </button>
+                          <div style={{ height: 1, margin: '0 10px', background: 'rgba(255,255,255,0.06)' }} />
+                          <button
+                            onClick={() => { setOpenDropdownId(null); onUpscale(img) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white/60 hover:text-white hover:bg-white/[0.07] transition-colors text-left rounded-b-xl"
+                          >
+                            <IconBadgeHd size={12} className="shrink-0" /> Upscale
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Action row — hover-gated */}
                     <div
@@ -1016,6 +1102,25 @@ export default function ImagePage() {
     toast.success("Edited image added to canvas")
   }, [mutate])
 
+  // Grid-level state for editing an image directly (bypasses lightbox)
+  const [gridEditImg, setGridEditImg] = useState<GridImage | null>(null)
+
+  // Send an image to Crisp Upscaler — starts async task, result appears in History
+  const handleUpscaleImage = useCallback(async (imageUrl: string) => {
+    try {
+      const res = await fetch('/api/enhance-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl, modelId: 'crisp-upscaler', settings: { pageName: 'app/image' } }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Failed to start upscale')
+      toast.success('Upscaling started — find result in History')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start upscale')
+    }
+  }, [])
+
   // Each call is fully independent — no busy lock, multiple can run concurrently
   function handleGenerate() {
     if (!prompt.trim()) return
@@ -1207,6 +1312,8 @@ export default function ImagePage() {
               if (idx !== -1) setModalIndex(idx)
             }}
             onVary={handleVary}
+            onEdit={img => setGridEditImg(img)}
+            onUpscale={img => handleUpscaleImage(img.url)}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             showSelectButton={modelSupportsRef}
@@ -1224,7 +1331,23 @@ export default function ImagePage() {
         onNavigate={setModalIndex}
         onAddImage={handleAddEditedImage}
         onAddLoadingImage={handleAddLoadingImage}
+        onUpscale={handleUpscaleImage}
       />
+
+      {/* Direct edit from grid dropdown — bypasses lightbox */}
+      {gridEditImg && (
+        <EditModal
+          isOpen={true}
+          onClose={() => setGridEditImg(null)}
+          initialImageUrl={gridEditImg.url}
+          sourceContext="image-page"
+          onGenerationStart={(historyId, mode) => handleAddLoadingImage(historyId, mode, gridEditImg.aspect)}
+          onGenerationComplete={(url, historyId, mode, prompt) => {
+            handleAddEditedImage(url, historyId, mode, prompt, gridEditImg.aspect)
+            setGridEditImg(null)
+          }}
+        />
+      )}
 
       {/* Pill hover preview — floating image preview above the hovered Image [N] token */}
       {pillHover && typeof document !== 'undefined' && createPortal(
