@@ -167,8 +167,8 @@ function ImageModal({
   index: number | null
   onClose: () => void
   onNavigate: (index: number) => void
-  onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string) => void
-  onAddLoadingImage?: (historyId: string, mode: string) => void
+  onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string, aspect: Aspect) => void
+  onAddLoadingImage?: (historyId: string, mode: string, aspect: Aspect) => void
 }) {
   const img = index !== null ? images[index] ?? null : null
 
@@ -182,15 +182,15 @@ function ImageModal({
   // Memoize callbacks to prevent infinite re-renders in EditModal
   const handleGenerationStart = useCallback((historyId: string, mode: string) => {
     if (onAddLoadingImage) {
-      onAddLoadingImage(historyId, mode)
+      onAddLoadingImage(historyId, mode, img?.aspect ?? '1:1')
     }
-  }, [onAddLoadingImage])
+  }, [onAddLoadingImage, img?.aspect])
 
   const handleGenerationComplete = useCallback((imageUrl: string, historyId: string, mode: string, prompt: string) => {
     if (onAddImage) {
-      onAddImage(imageUrl, historyId, mode, prompt)
+      onAddImage(imageUrl, historyId, mode, prompt, img?.aspect ?? '1:1')
     }
-  }, [onAddImage])
+  }, [onAddImage, img?.aspect])
 
   // Reset zoom/pan when navigating
   useEffect(() => {
@@ -960,12 +960,12 @@ export default function ImagePage() {
   }
 
   // Add loading placeholder when generation starts — stable reference via useCallback
-  const handleAddLoadingImage = useCallback((historyId: string, mode: string) => {
+  const handleAddLoadingImage = useCallback((historyId: string, mode: string, aspect: Aspect) => {
     const newId = `editing-${historyId}`
     const newImage: GridImage = {
       id: newId,
       url: "", // Empty URL for loading state
-      aspect: "1:1",
+      aspect,
       loading: true,
       prompt: "", // Hide prompt for edited images
       model: `Edit (${mode})`,
@@ -976,23 +976,22 @@ export default function ImagePage() {
   }, [])
 
   // Replace loading placeholder or add edited image to the canvas grid — stable reference via useCallback
-  const handleAddEditedImage = useCallback((imageUrl: string, historyId: string, mode: string, prompt: string) => {
+  const handleAddEditedImage = useCallback((imageUrl: string, historyId: string, mode: string, prompt: string, aspect: Aspect) => {
     const loadingId = `editing-${historyId}`
 
     // Check if there's a loading placeholder to replace
     setImages(prev => {
       const loadingIndex = prev.findIndex(img => img.id === loadingId)
       if (loadingIndex !== -1) {
-        // Replace loading placeholder
+        // Replace loading placeholder — preserve aspect from the placeholder (set at generation start)
         const updated = [...prev]
         updated[loadingIndex] = {
-          id: loadingId,
+          ...prev[loadingIndex]!,
           url: imageUrl,
-          aspect: "1:1",
+          aspect: prev[loadingIndex]!.aspect !== '1:1' ? prev[loadingIndex]!.aspect : aspect,
           loading: false,
-          prompt: "", // Hide prompt for edited images
+          prompt: "",
           model: `Edit (${mode})`,
-          hasRefs: false,
         }
         console.log('✅ Replaced loading placeholder with actual image', historyId)
         return updated
@@ -1003,9 +1002,9 @@ export default function ImagePage() {
         return [...prev, {
           id: newId,
           url: imageUrl,
-          aspect: "1:1",
+          aspect,
           loading: false,
-          prompt: "", // Hide prompt for edited images
+          prompt: "",
           model: `Edit (${mode})`,
           hasRefs: false,
         }]
