@@ -72,6 +72,8 @@ async function processVideoTask(
       .update({
         status: 'failed',
         updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        error_message: `Unknown provider: ${providerName}`,
         settings: { ...settings, _failureReason: `Unknown provider: ${providerName}` },
       })
       .eq('id', task.id)
@@ -87,6 +89,8 @@ async function processVideoTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Task timed out before provider accepted it',
           settings: { ...settings, _failureReason: 'Task timed out before provider accepted it' },
         })
         .eq('id', task.id)
@@ -103,6 +107,8 @@ async function processVideoTask(
       .update({
         status: 'failed',
         updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        error_message: 'Task exceeded maximum processing time',
         settings: { ...settings, _failureReason: 'Task exceeded maximum processing time' },
       })
       .eq('id', task.id)
@@ -140,6 +146,8 @@ async function processVideoTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Video generation completed but returned no output URL',
           settings: { ...settings, _failureReason: 'Video generation completed but returned no output URL' },
         })
         .eq('id', task.id)
@@ -174,6 +182,8 @@ async function processVideoTask(
           output_urls: outputs,
           generation_time_ms: generationTimeMs,
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          credits_used: creditsToDeduct,
         })
         .eq('id', task.id)
         .eq('status', 'processing')
@@ -203,6 +213,8 @@ async function processVideoTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Video generation failed on provider',
           settings: { ...settings, _failureReason: 'Video generation failed on provider' },
         })
         .eq('id', task.id)
@@ -241,6 +253,8 @@ async function processPendingTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Task timed out — generation did not complete in time',
           settings: { ...settings, _failureReason: 'Task timed out — generation did not complete in time' },
         })
         .eq('id', task.id)
@@ -281,6 +295,8 @@ async function processPendingTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Task timed out before starting',
           settings: { ...settings, _failureReason: 'Task timed out before starting' }
         })
         .eq('id', task.id)
@@ -322,7 +338,9 @@ async function processPendingTask(
           status: 'completed',
           output_urls: outputsWithBunny,
           generation_time_ms: generationTimeMs,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          credits_used: creditsToDeduct
         })
         .eq('id', task.id)
         .eq('status', 'processing')
@@ -353,6 +371,8 @@ async function processPendingTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: check.error || 'Task failed on RunningHub',
           settings: { ...settings, _failureReason: check.error || 'Task failed on RunningHub' }
         })
         .eq('id', task.id)
@@ -381,6 +401,8 @@ async function processPendingTask(
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Task exceeded maximum processing time',
           settings: { ...settings, _failureReason: 'Task exceeded maximum processing time' }
         })
         .eq('id', task.id)

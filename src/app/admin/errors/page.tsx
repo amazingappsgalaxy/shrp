@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { getAdminHeaders } from '@/lib/admin-client-auth'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
@@ -143,9 +143,8 @@ export default function ErrorsPage() {
                     </tr>
                   ))
                 : (data?.error_log ?? []).map((err) => (
-                    <>
+                    <Fragment key={err.id}>
                       <tr
-                        key={err.id}
                         className="hover:bg-white/[0.03] cursor-pointer"
                         onClick={() => setExpandedError(expandedError === err.id ? null : err.id)}
                       >
@@ -160,7 +159,7 @@ export default function ErrorsPage() {
                         </td>
                       </tr>
                       {expandedError === err.id && (
-                        <tr key={`${err.id}-exp`}>
+                        <tr>
                           <td colSpan={5} className="px-4 pb-4">
                             <pre className="bg-red-500/10 border border-red-500/20 text-red-300 text-xs rounded-lg p-3 whitespace-pre-wrap font-mono">
                               {err.error_message}
@@ -168,7 +167,7 @@ export default function ErrorsPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
               {!loading && (data?.error_log ?? []).length === 0 && (
                 <tr>

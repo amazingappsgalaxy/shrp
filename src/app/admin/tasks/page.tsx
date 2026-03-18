@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { Fragment, useEffect, useState, useCallback } from 'react'
 import { getAdminHeaders } from '@/lib/admin-client-auth'
 
 interface Task {
@@ -142,9 +142,8 @@ export default function TasksPage() {
                     </tr>
                   ))
                 : (data?.tasks ?? []).map((task) => (
-                    <>
+                    <Fragment key={task.id}>
                       <tr
-                        key={task.id}
                         className="hover:bg-white/[0.03] cursor-pointer"
                         onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
                       >
@@ -158,7 +157,7 @@ export default function TasksPage() {
                         </td>
                       </tr>
                       {expandedTask === task.id && (
-                        <tr key={`${task.id}-exp`}>
+                        <tr>
                           <td colSpan={6} className="px-4 pb-4">
                             {task.error_message ? (
                               <pre className="bg-red-500/10 border border-red-500/20 text-red-300 text-xs rounded-lg p-3 whitespace-pre-wrap font-mono">
@@ -170,7 +169,7 @@ export default function TasksPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
               {!loading && (data?.tasks ?? []).length === 0 && (
                 <tr>

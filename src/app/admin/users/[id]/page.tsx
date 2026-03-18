@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getAdminHeaders } from '@/lib/admin-client-auth'
 
@@ -84,7 +84,20 @@ export default function UserDetailPage() {
     fetch(`/api/admin/users/${userId}`, { headers: getAdminHeaders() })
       .then((r) => r.json())
       .then((d) => {
-        setUser(d.user || d)
+        const base = d.user || d
+        setUser({
+          ...base,
+          plan: base.plan || d.subscription?.plan_name || 'free',
+          credits_subscription: d.credits?.subscription ?? 0,
+          credits_permanent: d.credits?.permanent ?? 0,
+          credits_total: d.credits?.total ?? 0,
+          subscription: d.subscription || null,
+          credit_transactions: d.credit_history || [],
+          tasks: (d.tasks || []).map((t: Record<string, unknown>) => ({
+            ...t,
+            model: t.model_name || t.model || 'unknown',
+          })),
+        })
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -339,9 +352,8 @@ export default function UserDetailPage() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {(user?.tasks ?? []).map((task) => (
-                      <>
+                      <Fragment key={task.id}>
                         <tr
-                          key={task.id}
                           className="hover:bg-white/[0.03] cursor-pointer"
                           onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
                         >
@@ -354,7 +366,7 @@ export default function UserDetailPage() {
                           </td>
                         </tr>
                         {expandedTask === task.id && task.error_message && (
-                          <tr key={`${task.id}-err`}>
+                          <tr>
                             <td colSpan={5} className="px-4 pb-3">
                               <pre className="bg-red-500/10 border border-red-500/20 text-red-300 text-xs rounded-lg p-3 whitespace-pre-wrap font-mono">
                                 {task.error_message}
@@ -362,7 +374,7 @@ export default function UserDetailPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                     {(user?.tasks ?? []).length === 0 && (
                       <tr>

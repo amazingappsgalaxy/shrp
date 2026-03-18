@@ -100,6 +100,8 @@ export async function GET(request: NextRequest) {
             .update({
               status: 'failed',
               updated_at: new Date().toISOString(),
+              completed_at: new Date().toISOString(),
+              error_message: 'RunningHub returned no output URL',
               settings: { ...settings, _failureReason: 'RunningHub returned no output URL' },
             })
             .eq('id', taskId)
@@ -130,6 +132,8 @@ export async function GET(request: NextRequest) {
             output_urls: finalOutputs,
             generation_time_ms: generationTimeMs,
             updated_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            credits_used: creditsToDeduct,
           })
           .eq('id', taskId)
           .eq('status', 'processing')
@@ -156,6 +160,8 @@ export async function GET(request: NextRequest) {
           .update({
             status: 'failed',
             updated_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            error_message: check.error || 'RunningHub task failed',
             settings: { ...settings, _failureReason: check.error || 'RunningHub task failed' },
           })
           .eq('id', taskId)
@@ -195,6 +201,8 @@ export async function GET(request: NextRequest) {
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Video generation completed but returned no output URL',
           settings: { ...settings, _failureReason: 'Video generation completed but returned no output URL' },
         })
         .eq('id', taskId)
@@ -230,6 +238,8 @@ export async function GET(request: NextRequest) {
           output_urls: finalOutputs,
           generation_time_ms: generationTimeMs,
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          credits_used: creditsToDeduct,
         })
         .eq('id', taskId)
         .eq('status', 'processing')
@@ -259,6 +269,8 @@ export async function GET(request: NextRequest) {
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: 'Video generation failed on provider',
           settings: { ...settings, _failureReason: 'Video generation failed on provider' },
         })
         .eq('id', taskId)

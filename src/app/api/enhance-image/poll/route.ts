@@ -129,7 +129,9 @@ export async function GET(request: NextRequest) {
           status: 'completed',
           output_urls: outputs,
           generation_time_ms: generationTimeMs,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          credits_used: creditsToDeduct
         })
         .eq('id', taskId)
         .eq('status', 'processing')
@@ -155,6 +157,8 @@ export async function GET(request: NextRequest) {
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: check.error || 'Task failed on RunningHub',
           settings: { ...settings, _failureReason: check.error || 'Task failed on RunningHub' }
         })
         .eq('id', taskId)

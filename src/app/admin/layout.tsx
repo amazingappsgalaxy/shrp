@@ -19,20 +19,17 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [email, setEmail] = useState('')
-  // Synchronous auth check — sessionStorage is available immediately on the client
-  const [isAuth] = useState<boolean | null>(() => {
-    if (typeof window === 'undefined') return null
-    return isAdminAuthenticated()
-  })
+  const [isAuth, setIsAuth] = useState(false)
 
   useEffect(() => {
     if (pathname === '/admin/login') return
-    if (isAuth === false) {
+    if (!isAdminAuthenticated()) {
       window.location.href = '/admin/login'
-    } else if (isAuth === true) {
+    } else {
+      setIsAuth(true)
       setEmail(getAdminEmail())
     }
-  }, [isAuth, pathname])
+  }, [pathname])
 
   const handleLogout = () => {
     adminLogout()
@@ -44,7 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <>{children}</>
   }
 
-  // SSR or not authenticated — render nothing (redirect handled in useEffect)
+  // Not yet confirmed authenticated — render nothing
   if (!isAuth) {
     return null
   }

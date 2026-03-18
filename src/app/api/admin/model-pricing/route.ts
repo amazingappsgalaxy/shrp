@@ -6,10 +6,24 @@ import {
   SettingPriceIncrement
 } from '@/lib/model-pricing-config'
 
+function checkAdminAuth(request: NextRequest): boolean {
+  const adminEmail = request.headers.get('x-admin-email')
+  return !!(adminEmail && adminEmail.toLowerCase() === (process.env.ADMIN_EMAIL || '').toLowerCase())
+}
+
 export async function GET(request: NextRequest) {
+  if (!checkAdminAuth(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
-    const models = ModelPricingEngine.getAvailableModels()
-    return NextResponse.json({ models })
+    const allConfigs = ModelPricingEngine.getAvailableModels()
+    const modelIds = allConfigs.map((c) => c.modelId)
+    const configs: Record<string, ModelPricingConfiguration> = {}
+    for (const c of allConfigs) {
+      configs[c.modelId] = c
+    }
+    return NextResponse.json({ models: modelIds, configs })
   } catch (error) {
     console.error('Error fetching model pricing configurations:', error)
     return NextResponse.json(

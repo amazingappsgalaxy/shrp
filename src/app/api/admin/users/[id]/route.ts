@@ -36,7 +36,7 @@ export async function GET(
     // Fetch latest active subscription
     const { data: subscriptions } = await supabase
       .from('subscriptions')
-      .select('plan_name, status, current_period_end, cancelled_at')
+      .select('plan_name, status, current_period_start, current_period_end, next_billing_date, cancelled_at')
       .eq('user_id', id)
       .order('current_period_end', { ascending: false })
       .limit(1)
@@ -92,12 +92,15 @@ export async function GET(
         created_at: user.created_at,
         subscription_status: user.subscription_status,
         last_login_at: user.last_login_at,
+        plan: subscription?.plan_name || 'free',
       },
       subscription: subscription
         ? {
             plan_name: subscription.plan_name,
             status: subscription.status,
+            current_period_start: subscription.current_period_start,
             current_period_end: subscription.current_period_end,
+            next_billing_date: subscription.next_billing_date,
             cancelled_at: subscription.cancelled_at,
           }
         : null,

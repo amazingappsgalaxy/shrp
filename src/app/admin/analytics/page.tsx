@@ -10,10 +10,10 @@ import {
 const PIE_COLORS = ['#FFFF00', '#22d3ee', '#a78bfa', '#f472b6', '#fb923c', '#4ade80']
 
 interface AnalyticsData {
-  daily_tasks: Array<{ date: string; count: number }>
+  daily_tasks: Array<{ date: string; count: number; failed: number }>
   model_usage: Array<{ model: string; count: number }>
-  tool_breakdown: Array<{ name: string; value: number }>
-  user_growth: Array<{ date: string; users: number }>
+  tool_breakdown: Array<{ tool: string; count: number }>
+  user_growth: Array<{ date: string; total: number; new: number }>
 }
 
 type Period = '7d' | '30d' | '90d'
@@ -139,7 +139,8 @@ export default function AnalyticsPage() {
                     innerRadius={55}
                     outerRadius={85}
                     paddingAngle={3}
-                    dataKey="value"
+                    dataKey="count"
+                    nameKey="tool"
                   >
                     {(data?.tool_breakdown ?? []).map((_, index) => (
                       <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
@@ -152,15 +153,15 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
               <div className="flex-1 space-y-2">
                 {(data?.tool_breakdown ?? []).map((item, i) => (
-                  <div key={item.name} className="flex items-center justify-between gap-2">
+                  <div key={item.tool} className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
                       />
-                      <span className="text-white/60 text-xs truncate">{item.name}</span>
+                      <span className="text-white/60 text-xs truncate">{item.tool}</span>
                     </div>
-                    <span className="text-white text-xs font-semibold shrink-0">{item.value.toLocaleString()}</span>
+                    <span className="text-white text-xs font-semibold shrink-0">{item.count.toLocaleString()}</span>
                   </div>
                 ))}
                 {(data?.tool_breakdown ?? []).length === 0 && (
@@ -186,7 +187,7 @@ export default function AnalyticsPage() {
               />
               <YAxis tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="users" name="Users" stroke="#22d3ee" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="total" name="Users" stroke="#22d3ee" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         )}

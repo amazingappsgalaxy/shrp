@@ -8,6 +8,7 @@ interface UserSuggestion {
   email: string
   name: string
   credits_total: number
+  credit_balance: number
 }
 
 interface RecentOperation {
@@ -166,7 +167,7 @@ export default function CreditsPage() {
                   >
                     <div className="text-white text-sm">{user.email}</div>
                     <div className="text-white/40 text-xs mt-0.5">
-                      {user.name || 'No name'} · {(user.credits_total ?? 0).toLocaleString()} credits
+                      {user.name || 'No name'} · {(user.credit_balance ?? user.credits_total ?? 0).toLocaleString()} credits
                     </div>
                   </button>
                 ))}
@@ -176,7 +177,7 @@ export default function CreditsPage() {
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span className="w-2 h-2 rounded-full bg-green-400" />
                 <span className="text-green-400">Selected: {selectedUser.email}</span>
-                <span className="text-white/30">· {(selectedUser.credits_total ?? 0).toLocaleString()} credits currently</span>
+                <span className="text-white/30">· {(selectedUser.credit_balance ?? selectedUser.credits_total ?? 0).toLocaleString()} credits currently</span>
               </div>
             )}
           </div>

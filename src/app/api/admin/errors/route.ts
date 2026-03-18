@@ -17,10 +17,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayIso = today.toISOString()
+
     // Fetch failed tasks (up to 200 most recent)
     const { data: failedTasks, error } = await supabase
       .from('history_items')
-      .select('id, user_id, model_name, page_name, error_message, created_at, completed_at, credits_used')
+      .select('id, user_id, model_name, error_message, created_at')
       .eq('status', 'failed')
       .order('created_at', { ascending: false })
       .limit(200)
@@ -28,9 +32,12 @@ export async function GET(request: NextRequest) {
     if (error) throw error
 
     const taskList = failedTasks || []
-    const userIds = [...new Set(taskList.map((t) => t.user_id))]
+
+    // failed today count
+    const failedToday = taskList.filter((t) => t.created_at >= todayIso).length
 
     // Fetch user emails
+    const userIds = [...new Set(taskList.map((t) => t.user_id))]
     const emailByUser: Record<string, string> = {}
     if (userIds.length > 0) {
       const { data: users } = await supabase
@@ -42,63 +49,65 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const errors = taskList.map((t) => ({
+    // Error log (what page calls error_log)
+    const errorLog = taskList.map((t) => ({
       id: t.id,
-      user_id: t.user_id,
-      user_email: emailByUser[t.user_id] || null,
-      model_name: t.model_name,
-      page_name: t.page_name,
-      error_message: t.error_message,
-      credits_used: t.credits_used,
+      user_email: emailByUser[t.user_id] || t.user_id,
+      model: t.model_name || 'unknown',
+      error_message: t.error_message || '',
       created_at: t.created_at,
-      completed_at: t.completed_at,
     }))
 
-    // Compute by_model aggregate
+    // error_rate_by_model
     const modelFailCounts: Record<string, number> = {}
     for (const t of taskList) {
       const m = t.model_name || 'unknown'
       modelFailCounts[m] = (modelFailCounts[m] || 0) + 1
     }
-    const byModel = Object.entries(modelFailCounts)
+    const errorRateByModel = Object.entries(modelFailCounts)
       .map(([model, count]) => ({ model, count }))
       .sort((a, b) => b.count - a.count)
 
-    // Compute common error messages (top 10 snippets, truncated to 100 chars)
+    const mostProblematicModel = errorRateByModel[0]?.model || '—'
+
+    // common_errors (key: snippet)
     const messageCounts: Record<string, number> = {}
     for (const t of taskList) {
       if (!t.error_message) continue
       const snippet = (t.error_message as string).slice(0, 100).trim()
       messageCounts[snippet] = (messageCounts[snippet] || 0) + 1
     }
-    const commonMessages = Object.entries(messageCounts)
-      .map(([message, count]) => ({ message, count }))
+    const commonErrors = Object.entries(messageCounts)
+      .map(([snippet, count]) => ({ snippet, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
 
-    // Overall error rate: compare failed vs total for these tasks' date range
+    // Overall error rate
     let errorRate = 0
     if (taskList.length > 0) {
       const oldest = taskList[taskList.length - 1]?.created_at as string | undefined
-      if (!oldest) return
-      const { count: totalInRange } = await supabase
-        .from('history_items')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', oldest)
+      if (oldest) {
+        const { count: totalInRange } = await supabase
+          .from('history_items')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', oldest)
 
-      if (totalInRange && totalInRange > 0) {
-        errorRate = Math.round((taskList.length / totalInRange) * 1000) / 10
+        if (totalInRange && totalInRange > 0) {
+          errorRate = Math.round((taskList.length / totalInRange) * 1000) / 10
+        }
       }
     }
 
     return NextResponse.json({
-      errors,
-      aggregates: {
-        by_model: byModel,
-        common_messages: commonMessages,
-        error_rate: errorRate,
+      kpis: {
         total_failed: taskList.length,
+        failed_today: failedToday,
+        error_rate: errorRate,
+        most_problematic_model: mostProblematicModel,
       },
+      error_rate_by_model: errorRateByModel,
+      common_errors: commonErrors,
+      error_log: errorLog,
     })
   } catch (error) {
     console.error('Admin errors route error:', error)
