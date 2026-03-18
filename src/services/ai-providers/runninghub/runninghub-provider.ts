@@ -896,7 +896,7 @@ export class RunningHubProvider extends BaseAIProvider {
     }
   }
 
-  private async createTask(imageUrl: string, settings: RunningHubSettings): Promise<{
+  private async createTask(imageUrl: string, settings: RunningHubSettings, instanceType: 'standard' | 'plus' = 'standard', videoUrl?: string): Promise<{
     success: boolean
     taskId?: string
     error?: string
@@ -906,7 +906,7 @@ export class RunningHubProvider extends BaseAIProvider {
       if (!imageUrl || !imageUrl.trim()) {
         const workflowId = (settings as any).workflowId
         const nodeInfoList = (settings as any).nodeInfoListOverride || []
-        const requestPayload: any = { apiKey: this.apiKey, workflowId, nodeInfoList }
+        const requestPayload: any = { apiKey: this.apiKey, workflowId, nodeInfoList, instanceType }
         console.log(`🔍 RunningHub: Text-to-image task payload for workflow ${workflowId}`)
         const response = await fetch(`${this.baseUrl}/task/openapi/create`, {
           method: 'POST',
@@ -1043,6 +1043,28 @@ export class RunningHubProvider extends BaseAIProvider {
         console.log('RunningHub: Image is not base64, using as is:', imageUrl.substring(0, 50) + '...')
       }
 
+      // Upload video to RunningHub if provided (VHS_LoadVideo requires a local file, not a remote URL)
+      let processedVideoUrl = videoUrl?.trim() ?? ''
+      if (processedVideoUrl && /^https?:\/\//i.test(processedVideoUrl)) {
+        console.log('RunningHub: Downloading video for upload to RunningHub...')
+        try {
+          const response = await fetchWithRetry(processedVideoUrl, 3)
+          if (!response.ok) throw new Error(`Video download failed with status ${response.status}`)
+          const arrayBuffer = await response.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+          const headerType = response.headers.get('content-type') || 'video/mp4'
+          const urlBase = processedVideoUrl.split('?')[0] || ''
+          const urlExtension = urlBase.includes('.') ? (urlBase.split('.').pop() || '') : ''
+          const headerExtension = headerType.split('/')[1]
+          const extension = headerExtension || urlExtension || 'mp4'
+          processedVideoUrl = await uploadToRunningHub(buffer, headerType, extension)
+          console.log('RunningHub: Uploaded video to RunningHub key:', processedVideoUrl)
+        } catch (videoError) {
+          console.error('RunningHub: Failed to upload video:', videoError)
+          return { success: false, error: 'Failed to upload video to RunningHub: ' + (videoError instanceof Error ? videoError.message : String(videoError)) }
+        }
+      }
+
       // Generate random seed if not provided
       const seed = settings.seed ? parseInt(String(settings.seed)) : Math.floor(Math.random() * 1000000000000000)
 
@@ -1152,9 +1174,20 @@ export class RunningHubProvider extends BaseAIProvider {
         })
       }
 
+      // Replace video field values with the RunningHub-uploaded key (VHS_LoadVideo requires local file)
+      if (processedVideoUrl) {
+        finalNodeInfoList = finalNodeInfoList.map((node: any) => {
+          if (node.fieldName === 'video') {
+            return { ...node, fieldValue: processedVideoUrl }
+          }
+          return node
+        })
+      }
+
       const requestPayload: any = {
         apiKey: this.apiKey,
-        nodeInfoList: finalNodeInfoList
+        nodeInfoList: finalNodeInfoList,
+        instanceType,
       }
 
       if (settings.workflowJson) {
@@ -1721,7 +1754,7 @@ export class RunningHubProvider extends BaseAIProvider {
           { nodeId: MIRAI_ACTION_NODES.NEG_PROMPT,  fieldName: 'value', fieldValue: negPrompt },
         ]
 
-        const taskResponse = await this.createTask(imageUrl, { workflowId, nodeInfoListOverride } as any)
+        const taskResponse = await this.createTask(imageUrl, { workflowId, nodeInfoListOverride } as any, 'plus', videoUrl)
         if (!taskResponse.success) return { success: false, error: taskResponse.error }
         return {
           success: true,
@@ -1765,7 +1798,7 @@ export class RunningHubProvider extends BaseAIProvider {
           { nodeId: MIRAI_PORTRAIT_NODES.NEG_PROMPT,  fieldName: 'value', fieldValue: negPrompt },
         ]
 
-        const taskResponse = await this.createTask(imageUrl, { workflowId, nodeInfoListOverride } as any)
+        const taskResponse = await this.createTask(imageUrl, { workflowId, nodeInfoListOverride } as any, 'plus', videoUrl)
         if (!taskResponse.success) return { success: false, error: taskResponse.error }
         return {
           success: true,
@@ -1792,7 +1825,7 @@ export class RunningHubProvider extends BaseAIProvider {
           { nodeId: MIRAI_INHUMAN_NODES.LOAD_IMAGE, fieldName: 'image', fieldValue: imageUrl },
         ]
 
-        const taskResponse = await this.createTask(imageUrl, { workflowId: MIRAI_INHUMAN_WORKFLOW, nodeInfoListOverride } as any)
+        const taskResponse = await this.createTask(imageUrl, { workflowId: MIRAI_INHUMAN_WORKFLOW, nodeInfoListOverride } as any, 'plus', videoUrl)
         if (!taskResponse.success) return { success: false, error: taskResponse.error }
         return {
           success: true,

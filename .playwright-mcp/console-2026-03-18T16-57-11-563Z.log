@@ -1,0 +1,10 @@
+[    1654ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://internal-api-lark-api.feishu.cn/im/gateway/:0
+[    1814ms] [ERROR] The script resource is behind a redirect, which is disallowed. @ :0
+[    1956ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://internal-api-lark-api.feishu.cn/im/gateway/:0
+[    2237ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://internal-api-lark-api.feishu.cn/im/gateway/:0
+[    2534ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://internal-api-lark-api.feishu.cn/im/gateway/:0
+[   12214ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://internal-api-security.feishu.cn/lark/scs/compliance/ping:0
+[   21828ms] [ERROR] The script resource is behind a redirect, which is disallowed. @ :0
+[   21828ms] [ERROR] The script resource is behind a redirect, which is disallowed. @ :0
+[   21828ms] [ERROR] The script resource is behind a redirect, which is disallowed. @ :0
+[   42676ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://internal-api-security.feishu.cn/lark/scs/compliance/ping:0
