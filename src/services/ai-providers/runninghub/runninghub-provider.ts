@@ -1693,6 +1693,114 @@ export class RunningHubProvider extends BaseAIProvider {
         return { success: true, runningHubTaskId: taskResponse.taskId, expectedNodeIds: [String(SOUL2_NODES.SAVE_IMAGE)] }
       }
 
+      // ── Mirai Motion - Replicate: Action ───────────────────────────────────
+      if (modelId === 'mirai-motion-action') {
+        const {
+          MIRAI_ACTION_WORKFLOW_NO_MASK,
+          MIRAI_ACTION_WORKFLOW_WITH_MASK,
+          MIRAI_ACTION_NODES,
+        } = await import('../../../models/mirai-motion-action/config')
+        const settings = request.settings as Record<string, unknown>
+        const videoUrl     = (settings.video_url as string)       || ''
+        const imageUrl     = request.imageUrl                      || ''
+        const prompt       = (settings.prompt as string)           || ''
+        const negPrompt    = (settings.negative_prompt as string)  || ''
+        const smartRecreate = Boolean(settings.smart_recreate)
+
+        if (!videoUrl) return { success: false, error: 'mirai-motion-action: video_url is required' }
+        if (!imageUrl) return { success: false, error: 'mirai-motion-action: image URL is required' }
+
+        const workflowId = smartRecreate
+          ? MIRAI_ACTION_WORKFLOW_WITH_MASK
+          : MIRAI_ACTION_WORKFLOW_NO_MASK
+
+        const nodeInfoListOverride = [
+          { nodeId: MIRAI_ACTION_NODES.LOAD_VIDEO,  fieldName: 'video', fieldValue: videoUrl },
+          { nodeId: MIRAI_ACTION_NODES.LOAD_IMAGE,  fieldName: 'image', fieldValue: imageUrl },
+          { nodeId: MIRAI_ACTION_NODES.PROMPT,      fieldName: 'value', fieldValue: prompt },
+          { nodeId: MIRAI_ACTION_NODES.NEG_PROMPT,  fieldName: 'value', fieldValue: negPrompt },
+        ]
+
+        const taskResponse = await this.createTask(imageUrl, { workflowId, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return {
+          success: true,
+          runningHubTaskId: taskResponse.taskId,
+          expectedNodeIds: [MIRAI_ACTION_NODES.SAVE_VIDEO],
+        }
+      }
+
+      // ── Mirai Motion - Replicate: Portrait ─────────────────────────────────
+      if (modelId === 'mirai-motion-portrait') {
+        const {
+          MIRAI_PORTRAIT_WORKFLOW_NO_MASK,
+          MIRAI_PORTRAIT_WORKFLOW_TOTAL_MASK,
+          MIRAI_PORTRAIT_WORKFLOW_PERSON_MASK,
+          MIRAI_PORTRAIT_NODES,
+        } = await import('../../../models/mirai-motion-portrait/config')
+        const settings = request.settings as Record<string, unknown>
+        const videoUrl      = (settings.video_url as string)           || ''
+        const imageUrl      = request.imageUrl                          || ''
+        const prompt        = (settings.prompt as string)               || ''
+        const negPrompt     = (settings.negative_prompt as string)      || ''
+        const smartRecreate = Boolean(settings.smart_recreate)
+        const portraitMode  = (settings.portrait_mode as string)        || 'replace'
+
+        if (!videoUrl) return { success: false, error: 'mirai-motion-portrait: video_url is required' }
+        if (!imageUrl) return { success: false, error: 'mirai-motion-portrait: image URL is required' }
+
+        let workflowId: string
+        if (!smartRecreate) {
+          workflowId = MIRAI_PORTRAIT_WORKFLOW_NO_MASK
+        } else if (portraitMode === 'smart-replace') {
+          workflowId = MIRAI_PORTRAIT_WORKFLOW_PERSON_MASK
+        } else {
+          workflowId = MIRAI_PORTRAIT_WORKFLOW_TOTAL_MASK
+        }
+
+        const nodeInfoListOverride = [
+          { nodeId: MIRAI_PORTRAIT_NODES.LOAD_VIDEO,  fieldName: 'video', fieldValue: videoUrl },
+          { nodeId: MIRAI_PORTRAIT_NODES.LOAD_IMAGE,  fieldName: 'image', fieldValue: imageUrl },
+          { nodeId: MIRAI_PORTRAIT_NODES.PROMPT,      fieldName: 'value', fieldValue: prompt },
+          { nodeId: MIRAI_PORTRAIT_NODES.NEG_PROMPT,  fieldName: 'value', fieldValue: negPrompt },
+        ]
+
+        const taskResponse = await this.createTask(imageUrl, { workflowId, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return {
+          success: true,
+          runningHubTaskId: taskResponse.taskId,
+          expectedNodeIds: [MIRAI_PORTRAIT_NODES.SAVE_VIDEO],
+        }
+      }
+
+      // ── Mirai Motion - Replicate: Inhuman ──────────────────────────────────
+      if (modelId === 'mirai-motion-inhuman') {
+        const {
+          MIRAI_INHUMAN_WORKFLOW,
+          MIRAI_INHUMAN_NODES,
+        } = await import('../../../models/mirai-motion-inhuman/config')
+        const settings = request.settings as Record<string, unknown>
+        const videoUrl = (settings.video_url as string) || ''
+        const imageUrl = request.imageUrl                || ''
+
+        if (!videoUrl) return { success: false, error: 'mirai-motion-inhuman: video_url is required' }
+        if (!imageUrl) return { success: false, error: 'mirai-motion-inhuman: image URL is required' }
+
+        const nodeInfoListOverride = [
+          { nodeId: MIRAI_INHUMAN_NODES.LOAD_VIDEO, fieldName: 'video', fieldValue: videoUrl },
+          { nodeId: MIRAI_INHUMAN_NODES.LOAD_IMAGE, fieldName: 'image', fieldValue: imageUrl },
+        ]
+
+        const taskResponse = await this.createTask(imageUrl, { workflowId: MIRAI_INHUMAN_WORKFLOW, nodeInfoListOverride } as any)
+        if (!taskResponse.success) return { success: false, error: taskResponse.error }
+        return {
+          success: true,
+          runningHubTaskId: taskResponse.taskId,
+          expectedNodeIds: [MIRAI_INHUMAN_NODES.SAVE_VIDEO],
+        }
+      }
+
       return { success: false, error: `Unknown model: ${modelId}` }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }

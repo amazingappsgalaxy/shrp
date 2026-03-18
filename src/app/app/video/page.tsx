@@ -13,7 +13,7 @@ import { PillRangeSlider } from "@/components/ui/pill-range-slider"
 import { getVideoModels } from "@/services/models"
 import type { ModelConfig } from "@/services/models"
 import {
-  IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo,
+  IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo, IconPhoto,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
   IconPlayerPlay, IconVolume, IconVolumeOff, IconDownload,
   IconPlus, IconClock, IconX, IconArrowUp,
@@ -45,7 +45,14 @@ const GENERATE_MODELS = ALL_VIDEO_MODELS.filter(
   m => !['kling-effects', 'kling-video-motion-control', 'kling-o3-video-edit', 'kling-o3-reference-to-video'].includes(m.id)
 )
 const EDIT_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-o3-video-edit')
-const MOTION_MODELS = ALL_VIDEO_MODELS.filter(m => m.id === 'kling-o3-reference-to-video')
+const MOTION_MODELS = ALL_VIDEO_MODELS.filter(m =>
+  m.id === 'kling-o3-reference-to-video' || m.variantGroupId === 'mirai-motion-replicate'
+)
+
+const MOTION_MODEL_GROUPS: { label: string; models: ModelConfig[] }[] = [
+  { label: 'Kling', models: MOTION_MODELS.filter(m => m.id === 'kling-o3-reference-to-video') },
+  { label: 'Mirai Motion', models: dedupeVariants(MOTION_MODELS.filter(m => m.variantGroupId === 'mirai-motion-replicate')) },
+].filter(g => g.models.length > 0)
 
 // Deduplicate by variantGroupId — only show the default variant as the group representative
 function dedupeVariants(models: ModelConfig[]): ModelConfig[] {
@@ -63,6 +70,7 @@ const MODEL_GROUPS: { label: string; models: ModelConfig[] }[] = [
   { label: 'Google Veo', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('veo'))) },
   { label: 'OpenAI Sora', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('sora'))) },
   { label: 'ByteDance', models: dedupeVariants(GENERATE_MODELS.filter(m => m.id.startsWith('doubao'))) },
+  { label: 'Mirai Motion', models: dedupeVariants(ALL_VIDEO_MODELS.filter(m => m.variantGroupId === 'mirai-motion-replicate')) },
 ].filter(g => g.models.length > 0)
 
 const ASPECT_LABELS: Record<string, string> = {
@@ -578,7 +586,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
           <>
             <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity">
-              <IconCamera className="w-5 h-5 text-white" />
+              <IconUpload className="w-5 h-5 text-white" />
               <span className="text-xs text-white font-medium">Replace</span>
             </div>
             {/* Delete button inside the box */}
@@ -591,7 +599,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <IconCamera className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
+            <IconPhoto className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
             {hint && <p className="text-[9px] text-white/45">{hint}</p>}
           </div>
         )}
@@ -918,6 +926,19 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ─── Video duration helper ─────────────────────────────────────────────────────
+
+function getVideoDuration(file: File): Promise<number> {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file)
+    const vid = document.createElement('video')
+    vid.preload = 'metadata'
+    vid.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(vid.duration) }
+    vid.onerror = () => { URL.revokeObjectURL(url); resolve(0) }
+    vid.src = url
+  })
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 function VideoPageContent() {
@@ -928,7 +949,15 @@ function VideoPageContent() {
   const [activeTab, setActiveTab] = useState<VideoTab>('generate')
   const [generateModel, setGenerateModel] = useState(GENERATE_MODELS[0]?.id ?? '')
   const editModel = EDIT_MODELS[0]?.id ?? 'kling-effects'
-  const motionModel = MOTION_MODELS[0]?.id ?? 'kling-video-motion-control'
+  const [motionModel, setMotionModel] = useState(MOTION_MODELS[0]?.id ?? 'kling-o3-reference-to-video')
+  const [miraiSubModel, setMiraiSubModel] = useState<'Action' | 'Portrait' | 'Inhuman'>('Action')
+  const [miraiImagePreview, setMiraiImagePreview] = useState<string | null>(null)
+  const [miraiImageCdnUrl, setMiraiImageCdnUrl] = useState<string | null>(null)
+  const [miraiImageUploading, setMiraiImageUploading] = useState(false)
+  const [smartRecreate, setSmartRecreate] = useState(false)
+  const [portraitMode, setPortraitMode] = useState<'replace' | 'smart-replace'>('replace')
+  const [miraiNegPrompt, setMiraiNegPrompt] = useState('')
+  const [showMiraiAdvanced, setShowMiraiAdvanced] = useState(false)
 
   // Generate settings
   const [genAspect, setGenAspect] = useState('16:9')
@@ -970,8 +999,16 @@ function VideoPageContent() {
     return variant?.id ?? generateModel
   }, [generateModel, veoVariant])
 
+  // Resolve motion model — for Mirai Motion group, pick by miraiSubModel
+  const resolvedMotionModelId = useMemo(() => {
+    const base = ALL_VIDEO_MODELS.find(m => m.id === motionModel)
+    if (!base?.variantGroupId) return motionModel
+    const variant = ALL_VIDEO_MODELS.find(m => m.variantGroupId === base.variantGroupId && m.variantTier === miraiSubModel)
+    return variant?.id ?? motionModel
+  }, [motionModel, miraiSubModel])
+
   const selectedModelId = activeTab === 'generate' ? resolvedGenerateModelId
-    : activeTab === 'edit' ? editModel : motionModel
+    : activeTab === 'edit' ? editModel : resolvedMotionModelId
   const selectedModel = ALL_VIDEO_MODELS.find(m => m.id === selectedModelId)
 
   // Edit settings
@@ -1284,7 +1321,11 @@ function VideoPageContent() {
     }
     if (activeTab === 'motion') {
       if (!motionSourceCdnUrl) { showToast('Please upload a reference video.'); return }
-      // Style reference image is optional for kling-o3-reference-to-video
+      // Mirai Motion requires a character image
+      if (selectedModelId.startsWith('mirai-motion') && !miraiImageCdnUrl) {
+        showToast('Please upload a character image.')
+        return
+      }
     }
     // Sora requires an input image (images[] is a required API field)
     if (activeTab === 'generate' && imageRequired && !firstFrameCdnUrl) {
@@ -1294,6 +1335,11 @@ function VideoPageContent() {
 
     setIsSubmitting(true)
     const localId = `vtask-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+    // Mirai Motion: show a brief demand notice
+    if (isMiraiModel) {
+      setTimeout(() => showToast('Mirai Motion models are currently in high demand. Please expect a slightly longer wait.', 'info', 4500), 300)
+    }
 
     setVideos(prev => [{ id: localId, url: null, aspect: currentAspect, loading: true, prompt: prompt.trim(), model: selectedModel?.label }, ...prev])
     setActiveTasks(prev => {
@@ -1367,25 +1413,38 @@ function VideoPageContent() {
         }
       } else if (activeTab === 'motion') {
         body.video_url = motionSourceCdnUrl
-        body.keep_original_sound = keepOriginalSound
-        const motionImgUrls = motionRefImages.map(i => i.cdnUrl).filter((u): u is string => !!u)
-        if (motionImgUrls.length) body.image_urls = motionImgUrls
-        if (isKlingO3RefToVideo) {
-          body.quality = videoQuality
-          // Clamp to model's 3–10s range (genDuration may be set from generate tab)
-          body.duration = Math.max(3, Math.min(10, genDuration))
-          body.aspect_ratio = genAspect
-          if (selectedModel?.controls?.multiShot && multiShot) {
-            body.multi_shot = true
-            body.shot_type = 'customize'
-            // Always send multi_prompt — shot_type is always 'customize' for this model
-            body.multi_prompt = shotPrompts.map((p, i) => ({
-              index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
-            }))
+        if (isMiraiModel) {
+          // Mirai Motion: character image + optional prompt/negative prompt
+          if (miraiImageCdnUrl) body.image_url = miraiImageCdnUrl
+          if (isMiraiInhuman) {
+            body.prompt = '' // Inhuman has no prompt node
+          } else {
+            if (smartRecreate) body.smart_recreate = true
+            if (isMiraiPortrait && smartRecreate) body.portrait_mode = portraitMode
+            if (miraiNegPrompt.trim()) body.negative_prompt = miraiNegPrompt.trim()
+            // body.prompt already set from body initializer
           }
-          if (selectedModel?.controls?.elementList) {
-            const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
-            if (activeElements.length > 0) body.element_list = activeElements
+        } else {
+          // Kling O3 Reference-to-Video
+          body.keep_original_sound = keepOriginalSound
+          const motionImgUrls = motionRefImages.map(i => i.cdnUrl).filter((u): u is string => !!u)
+          if (motionImgUrls.length) body.image_urls = motionImgUrls
+          if (isKlingO3RefToVideo) {
+            body.quality = videoQuality
+            // Clamp to model's 3–10s range (genDuration may be set from generate tab)
+            body.duration = Math.max(3, Math.min(10, genDuration))
+            body.aspect_ratio = genAspect
+            if (selectedModel?.controls?.multiShot && multiShot) {
+              body.multi_shot = true
+              body.shot_type = 'customize'
+              body.multi_prompt = shotPrompts.map((p, i) => ({
+                index: i + 1, prompt: p.trim(), duration: shotDurations[i] ?? 5,
+              }))
+            }
+            if (selectedModel?.controls?.elementList) {
+              const activeElements = elementIds.filter(id => id.trim() !== '').map(id => parseInt(id)).filter(n => !isNaN(n) && n > 0)
+              if (activeElements.length > 0) body.element_list = activeElements
+            }
           }
         }
       }
@@ -1415,6 +1474,7 @@ function VideoPageContent() {
     || (activeTab === 'generate' && !prompt.trim())
     || (activeTab === 'edit' && (!editVideoCdnUrl || editVideoUploading))
     || (activeTab === 'motion' && (!motionSourceCdnUrl || motionSourceUploading))
+    || (activeTab === 'motion' && resolvedMotionModelId.startsWith('mirai-motion') && (!miraiImageCdnUrl || miraiImageUploading))
 
   if (isLoading) return <ElegantLoading message="Initializing Video Studio…" />
   if (!user && !isDemo) {
@@ -1447,9 +1507,17 @@ function VideoPageContent() {
   const veoVariants = isVeoVariantGroup
     ? ALL_VIDEO_MODELS.filter(m => m.variantGroupId === baseGenerateModel!.variantGroupId)
     : []
+  // Mirai Motion derived booleans
+  const isMiraiModel = resolvedMotionModelId.startsWith('mirai-motion') && activeTab === 'motion'
+  const isMiraiPortrait = resolvedMotionModelId === 'mirai-motion-portrait'
+  const isMiraiInhuman = resolvedMotionModelId === 'mirai-motion-inhuman'
+  const isMiraiMotionGroup = ALL_VIDEO_MODELS.find(m => m.id === motionModel)?.variantGroupId === 'mirai-motion-replicate'
+  const miraiVariants = isMiraiMotionGroup
+    ? ALL_VIDEO_MODELS.filter(m => m.variantGroupId === 'mirai-motion-replicate')
+    : []
 
   const TABS: { id: VideoTab; label: string; Icon: React.ElementType }[] = [
-    { id: 'generate', label: 'Generate', Icon: IconSparkles },
+    { id: 'generate', label: 'Create', Icon: IconSparkles },
     { id: 'edit', label: 'Edit', Icon: IconWand },
     { id: 'motion', label: 'Motion', Icon: IconTransfer },
   ]
@@ -1486,7 +1554,19 @@ function VideoPageContent() {
               {/* Model + optional Veo variant: one unified section */}
               <div className="px-5 pt-5 pb-5 border-b border-white/[0.05]">
                 <SectionLabel>Model</SectionLabel>
-                <ModelPicker groups={MODEL_GROUPS} selected={generateModel} onSelect={setGenerateModel} />
+                <ModelPicker
+                  groups={MODEL_GROUPS}
+                  selected={generateModel}
+                  onSelect={(id) => {
+                    const m = ALL_VIDEO_MODELS.find(v => v.id === id)
+                    if (m?.variantGroupId === 'mirai-motion-replicate') {
+                      setMotionModel(id)
+                      setActiveTab('motion')
+                    } else {
+                      setGenerateModel(id)
+                    }
+                  }}
+                />
                 {isVeoVariantGroup && veoVariants.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
                     {veoVariants.map(v => (
@@ -1989,151 +2069,263 @@ function VideoPageContent() {
           {/* ── MOTION TAB ──────────────────────────────────────────────────── */}
           {activeTab === 'motion' && (
             <>
-              <div className="px-5 py-5 border-b border-white/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <IconTransfer className="w-4 h-4 text-teal-400" />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">Reference to Video</span>
-                  <span className={cn("text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto", TAG_COLORS['Motion'])}>Kling O3</span>
-                </div>
-                <p className="text-[10px] text-white/55 leading-relaxed mt-1">
-                  Generate new videos guided by a reference video's style and motion.
-                </p>
+              {/* Motion model picker */}
+              <div className="px-5 pt-5 pb-5 border-b border-white/[0.05]">
+                <SectionLabel>Model</SectionLabel>
+                <ModelPicker groups={MOTION_MODEL_GROUPS} selected={motionModel} onSelect={setMotionModel} />
+                {/* Mirai sub-model selector */}
+                {isMiraiMotionGroup && miraiVariants.length > 0 && (
+                  <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${miraiVariants.length}, 1fr)`, gap: '6px' }}>
+                    {miraiVariants.map(v => (
+                      <button
+                        key={v.variantTier}
+                        title={v.description}
+                        onClick={() => setMiraiSubModel(v.variantTier as 'Action' | 'Portrait' | 'Inhuman')}
+                        className={cn(
+                          "w-full py-2.5 text-[11px] font-black rounded-lg transition-colors tracking-wide",
+                          miraiSubModel === v.variantTier
+                            ? "bg-white/[0.09] text-[#FFFF00] border border-[#FFFF00]/20"
+                            : "bg-white/[0.04] text-white/55 border border-transparent hover:text-white hover:bg-white/[0.07]"
+                        )}
+                      >
+                        {v.variantTier}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
+              {/* Reference Video upload */}
               <div className="px-5 py-5 border-b border-white/5">
                 <VideoUploadBox
                   label="Reference Video"
-                  hint="MP4 / MOV · ≥3s · Required"
+                  hint={isMiraiModel ? "MP4 / MOV · Max 10s · Required" : "MP4 / MOV · ≥3s · Required"}
                   preview={motionSourcePreview}
                   uploading={motionSourceUploading}
-                  onFile={(f) => uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)}
+                  onFile={async (f) => {
+                    if (isMiraiMotionGroup) {
+                      const dur = await getVideoDuration(f)
+                      if (dur > 10) {
+                        showToast('Video must be 10 seconds or shorter for Mirai Motion. Please trim your clip and try again.', 'error')
+                        return
+                      }
+                    }
+                    uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)
+                  }}
                   onClear={() => { setMotionSourcePreview(null); setMotionSourceCdnUrl(null) }}
                 />
               </div>
 
-              <div className="px-5 py-4 border-b border-white/5">
-                <MultiImageUpload
-                  images={motionRefImages}
-                  uploading={motionRefUploading}
-                  onAdd={f => addRefImage(f, setMotionRefImages, setMotionRefUploading)}
-                  onRemove={i => setMotionRefImages(prev => prev.filter((_, idx) => idx !== i))}
-                />
-              </div>
-
-              {/* Motion settings: Aspect + Duration + Quality + Keep Sound */}
-              <div className="px-5 py-4 border-b border-white/[0.05] space-y-4">
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div>
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
-                    <AspectDropdown ratios={['16:9', '9:16', '1:1']} selected={genAspect} onSelect={setGenAspect} compact={true} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Quality</span>
-                    <CompactDropdown value={videoQuality} options={['720p', '1080p']} onChange={v => setVideoQuality(v as '720p' | '1080p')} />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Keep Audio</span>
-                    <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
-                      <IconVolume className="w-3.5 h-3.5 text-white/55" />
-                      <Toggle checked={keepOriginalSound} onChange={setKeepOriginalSound} />
-                    </div>
-                  </div>
+              {/* Mirai Motion: Character Image upload */}
+              {isMiraiModel && (
+                <div className="px-5 py-4 border-b border-white/5">
+                  <ImageUploadBox
+                    label="Character Image"
+                    hint="Subject / character to apply motion to"
+                    preview={miraiImagePreview}
+                    uploading={miraiImageUploading}
+                    onFile={(f) => uploadImage(f, setMiraiImagePreview, setMiraiImageCdnUrl, setMiraiImageUploading)}
+                    onClear={() => { setMiraiImagePreview(null); setMiraiImageCdnUrl(null) }}
+                  />
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider block">Duration</span>
-                    <span className="text-[9px] text-white/35 font-mono block mt-0.5">Min 3s – Max 10s</span>
-                  </div>
-                  <div className="shrink-0" style={{ width: 160 }}>
-                    <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={16} fillFromZero />
-                  </div>
-                  <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{Math.min(genDuration, 10)}s</span>
-                </div>
-              </div>
+              )}
 
-              {/* Multi-Shot for Kling O3 Reference-to-Video */}
-              {selectedModel?.controls?.multiShot && (
+              {/* Mirai Action/Portrait: Smart Recreate + Portrait mode */}
+              {isMiraiModel && !isMiraiInhuman && (
                 <div className="px-5 py-4 border-b border-white/[0.05]">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-black text-white">Multi-Shot</span>
-                      <p className="text-[10px] text-white/50 mt-0.5">Control each scene independently</p>
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Smart Recreate</span>
+                      <p className="text-[10px] text-white/50 mt-0.5">Automatically replace the background</p>
                     </div>
-                    <Toggle checked={multiShot} onChange={setMultiShot} />
+                    <Toggle checked={smartRecreate} onChange={setSmartRecreate} />
                   </div>
-                  {multiShot && (
-                    <div className="space-y-2.5">
-                      <div className="space-y-2">
-                        {shotPrompts.map((sp, i) => {
-                          const shotDur = shotDurations[i] ?? 5
-                          return (
-                            <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
-                              <div className="flex items-center justify-between px-3 pt-2 pb-0">
-                                <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
-                                {shotPrompts.length > 1 && (
-                                  <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
-                                    <IconTrash className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                              <textarea
-                                value={sp}
-                                onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
-                                placeholder={`Scene ${i + 1}…`}
-                                rows={2}
-                                className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/40 outline-none resize-none leading-relaxed"
-                              />
-                              <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
-                                <IconClock className="w-3 h-3 text-white/45 shrink-0" />
-                                <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Duration</span>
-                                <Slider min={3} max={10} step={1} value={shotDur}
-                                  onChange={v => setShotDurations(prev => { const n = [...prev]; n[i] = v; return n })}
-                                  pillHeight={13} autoWidth />
-                                <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0">{shotDur}s</span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                        {shotPrompts.length < 6 && (
-                          <button
-                            onClick={addShot}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
-                          >
-                            <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
-                              <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
-                            </div>
-                            <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
-                          </button>
-                        )}
-                      </div>
-                      {selectedModel?.controls?.elementList && (
-                        <div className="pt-1">
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
-                            <span className="text-[9px] text-white/50 italic">(optional)</span>
-                          </div>
-                          <div className="flex gap-1.5">
-                            {[0, 1, 2].map(idx => (
-                              <input key={idx} type="number" min={1}
-                                value={elementIds[idx] ?? ''}
-                                onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
-                                placeholder={`ID ${idx + 1}`}
-                                className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
-                              />
-                            ))}
-                          </div>
-                          <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
-                        </div>
-                      )}
+                  {/* Portrait: sub-mode selector when Smart Recreate is ON */}
+                  {isMiraiPortrait && smartRecreate && (
+                    <div className="mt-3 flex gap-1.5">
+                      {(['replace', 'smart-replace'] as const).map(mode => (
+                        <button
+                          key={mode}
+                          onClick={() => setPortraitMode(mode)}
+                          className={cn(
+                            "flex-1 py-2 text-[11px] font-black rounded-md transition-colors",
+                            portraitMode === mode
+                              ? "bg-white/[0.09] text-[#FFFF00]"
+                              : "bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.07]"
+                          )}
+                        >
+                          {mode === 'replace' ? 'Replace Character' : 'Smart Replace'}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
+
+              {/* Mirai Action/Portrait: Prompt + Negative Prompt */}
+              {isMiraiModel && !isMiraiInhuman && (
+                <div className="px-5 py-4 border-b border-white/[0.05]">
+                  <SectionLabel>
+                    Prompt
+                    <span className="normal-case font-normal text-white/40 text-[9px] ml-1">(optional)</span>
+                  </SectionLabel>
+                  <textarea
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    placeholder="Describe the character style or motion you want…"
+                    rows={3}
+                    className="w-full bg-[#111111] border border-[#1e1e1e] rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none leading-relaxed"
+                  />
+                  <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                    <button
+                      onClick={() => setShowMiraiAdvanced(p => !p)}
+                      className="flex items-center gap-2 text-[10px] font-black text-white/55 uppercase tracking-wider hover:text-white/80 transition-colors w-full"
+                    >
+                      <IconMinus className="w-3.5 h-3.5" />
+                      <span>Negative Prompt</span>
+                      <IconChevronDown className={cn("w-3 h-3 ml-auto transition-transform", showMiraiAdvanced && "rotate-180")} />
+                    </button>
+                    {showMiraiAdvanced && (
+                      <textarea
+                        value={miraiNegPrompt}
+                        onChange={e => setMiraiNegPrompt(e.target.value)}
+                        placeholder="Describe what to avoid…"
+                        rows={2}
+                        className="mt-3 w-full bg-[#0d0d0d] border border-[#1e1e1e] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-white/40 outline-none focus:border-[#2e2e2e] transition-colors resize-none"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Kling: Reference images + Settings + Multi-Shot */}
+              {!isMiraiModel && (
+                <>
+                  <div className="px-5 py-4 border-b border-white/5">
+                    <MultiImageUpload
+                      images={motionRefImages}
+                      uploading={motionRefUploading}
+                      onAdd={f => addRefImage(f, setMotionRefImages, setMotionRefUploading)}
+                      onRemove={i => setMotionRefImages(prev => prev.filter((_, idx) => idx !== i))}
+                    />
+                  </div>
+
+                  {/* Motion settings: Aspect + Duration + Quality + Keep Sound */}
+                  <div className="px-5 py-4 border-b border-white/[0.05] space-y-4">
+                    <div className="grid grid-cols-3 gap-2.5">
+                      <div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Aspect</span>
+                        <AspectDropdown ratios={['16:9', '9:16', '1:1']} selected={genAspect} onSelect={setGenAspect} compact={true} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Quality</span>
+                        <CompactDropdown value={videoQuality} options={['720p', '1080p']} onChange={v => setVideoQuality(v as '720p' | '1080p')} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider block mb-2">Keep Audio</span>
+                        <div className="flex items-center justify-between px-2.5 py-2 bg-[#111111] border border-[#1e1e1e] rounded-lg">
+                          <IconVolume className="w-3.5 h-3.5 text-white/55" />
+                          <Toggle checked={keepOriginalSound} onChange={setKeepOriginalSound} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider block">Duration</span>
+                        <span className="text-[9px] text-white/35 font-mono block mt-0.5">Min 3s – Max 10s</span>
+                      </div>
+                      <div className="shrink-0" style={{ width: 160 }}>
+                        <Slider min={3} max={10} step={1} value={Math.min(genDuration, 10)} onChange={setGenDuration} segments={16} fillFromZero />
+                      </div>
+                      <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0 w-6 text-right">{Math.min(genDuration, 10)}s</span>
+                    </div>
+                  </div>
+
+                  {/* Multi-Shot for Kling O3 Reference-to-Video */}
+                  {selectedModel?.controls?.multiShot && (
+                    <div className="px-5 py-4 border-b border-white/[0.05]">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <span className="text-xs font-black text-white">Multi-Shot</span>
+                          <p className="text-[10px] text-white/50 mt-0.5">Control each scene independently</p>
+                        </div>
+                        <Toggle checked={multiShot} onChange={setMultiShot} />
+                      </div>
+                      {multiShot && (
+                        <div className="space-y-2.5">
+                          <div className="space-y-2">
+                            {shotPrompts.map((sp, i) => {
+                              const shotDur = shotDurations[i] ?? 5
+                              return (
+                                <div key={i} className="rounded-lg bg-[#0e0e0e] border border-white/[0.1] overflow-hidden">
+                                  <div className="flex items-center justify-between px-3 pt-2 pb-0">
+                                    <span className="text-[9px] font-black text-white/55 uppercase tracking-wider">Shot {i + 1}</span>
+                                    {shotPrompts.length > 1 && (
+                                      <button onClick={() => removeShot(i)} className="p-0.5 text-white/40 hover:text-red-400 transition-colors">
+                                        <IconTrash className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <textarea
+                                    value={sp}
+                                    onChange={e => setShotPrompts(prev => { const n = [...prev]; n[i] = e.target.value; return n })}
+                                    placeholder={`Scene ${i + 1}…`}
+                                    rows={2}
+                                    className="w-full bg-transparent px-3 pb-2.5 pt-1.5 text-[12px] text-white placeholder:text-white/40 outline-none resize-none leading-relaxed"
+                                  />
+                                  <div className="px-3 py-2 border-t border-white/[0.07] flex items-center gap-2">
+                                    <IconClock className="w-3 h-3 text-white/45 shrink-0" />
+                                    <span className="text-[9px] font-black text-white/50 uppercase tracking-wider shrink-0">Duration</span>
+                                    <Slider min={3} max={10} step={1} value={shotDur}
+                                      onChange={v => setShotDurations(prev => { const n = [...prev]; n[i] = v; return n })}
+                                      pillHeight={13} autoWidth />
+                                    <span className="font-mono text-[10px] font-bold text-[#FFFF00] shrink-0">{shotDur}s</span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            {shotPrompts.length < 6 && (
+                              <button
+                                onClick={addShot}
+                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] hover:border-white/[0.16] transition-colors group"
+                              >
+                                <div className="w-4 h-4 rounded-full bg-white/[0.12] group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                                  <IconPlus className="w-2.5 h-2.5 text-white/70 group-hover:text-white transition-colors" />
+                                </div>
+                                <span className="text-[11px] font-black text-white/65 group-hover:text-white/90 uppercase tracking-wider transition-colors">Add Shot</span>
+                              </button>
+                            )}
+                          </div>
+                          {selectedModel?.controls?.elementList && (
+                            <div className="pt-1">
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <span className="text-[10px] font-black text-white uppercase tracking-wider">Subject Elements</span>
+                                <span className="text-[9px] text-white/50 italic">(optional)</span>
+                              </div>
+                              <div className="flex gap-1.5">
+                                {[0, 1, 2].map(idx => (
+                                  <input key={idx} type="number" min={1}
+                                    value={elementIds[idx] ?? ''}
+                                    onChange={e => setElementIds(prev => { const n = [...prev]; n[idx] = e.target.value; return n })}
+                                    placeholder={`ID ${idx + 1}`}
+                                    className="flex-1 bg-[#0d0d0d] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none text-center"
+                                  />
+                                ))}
+                              </div>
+                              <p className="text-[9px] text-white/50 mt-1">Reference in prompt as {`<<<element_1>>>`}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
 
-          {/* ── PROMPT (edit / motion only — generate tab has prompt at top) ─── */}
-          {activeTab !== 'generate' && (
+          {/* ── PROMPT (edit tab + Kling motion — Mirai motion has its own prompt block above) ─── */}
+          {activeTab !== 'generate' && !(activeTab === 'motion' && isMiraiModel) && (
             <div className="px-5 py-5 flex-1">
               <SectionLabel>
                 {activeTab === 'edit' ? 'Edit Instructions' : 'Guidance Prompt'}
@@ -2177,11 +2369,7 @@ function VideoPageContent() {
                     {activeTab === 'generate' ? <IconSparkles className="w-5 h-5" />
                       : activeTab === 'edit' ? <IconWand className="w-5 h-5" />
                       : <IconTransfer className="w-5 h-5" />}
-                    <span>
-                      {activeTab === 'generate' ? 'Generate Video'
-                        : activeTab === 'edit' ? 'Apply Effect'
-                        : 'Transfer Motion'}
-                    </span>
+                    <span>Generate Video</span>
                   </>
                 )}
               </button>
@@ -2218,8 +2406,8 @@ function VideoPageContent() {
                   {activeTab === 'generate'
                     ? 'Choose a model, write a prompt, and click Generate Video.'
                     : activeTab === 'edit'
-                    ? 'Upload a video, describe the effect you want, then click Apply Effect.'
-                    : 'Upload a motion source and target subject, then click Transfer Motion.'}
+                    ? 'Upload a video, describe the effect you want, then click Generate Video.'
+                    : 'Upload a motion source and target subject, then click Generate Video.'}
                 </p>
               </div>
             </div>
@@ -2242,12 +2430,12 @@ function VideoPageContent() {
 
       {/* Toast */}
       {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-[10003] pointer-events-none">
+        <div className="fixed bottom-6 right-6 z-[10003] pointer-events-none max-w-sm">
           <div className={cn(
             "px-5 py-3 rounded-xl text-sm font-medium shadow-2xl border backdrop-blur-xl",
             toastMsg.type === 'error'
               ? "bg-[#1a0505] border-red-900/40 text-red-300"
-              : "bg-[#111] border-[#222] text-white"
+              : "bg-[#0c1014] border-teal-900/40 text-teal-200/90"
           )}>
             {toastMsg.msg}
           </div>

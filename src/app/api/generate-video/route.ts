@@ -11,6 +11,9 @@ import type { SynvowGenerateRequest } from '@/services/ai-providers/synvow'
 import { getEvolinkProvider } from '@/services/ai-providers/evolink'
 import type { EvolinkVideoRequest } from '@/services/ai-providers/evolink'
 import { uploadFromUrl, getInputPath, extFromUrl } from '@/lib/bunny'
+import { RunningHubProvider } from '@/services/ai-providers/runninghub/runninghub-provider'
+import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
+import { ProviderType } from '@/services/ai-providers/common/types'
 
 /**
  * POST /api/generate-video
@@ -97,6 +100,12 @@ export async function POST(request: NextRequest) {
     image_urls?: string[]
     /** Sora 2 Pro: high-definition output */
     hd?: boolean
+    /** Mirai Motion: single subject/character image URL */
+    image_url?: string
+    /** Mirai Motion: enable Smart Recreate (selects alternative workflow) */
+    smart_recreate?: boolean
+    /** Mirai Motion Portrait: Smart Recreate sub-mode ('replace' | 'smart-replace') */
+    portrait_mode?: 'replace' | 'smart-replace'
   }
   try {
     body = await request.json()
@@ -235,9 +244,79 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Ensure single image URL is on CDN (Mirai Motion image input)
+  let imageUrl = body.image_url
+  try {
+    if (imageUrl) imageUrl = await ensureOnCdn(imageUrl, userId)
+  } catch (err) {
+    console.error('❌ generate-video: CDN upload failed for image_url:', err)
+    return NextResponse.json({ error: 'Failed to upload character image. Please try again.' }, { status: 500 })
+  }
+
+  // Store Mirai Motion-specific params in settings
+  const miraiSettings: Record<string, unknown> = {}
+  if (body.smart_recreate !== undefined) miraiSettings.smart_recreate = body.smart_recreate
+  if (body.portrait_mode)                miraiSettings.portrait_mode  = body.portrait_mode
+  if (imageUrl)                          miraiSettings.image_url       = imageUrl
+
+  // Merge into baseSettings
+  const fullSettings = { ...baseSettings, ...miraiSettings }
+
   // ── Submit to provider ────────────────────────────────────────────────────
   try {
     let providerTaskId: string
+
+    if (primaryProvider === 'runninghub') {
+      // ── RunningHub async flow (Mirai Motion models) ──────────────────────
+      AIProviderFactory.clearCache()
+      const rhProvider = AIProviderFactory.getProvider(ProviderType.RUNNINGHUB) as RunningHubProvider
+
+      const enhancementRequest = {
+        imageUrl: imageUrl ?? '',          // character image
+        settings: {
+          ...fullSettings,
+          video_url: videoUrl ?? '',       // motion source video
+          prompt: normalizedPrompt,
+          negative_prompt: negative_prompt ?? '',
+          smart_recreate: body.smart_recreate ?? false,
+          portrait_mode: body.portrait_mode ?? 'replace',
+        },
+        userId,
+        imageId: taskId,
+      }
+
+      const rhResult = await rhProvider.startTaskForModel(enhancementRequest, modelId)
+      if (!rhResult.success) throw new Error(rhResult.error || 'RunningHub task failed to start')
+
+      // Store RunningHub-specific IDs so the poll endpoint can check status
+      const { error: updateError } = await supabase
+        .from('history_items')
+        .update({
+          settings: {
+            ...fullSettings,
+            _runningHubTaskId: rhResult.runningHubTaskId,
+            _expectedNodeIds: rhResult.expectedNodeIds ?? [],
+            _creditsToDeduct: creditCost,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', taskId)
+
+      if (updateError) {
+        console.error(`🚨 generate-video (RH): failed to store _runningHubTaskId for task=${taskId}:`, updateError)
+        await supabase
+          .from('history_items')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+            settings: { ...fullSettings, _failureReason: 'Failed to store RunningHub task ID — please retry' },
+          })
+          .eq('id', taskId)
+        return NextResponse.json({ error: 'Failed to store task state — please retry' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, taskId, status: 'processing' })
+    }
 
     if (primaryProvider === 'evolink') {
       const provider = getEvolinkProvider()
@@ -320,7 +399,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('history_items')
       .update({
-        settings: { ...baseSettings, _providerTaskId: providerTaskId },
+        settings: { ...fullSettings, _providerTaskId: providerTaskId },
         updated_at: new Date().toISOString(),
       })
       .eq('id', taskId)
@@ -334,7 +413,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'failed',
           updated_at: new Date().toISOString(),
-          settings: { ...baseSettings, _failureReason: 'Failed to store provider task ID — please retry' },
+          settings: { ...fullSettings, _failureReason: 'Failed to store provider task ID — please retry' },
         })
         .eq('id', taskId)
       return NextResponse.json({ error: 'Failed to store task state — please retry' }, { status: 500 })
@@ -353,7 +432,7 @@ export async function POST(request: NextRequest) {
       .update({
         status: 'failed',
         updated_at: new Date().toISOString(),
-        settings: { ...baseSettings, _failureReason: errMsg },
+        settings: { ...fullSettings, _failureReason: errMsg },
       })
       .eq('id', taskId)
 

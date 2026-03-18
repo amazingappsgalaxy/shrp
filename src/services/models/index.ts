@@ -41,6 +41,22 @@ export interface ModelControls {
   hd?: boolean
   /** Whether the first-frame image is required (not just optional) */
   requiresImage?: boolean
+  /**
+   * Whether the model requires a motion-source video upload (RunningHub motion-transfer models).
+   * When true the Motion tab shows a mandatory video upload field.
+   */
+  requiresVideo?: boolean
+  /**
+   * Whether the model supports a Smart Recreate toggle that selects an alternative workflow path.
+   * Applies to Mirai Motion Action and Portrait sub-models.
+   */
+  smartRecreate?: boolean
+  /**
+   * Whether the Smart Recreate mode exposes additional portrait-specific sub-modes
+   * (Replace Character vs Smart Replace Character).
+   * Only applies to Mirai Motion Portrait.
+   */
+  portraitSmartRecreateModes?: boolean
 }
 
 export interface ModelConfig {
@@ -489,6 +505,66 @@ const VIDEO_MODELS: ModelConfig[] = [
       keepOriginalSound: true,
     },
     providers: ['evolink'],
+  },
+  // ── Mirai Motion - Replicate (RunningHub) ─────────────────────────────────
+  //
+  // Three sub-models grouped under variantGroupId 'mirai-motion-replicate'.
+  // Each maps to a distinct RunningHub ComfyUI workflow (and Smart Recreate
+  // selects an alternative workflow path within the same sub-model).
+  //
+  // Future API access: each sub-model has its own unique model ID so external
+  // callers can target Action / Portrait / Inhuman independently.
+  {
+    id: 'mirai-motion-action',
+    label: 'Mirai Motion - Replicate',
+    type: 'video',
+    description: 'Transfer motion from a reference video to any character. Smart Recreate replaces the background automatically.',
+    credits: 350,
+    costUsd: 0.35,
+    tag: 'Motion',
+    variantGroupId: 'mirai-motion-replicate',
+    variantTier: 'Action',
+    variantDefault: true,
+    controls: {
+      requiresVideo: true,
+      requiresImage: true,
+      smartRecreate: true,
+    },
+    providers: ['runninghub'],
+  },
+  {
+    id: 'mirai-motion-portrait',
+    label: 'Mirai Motion - Replicate',
+    type: 'video',
+    description: 'Portrait-optimised motion transfer with Replace Character and Smart Replace modes.',
+    credits: 350,
+    costUsd: 0.35,
+    tag: 'Motion',
+    variantGroupId: 'mirai-motion-replicate',
+    variantTier: 'Portrait',
+    controls: {
+      requiresVideo: true,
+      requiresImage: true,
+      smartRecreate: true,
+      portraitSmartRecreateModes: true,
+    },
+    providers: ['runninghub'],
+  },
+  {
+    id: 'mirai-motion-inhuman',
+    label: 'Mirai Motion - Replicate',
+    type: 'video',
+    description: 'Motion transfer for non-human / creature subjects. No prompt required.',
+    credits: 350,
+    costUsd: 0.35,
+    tag: 'Motion',
+    variantGroupId: 'mirai-motion-replicate',
+    variantTier: 'Inhuman',
+    controls: {
+      requiresVideo: true,
+      requiresImage: true,
+    },
+    providers: ['runninghub'],
   },
   // ── Legacy models (kept for backwards compatibility) ───────────────────────
   {

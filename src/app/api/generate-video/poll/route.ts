@@ -6,6 +6,9 @@ import { getSession } from '@/lib/auth-simple'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
 import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import { getEvolinkProvider } from '@/services/ai-providers/evolink'
+import { RunningHubProvider } from '@/services/ai-providers/runninghub/runninghub-provider'
+import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
+import { ProviderType } from '@/services/ai-providers/common/types'
 import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
 
@@ -75,6 +78,94 @@ export async function GET(request: NextRequest) {
   try {
     let pollStatus: 'SUCCESS' | 'IN_PROGRESS' | 'FAILURE' | 'ERROR'
     let outputUrl: string | null = null
+
+    if (providerName === 'runninghub') {
+      // ── RunningHub async poll (Mirai Motion models) ──────────────────────
+      const runningHubTaskId = settings._runningHubTaskId as string | undefined
+      const expectedNodeIds  = settings._expectedNodeIds  as string[] | undefined
+
+      if (!runningHubTaskId) return NextResponse.json({ status: 'running' })
+
+      AIProviderFactory.clearCache()
+      const rhProvider = AIProviderFactory.getProvider(ProviderType.RUNNINGHUB) as RunningHubProvider
+      const check = await rhProvider.checkTaskOnce(runningHubTaskId, expectedNodeIds)
+
+      if (check.status === 'success') {
+        // Prefer the first output URL (there should be exactly one video)
+        const rawUrl = check.outputUrls?.[0] ?? check.outputUrl ?? null
+        if (!rawUrl) {
+          console.error(`❌ video-poll (RH): no output URL for task=${taskId}`)
+          await supabase
+            .from('history_items')
+            .update({
+              status: 'failed',
+              updated_at: new Date().toISOString(),
+              settings: { ...settings, _failureReason: 'RunningHub returned no output URL' },
+            })
+            .eq('id', taskId)
+            .eq('status', 'processing')
+          return NextResponse.json({ status: 'failed', error: 'Video generation returned no output' })
+        }
+
+        const generationTimeMs = Date.now() - new Date(item.created_at).getTime()
+
+        // Upload to Bunny CDN
+        let finalUrl = rawUrl
+        try {
+          const ext  = extFromUrl(rawUrl) || 'mp4'
+          const mime = mimeFromExt(ext) || 'video/mp4'
+          const prompt = (settings.prompt as string | undefined) || undefined
+          finalUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), rawUrl, mime)
+          console.log(`✅ Bunny (video-poll RH): uploaded — ${finalUrl}`)
+        } catch (err) {
+          console.error('❌ Bunny (video-poll RH): CDN upload failed, using provider URL:', err)
+        }
+
+        const finalOutputs = [{ type: 'video' as const, url: finalUrl, original_url: rawUrl !== finalUrl ? rawUrl : undefined }]
+
+        const { data: won } = await supabase
+          .from('history_items')
+          .update({
+            status: 'completed',
+            output_urls: finalOutputs,
+            generation_time_ms: generationTimeMs,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', taskId)
+          .eq('status', 'processing')
+          .select('id')
+          .maybeSingle()
+
+        if (won && creditsToDeduct > 0) {
+          const deductResult = await UnifiedCreditsService.deductCredits(
+            userId, creditsToDeduct, taskId, 'Video generation (Mirai Motion)'
+          )
+          if (!deductResult.success) {
+            console.error(
+              `🚨 CRITICAL video-poll (RH): credit deduction FAILED user=${userId} task=${taskId} amount=${creditsToDeduct} — ${deductResult.error}`
+            )
+          }
+        }
+
+        return NextResponse.json({ status: 'success', outputs: finalOutputs })
+      }
+
+      if (check.status === 'failed') {
+        await supabase
+          .from('history_items')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+            settings: { ...settings, _failureReason: check.error || 'RunningHub task failed' },
+          })
+          .eq('id', taskId)
+          .eq('status', 'processing')
+
+        return NextResponse.json({ status: 'failed', error: check.error || 'Video generation failed' })
+      }
+
+      return NextResponse.json({ status: 'running' })
+    }
 
     if (providerName === 'evolink') {
       const provider = getEvolinkProvider()
