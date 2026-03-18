@@ -1496,11 +1496,32 @@ function VideoPageContent() {
       }
       try {
         const pollRes = await fetch(`/api/generate-video/poll?taskId=${dbTaskId}`)
+
+        // Non-OK responses (401, 500, etc.) count as errors — they must not reset
+        // consecutiveErrors, otherwise an expired auth or server error loops forever.
+        if (!pollRes.ok) {
+          consecutiveErrors++
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            stopPoll('failed', 'Lost connection. Check History for status.')
+          }
+          return
+        }
+
         const pollData = await pollRes.json()
         consecutiveErrors = 0
 
         if (pollData.status === 'success') {
-          const videoUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url ? pollData.outputs[0].url : null
+          const videoUrl = Array.isArray(pollData.outputs) && pollData.outputs[0]?.url
+            ? pollData.outputs[0].url
+            : null
+
+          // If the server said success but gave no URL, remove the tile and tell the
+          // user to check History (the video IS there, just the URL handoff failed).
+          if (!videoUrl) {
+            stopPoll('failed', 'Video ready — open History to view it.')
+            return
+          }
+
           setVideos(prev => prev.map(v => v.id === localId ? { ...v, url: videoUrl, loading: false } : v))
           setActiveTasks(prev => {
             const m = new Map(prev)
