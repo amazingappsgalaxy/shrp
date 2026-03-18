@@ -26,12 +26,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   })
 
   useEffect(() => {
+    if (pathname === '/admin/login') return
     if (isAuth === false) {
       window.location.href = '/admin/login'
     } else if (isAuth === true) {
       setEmail(getAdminEmail())
     }
-  }, [isAuth])
+  }, [isAuth, pathname])
 
   const handleLogout = () => {
     adminLogout()
