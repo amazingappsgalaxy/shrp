@@ -170,7 +170,7 @@ function ImageModal({
   onNavigate: (index: number) => void
   onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string, aspect: Aspect) => void
   onAddLoadingImage?: (historyId: string, mode: string, aspect: Aspect) => void
-  onUpscale?: (imageUrl: string) => void
+  onUpscale?: (imageUrl: string, aspect: Aspect) => void
 }) {
   const img = index !== null ? images[index] ?? null : null
 
@@ -366,7 +366,7 @@ function ImageModal({
             </button>
             {onUpscale && (
               <button
-                onClick={() => onUpscale(img.url)}
+                onClick={() => onUpscale(img.url, img.aspect)}
                 className="flex items-center justify-center gap-2 w-full h-11 bg-white/[0.09] text-white/80 text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.12] hover:text-white transition-all mb-2"
               >
                 <IconBadgeHd size={13} /> Upscale
@@ -405,7 +405,7 @@ function JustifiedGrid({
   onOpen: (img: GridImage) => void
   onVary: (img: GridImage) => void
   onEdit: (img: GridImage) => void
-  onUpscale: (img: GridImage) => void
+  onUpscale: (imageUrl: string, aspect: Aspect) => void
   selectedIds: string[]
   onToggleSelect: (img: GridImage) => void
   showSelectButton: boolean
@@ -468,7 +468,7 @@ function JustifiedGrid({
                 }}
                 style={{
                   width: row.widths[ii], height: row.height, flexShrink: 0,
-                  overflow: "hidden", borderRadius: 8, position: "relative",
+                  borderRadius: 8, position: "relative",
                   boxShadow: isSelected ? "inset 0 0 0 2.5px #FFFF00" : "none",
                   cursor: img.loading ? "default" : "pointer",
                   animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined,
@@ -477,10 +477,13 @@ function JustifiedGrid({
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => !img.loading && onOpen(img)}
               >
-                {img.loading ? <GenerationAnimation /> : (
-                  <img src={img.url} alt="" className="block w-full h-full object-cover select-none"
-                    style={{ animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined }} />
-                )}
+                {/* Inner clip wrapper — rounds image corners without clipping dropdown */}
+                <div style={{ position: "absolute", inset: 0, borderRadius: 8, overflow: "hidden" }}>
+                  {img.loading ? <GenerationAnimation /> : (
+                    <img src={img.url} alt="" className="block w-full h-full object-cover select-none"
+                      style={{ animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined }} />
+                  )}
+                </div>
 
                 {!img.loading && (
                   <>
@@ -517,7 +520,7 @@ function JustifiedGrid({
                       </button>
                       {isDropdownOpen && (
                         <div
-                          className="absolute top-full right-0 mt-1.5 rounded-xl"
+                          className="absolute top-full right-0 mt-1.5 rounded-[10px]"
                           style={{
                             background: 'rgba(18,18,20,0.96)',
                             border: '1px solid rgba(255,255,255,0.09)',
@@ -531,14 +534,14 @@ function JustifiedGrid({
                         >
                           <button
                             onClick={() => { setOpenDropdownId(null); onEdit(img) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white/60 hover:text-white hover:bg-white/[0.07] transition-colors text-left rounded-t-xl"
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white hover:bg-white/[0.07] transition-colors text-left rounded-t-[10px]"
                           >
                             <IconWand size={12} className="shrink-0" /> Edit Image
                           </button>
                           <div style={{ height: 1, margin: '0 10px', background: 'rgba(255,255,255,0.06)' }} />
                           <button
-                            onClick={() => { setOpenDropdownId(null); onUpscale(img) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white/60 hover:text-white hover:bg-white/[0.07] transition-colors text-left rounded-b-xl"
+                            onClick={() => { setOpenDropdownId(null); onUpscale(img.url, img.aspect) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white hover:bg-white/[0.07] transition-colors text-left rounded-b-[10px]"
                           >
                             <IconBadgeHd size={12} className="shrink-0" /> Upscale
                           </button>
@@ -1105,18 +1108,32 @@ export default function ImagePage() {
   // Grid-level state for editing an image directly (bypasses lightbox)
   const [gridEditImg, setGridEditImg] = useState<GridImage | null>(null)
 
-  // Send an image to Crisp Upscaler — starts async task, result appears in History
-  const handleUpscaleImage = useCallback(async (imageUrl: string) => {
+  // Send an image to Crisp Upscaler — adds a loading placeholder to the grid,
+  // then the 5s poller resolves it when the RunningHub task completes.
+  const handleUpscaleImage = useCallback(async (imageUrl: string, imageAspect: Aspect) => {
+    const ts = Date.now()
+    const placeholderId = `upscale-${ts}`
+    const placeholder: GridImage = { id: placeholderId, url: '', aspect: imageAspect, loading: true }
+    setImages(prev => [...prev, placeholder])
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+
     try {
       const res = await fetch('/api/enhance-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl, modelId: 'crisp-upscaler', settings: { pageName: 'app/image' } }),
+        body: JSON.stringify({
+          imageUrl,
+          modelId: 'crisp-upscaler',
+          settings: { pageName: 'app/image', aspect_ratio: imageAspect },
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Failed to start upscale')
-      toast.success('Upscaling started — find result in History')
+      if (!res.ok || !data.taskId) throw new Error(data?.error || 'Failed to start upscale')
+      // Link placeholder to DB taskId — the 5s poller will replace it with the result
+      setImages(prev => prev.map(img => img.id === placeholderId ? { ...img, taskId: data.taskId } : img))
+      setProcessingDbIds(prev => [...new Set([...prev, data.taskId as string])])
     } catch (err) {
+      setImages(prev => prev.filter(img => img.id !== placeholderId))
       toast.error(err instanceof Error ? err.message : 'Failed to start upscale')
     }
   }, [])
@@ -1313,7 +1330,7 @@ export default function ImagePage() {
             }}
             onVary={handleVary}
             onEdit={img => setGridEditImg(img)}
-            onUpscale={img => handleUpscaleImage(img.url)}
+            onUpscale={handleUpscaleImage}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             showSelectButton={modelSupportsRef}
