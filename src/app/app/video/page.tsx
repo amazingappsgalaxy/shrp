@@ -294,10 +294,11 @@ function CompactDropdown({ value, options, onChange }: {
 // ─── Provider logos (webp — public/images/) ────────────────────────────────────
 
 const GROUP_LOGOS: Record<string, string> = {
-  'Kling':       '/images/kling_logo.webp',
-  'Google Veo':  '/images/google_logo.webp',
-  'OpenAI Sora': '/images/openai_sora.webp',
-  'ByteDance':   '/images/bytedance_logo.webp',
+  'Kling':         '/images/kling_logo.webp',
+  'Google Veo':    '/images/google_logo.webp',
+  'OpenAI Sora':   '/images/openai_sora.webp',
+  'ByteDance':     '/images/bytedance_logo.webp',
+  'Mirai Motion':  '/images/mirai_logo.webp',
 }
 
 // ─── Model picker (premium side-panel via portal) ──────────────────────────────

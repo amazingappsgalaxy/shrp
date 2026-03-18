@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, Download, Maximize2, Sparkles, AlertCircle } from "lucide-react";
 import { generateMediaFilename, downloadMedia } from "@/lib/media-filename";
-import { IconWand, IconBadgeHd, IconCopy, IconCheck, IconVideo } from '@tabler/icons-react';
+import { IconWand, IconBadgeHd, IconCopy, IconCheck, IconVideo, IconDownload, IconX, IconChevronLeft, IconChevronRight, IconMaximize, IconSparkles, IconAlertCircle, IconTransfer } from '@tabler/icons-react';
 import { cn } from "@/lib/utils";
 import { EditModal } from '@/components/app/edit/EditModal';
 
@@ -60,7 +59,9 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
         if (isOpen) setSelectedIndex(0);
     }, [isOpen, item]);
 
-    const currentOutput = item?.outputUrls?.[selectedIndex];
+    // Clamp index to valid range — outputUrls can change after the modal opens (e.g. poll update)
+    const safeIndex = Math.max(0, Math.min(selectedIndex, (item?.outputUrls?.length ?? 1) - 1))
+    const currentOutput = item?.outputUrls?.[safeIndex];
     const isVideo = currentOutput?.type === 'video';
 
     useEffect(() => {
@@ -151,7 +152,7 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                             onClick={onClose}
                             className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-white/10 rounded-full border border-white/10 transition-colors"
                         >
-                            <X className="w-5 h-5 text-white" />
+                            <IconX className="w-5 h-5 text-white" />
                         </button>
 
                         {/* LEFT: Main Preview Area */}
@@ -168,7 +169,6 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                             loop
                                             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                                             playsInline
-                                            muted
                                         />
                                     ) : (
                                         <img
@@ -188,37 +188,39 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                             onClick={() => setSelectedIndex((prev) => (prev - 1 + item.outputUrls.length) % item.outputUrls.length)}
                                             className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-white/10 rounded-full border border-white/10 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100"
                                         >
-                                            <ChevronLeft className="w-6 h-6 text-white" />
+                                            <IconChevronLeft className="w-6 h-6 text-white" />
                                         </button>
                                         <button
                                             onClick={() => setSelectedIndex((prev) => (prev + 1) % item.outputUrls.length)}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 hover:bg-white/10 rounded-full border border-white/10 backdrop-blur-md transition-all opacity-0 group-hover:opacity-100"
                                         >
-                                            <ChevronRight className="w-6 h-6 text-white" />
+                                            <IconChevronRight className="w-6 h-6 text-white" />
                                         </button>
                                     </>
                                 )}
                             </div>
 
-                            {/* Thumbnails Dock (Bottom) */}
-                            <div className="h-24 border-t border-white/10 bg-[#09090b] flex items-center gap-3 px-6 overflow-x-auto custom-scrollbar">
-                                {item.outputUrls?.map((output, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => setSelectedIndex(idx)}
-                                        className={cn(
-                                            "relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 cursor-pointer",
-                                            selectedIndex === idx ? "border-[#FFFF00] opacity-100" : "border-transparent opacity-50 hover:opacity-80"
-                                        )}
-                                    >
-                                        {output.type === 'video' ? (
-                                            <video src={output.url} className="w-full h-full object-cover pointer-events-none" />
-                                        ) : (
-                                            <img src={output.url} alt="Thumbnail" className="w-full h-full object-cover" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* Thumbnails Dock (Bottom) — only shown when there are multiple outputs */}
+                            {item.outputUrls?.length > 1 && (
+                                <div className="h-24 border-t border-white/10 bg-[#09090b] flex items-center gap-3 px-6 overflow-x-auto custom-scrollbar">
+                                    {item.outputUrls.map((output, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setSelectedIndex(idx)}
+                                            className={cn(
+                                                "relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 cursor-pointer",
+                                                selectedIndex === idx ? "border-[#FFFF00] opacity-100" : "border-transparent opacity-50 hover:opacity-80"
+                                            )}
+                                        >
+                                            {output.type === 'video' ? (
+                                                <video src={output.url} className="w-full h-full object-cover pointer-events-none" />
+                                            ) : (
+                                                <img src={output.url} alt="Thumbnail" className="w-full h-full object-cover" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* RIGHT: Sidebar Details */}
@@ -237,37 +239,46 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                     {item.status !== 'failed' && currentOutput && currentOutput.type === 'image' && (
                                         <>
                                             <button
-                                                onClick={() => {
-                                                    setEditImageUrl(currentOutput.url);
-                                                    setIsEditModalOpen(true);
-                                                }}
-                                                className="w-full bg-white/[0.09] text-[#FFFF00] font-semibold h-10 rounded-md hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
+                                                onClick={() => { setEditImageUrl(currentOutput.url); setIsEditModalOpen(true); }}
+                                                className="w-full bg-white/[0.09] text-[#FFFF00] h-10 rounded-lg hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
                                             >
-                                                <IconWand className="w-4 h-4" /> Edit Image
+                                                <IconWand className="w-3.5 h-3.5" /> Edit Image
                                             </button>
                                             <button
                                                 onClick={() => handleAnimate(currentOutput.url, 'image')}
-                                                className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
+                                                className="w-full bg-white/[0.09] text-[#FFFF00] h-10 rounded-lg hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
                                             >
-                                                <IconVideo className="w-4 h-4" /> Animate
+                                                <IconVideo className="w-3.5 h-3.5" /> Animate
                                             </button>
                                             <button
                                                 onClick={() => handleUpscale(currentOutput.url)}
                                                 disabled={isUpscaling}
-                                                className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full bg-white/[0.09] text-[#FFFF00] h-10 rounded-lg hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                <IconBadgeHd className="w-4 h-4" />
+                                                <IconBadgeHd className="w-3.5 h-3.5" />
                                                 {isUpscaling ? 'Starting…' : 'Upscale'}
                                             </button>
                                         </>
                                     )}
                                     {item.status !== 'failed' && currentOutput && currentOutput.type === 'video' && (
-                                        <button
-                                            onClick={() => handleAnimate(currentOutput.url, 'video')}
-                                            className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
-                                        >
-                                            <IconVideo className="w-4 h-4" /> Use as Motion Input
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    try { localStorage.setItem('sharpii_animate_input', JSON.stringify({ type: 'edit-video', url: currentOutput.url, ts: Date.now() })) } catch {}
+                                                    router.push('/app/video');
+                                                    onClose();
+                                                }}
+                                                className="w-full bg-white/[0.09] text-[#FFFF00] h-10 rounded-lg hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
+                                            >
+                                                <IconWand className="w-3.5 h-3.5" /> Edit Video
+                                            </button>
+                                            <button
+                                                onClick={() => handleAnimate(currentOutput.url, 'video')}
+                                                className="w-full bg-white/[0.09] text-[#FFFF00] h-10 rounded-lg hover:bg-white/[0.15] transition-colors flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
+                                            >
+                                                <IconTransfer className="w-3.5 h-3.5" /> Use as Motion Input
+                                            </button>
+                                        </>
                                     )}
                                     {item.status !== 'failed' && currentOutput && (
                                         <button
@@ -276,9 +287,9 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                                 const ext = currentOutput.type === 'video' ? 'mp4' : (currentOutput.url.match(/\.(\w+)(?:\?|$)/)?.[1]?.toLowerCase() || 'jpg');
                                                 downloadMedia(currentOutput.url, generateMediaFilename(ext, item.settings?.prompt));
                                             }}
-                                            className="w-full bg-white text-black font-semibold h-10 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm"
+                                            className="w-full bg-[#FFFF00] text-black h-10 rounded-lg hover:bg-[#e6e600] transition-colors flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
                                         >
-                                            <Download className="w-4 h-4" /> Download
+                                            <IconDownload className="w-3.5 h-3.5" /> Download
                                         </button>
                                     )}
                                 </div>
@@ -288,7 +299,7 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                 {item.status === 'failed' && (
                                     <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
                                         <h3 className="text-xs font-semibold text-red-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                                            <AlertCircle className="w-3 h-3" /> Failed
+                                            <IconAlertCircle className="w-3 h-3" /> Failed
                                         </h3>
                                         <p className="text-xs text-red-200/80 leading-relaxed">
                                             {item.settings?.failure_reason || "Unknown error occurred during processing."}
@@ -311,7 +322,7 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                         {/* Settings Group */}
                                         <div className="space-y-3">
                                             <h3 className="text-xs font-semibold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                                                <Sparkles className="w-3 h-3" /> configuration
+                                                <IconSparkles className="w-3 h-3" /> configuration
                                             </h3>
                                             <div className="grid gap-3">
                                                 {item.settings?.prompt && (

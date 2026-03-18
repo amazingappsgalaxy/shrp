@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { HistoryListItem } from "@/app/app/history/page"; // We'll need to export this or redefine
+import { HistoryListItem } from "@/app/app/history/page";
 import { ProcessingGradient } from "./ProcessingGradient";
-import { Download, Play, MoreVertical, Trash2, Maximize2, AlertCircle } from "lucide-react";
+import { IconDownload, IconPlayerPlay, IconAlertCircle } from "@tabler/icons-react";
 import { generateMediaFilename, downloadMedia } from "@/lib/media-filename";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { motion } from "framer-motion";
 
-// Redefine locally to avoid circular dep if needed, or import if exported
 type Item = {
     id: string;
     outputUrls: Array<{ type: 'image' | 'video'; url: string }>;
@@ -22,11 +20,41 @@ interface HistoryGridProps {
     loadingItemId?: string | null;
 }
 
+/** Returns the CSS-grid column count for the given container width */
+function getColCount(width: number): number {
+    if (width >= 1280) return 5
+    if (width >= 1024) return 4
+    if (width >= 640)  return 3
+    return 2
+}
+
 export function HistoryGrid({ items, onSelect, onDelete, loadingItemId }: HistoryGridProps) {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [cols, setCols] = useState(4)
+
+    useEffect(() => {
+        const el = containerRef.current; if (!el) return
+        const ro = new ResizeObserver(entries => setCols(getColCount(entries[0]!.contentRect.width)))
+        ro.observe(el)
+        setCols(getColCount(el.getBoundingClientRect().width))
+        return () => ro.disconnect()
+    }, [])
+
+    // How many phantom cells needed to fill the last row
+    const remainder = items.length % cols
+    const phantomCount = remainder === 0 ? 0 : cols - remainder
+
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div
+            ref={containerRef}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"
+        >
             {items.map((item, idx) => (
                 <HistoryCard key={item.id} item={item} onSelect={onSelect} index={idx} isLoading={loadingItemId === item.id} />
+            ))}
+            {/* Invisible phantom cells so the last row is always full */}
+            {Array.from({ length: phantomCount }).map((_, i) => (
+                <div key={`ph-${i}`} className="aspect-[4/5] invisible" aria-hidden />
             ))}
         </div>
     );
@@ -42,7 +70,7 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
+            transition={{ duration: 0.3, delay: Math.min(index, 15) * 0.03 }}
             className={cn(
                 "group relative aspect-[4/5] rounded-xl overflow-hidden bg-white/[0.05] transition-all duration-300",
                 isProcessing ? "cursor-default" : "cursor-pointer"
@@ -73,26 +101,19 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
             ) : (
                 <div className="absolute inset-0 bg-white/[0.05] flex items-center justify-center text-white/20">
                     {isFailed ? (
-                        <AlertCircle className="w-8 h-8 text-white/[0.05]" strokeWidth={1.5} />
+                        <IconAlertCircle size={28} className="text-white/[0.12]" strokeWidth={1.5} />
                     ) : (
                         "No Preview"
                     )}
                 </div>
             )}
 
-            {/* Video Indicator */}
+            {/* Video badge */}
             {isVideo && !isProcessing && (
                 <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
-                    <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
+                    <IconPlayerPlay size={14} className="fill-white text-white ml-0.5" />
                 </div>
             )}
-
-
-
-            {/* Hover Actions (Center) */}
-
-
-
 
             {/* Loading overlay (while detail is fetching) */}
             {isLoading && (
@@ -101,7 +122,7 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
                 </div>
             )}
 
-            {/* Footer Badge (Bottom) */}
+            {/* Footer — date + download on hover */}
             {!isProcessing && (
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-8 cursor-default">
                     <span className="text-[10px] font-medium text-white/70 uppercase tracking-widest pl-1 mb-1">
@@ -117,12 +138,11 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
                                 downloadMedia(primary, generateMediaFilename(ext));
                             }}
                         >
-                            <Download className="w-4 h-4" />
+                            <IconDownload size={14} />
                         </button>
                     )}
                 </div>
             )}
-
         </motion.div>
     );
 }

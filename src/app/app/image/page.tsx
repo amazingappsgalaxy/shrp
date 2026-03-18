@@ -59,7 +59,7 @@ const MODEL_LOGO: Record<string, string> = {
   'gemini-3.1-flash-image-preview':      '/images/google_logo.webp',
   'doubao-seedream-5-0-260128':          '/images/bytedance_logo.webp',
   'doubao-seedream-4-5-251128':          '/images/bytedance_logo.webp',
-  'soul-2':                              '/images/sharpiifavicon.webp',
+  'soul-2':                              '/images/mirai_logo.webp',
 }
 
 // De-duplicated list for the model picker — show one entry per quality group
@@ -472,7 +472,7 @@ function JustifiedGrid({
         }
       `}</style>
       {rows.map((row) => (
-        <div key={row.images[0]!.id} style={{ display: "flex", gap: GAP, marginBottom: GAP, height: row.height }}>
+        <div key={row.images.map(img => img.id).join('|')} style={{ display: "flex", gap: GAP, marginBottom: GAP, height: row.height }}>
           {row.images.map((img, ii) => {
             const isSelected = selectedIds.includes(img.id)
             const isGenerated = generatedIds.has(img.id)
@@ -483,6 +483,7 @@ function JustifiedGrid({
             return (
               <div
                 key={img.id}
+                data-imgid={img.id}
                 draggable={!img.loading}
                 onDragStart={e => {
                   if (!img.loading) e.dataTransfer.setData("text/x-image-id", img.id)
@@ -680,16 +681,31 @@ function parseHistItems(items: HistoryItem[]): { images: GridImage[]; pendingIds
 
 // ─── Skeleton loading grid ─────────────────────────────────────────────────────
 function SkeletonGrid() {
-  const rows = [[1, 4/3, 9/16], [16/9, 1, 3/4]]
+  const rows = [
+    [1, 4/3, 9/16, 3/2],
+    [16/9, 3/4, 1],
+    [3/4, 16/9, 1, 4/3],
+  ]
   return (
     <div className="w-full">
+      <style>{`
+        @keyframes skeletonShimmer {
+          0%   { background-position: 200% center; }
+          100% { background-position: -200% center; }
+        }
+      `}</style>
       {rows.map((row, ri) => (
         <div key={ri} className="flex gap-[9px] mb-[9px]">
           {row.map((ratio, ii) => (
-            <div key={ii} className="rounded-lg overflow-hidden" style={{ height: 200, flex: ratio }}>
+            <div key={ii} className="rounded-xl overflow-hidden" style={{ height: 220, flex: ratio }}>
               <div
-                className="w-full h-full bg-white/[0.04] animate-pulse"
-                style={{ animationDelay: `${(ri * 3 + ii) * 80}ms` }}
+                className="w-full h-full"
+                style={{
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.055) 50%, rgba(255,255,255,0.025) 100%)',
+                  backgroundSize: '200% 100%',
+                  animation: `skeletonShimmer 1.6s ease-in-out infinite`,
+                  animationDelay: `${(ri * 4 + ii) * 0.1}s`,
+                }}
               />
             </div>
           ))}
@@ -756,10 +772,17 @@ export default function ImagePage() {
   const uploadRef = useRef<HTMLInputElement>(null)
   const dockRef   = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Scroll-preservation during history prepend
-  const prependScrollHeight = useRef(0)
+  // Anchor-based scroll preservation:
+  // Before prepend we record the first image's id and its viewport offset from the scroll
+  // container top.  After prepend, we find that same DOM node (now pushed down by newly
+  // inserted rows) and adjust scrollTop so its viewport offset is identical.  This is more
+  // reliable than a scrollHeight delta because the justified grid may repack existing images
+  // into different rows, making the simple delta calculation incorrect.
+  const anchorIdRef     = useRef<string | null>(null)
+  const anchorOffsetRef = useRef(0)   // px from scroll container's top edge at capture time
   // Always-fresh ref to loadMore (avoids stale closure in scroll handler)
   const loadMoreFnRef = useRef<(() => void) | null>(null)
+  const scrollAdjustingRef = useRef(false)
   // Keep scroll area bottom-padding equal to full dock height (card + pt-3 + pb-5 outer wrapper = +32px) + breathing room
   useEffect(() => {
     const dock = dockRef.current; const scroll = scrollRef.current
@@ -838,22 +861,41 @@ export default function ImagePage() {
   async function loadMore() {
     if (isLoadingMore || !hasMore || !histCursor) return
     setIsLoadingMore(true)
-    prependScrollHeight.current = scrollRef.current?.scrollHeight ?? 0
+
+    // Capture anchor BEFORE the fetch so we read the unmodified DOM.
+    // images[0] is the oldest image currently loaded — it will be pushed down after prepend,
+    // and we use its position to restore the scroll offset.
+    const firstId = images[0]?.id ?? null
+    anchorIdRef.current = firstId
+    if (firstId && scrollRef.current) {
+      const anchorEl = scrollRef.current.querySelector(`[data-imgid="${firstId}"]`)
+      if (anchorEl) {
+        const ar = (anchorEl as HTMLElement).getBoundingClientRect()
+        const sr = scrollRef.current.getBoundingClientRect()
+        anchorOffsetRef.current = ar.top - sr.top   // may be negative if scrolled past the anchor
+      } else {
+        anchorIdRef.current = null   // element not in DOM — skip anchor-based restore
+      }
+    }
     try {
       const r = await fetch(`/api/history/list?page_name=app%2Fimage&limit=20&order=desc&cursor=${encodeURIComponent(histCursor)}`)
       const data = await r.json() as HistoryApiResp
       if (data.items?.length) {
         const { images: older, pendingIds } = parseHistItems(data.items.slice().reverse())
-        setImages(prev => [...older, ...prev])
+        setImages(prev => {
+          const existingIds = new Set(prev.map(img => img.id))
+          const deduped = older.filter(img => !existingIds.has(img.id))
+          return [...deduped, ...prev]
+        })
         setProcessingDbIds(prev => [...new Set([...prev, ...pendingIds])])
         setHasMore(data.hasMore ?? false)
         setHistCursor(data.nextCursor ?? null)
       } else {
         setHasMore(false)
-        prependScrollHeight.current = 0
+        anchorIdRef.current = null   // nothing prepended — no scroll restore needed
       }
     } catch {
-      prependScrollHeight.current = 0
+      anchorIdRef.current = null
     } finally {
       setIsLoadingMore(false)
     }
@@ -887,18 +929,33 @@ export default function ImagePage() {
     const scroll = scrollRef.current
     if (!scroll) return
     const handler = () => {
-      if (scroll.scrollTop < 120) loadMoreFnRef.current?.()
+      if (scroll.scrollTop < 120 && !scrollAdjustingRef.current) loadMoreFnRef.current?.()
     }
     scroll.addEventListener('scroll', handler, { passive: true })
     return () => scroll.removeEventListener('scroll', handler)
-  }, []) // stable — loadMoreFnRef.current is always fresh
+  }, []) // stable — loadMoreFnRef.current and scrollAdjustingRef are always fresh
 
-  // After prepending older images, restore scroll so the view doesn't jump
+  // After prepending older images, restore scroll so the view doesn't jump.
+  // Strategy: find the anchor element's new viewport offset and adjust scrollTop
+  // so it matches the offset we captured before the fetch.  This works even when
+  // the justified grid repacks existing images into different-height rows (which
+  // would make a simple scrollHeight-delta calculation incorrect).
   useLayoutEffect(() => {
-    if (prependScrollHeight.current > 0 && scrollRef.current) {
-      scrollRef.current.scrollTop += scrollRef.current.scrollHeight - prependScrollHeight.current
-      prependScrollHeight.current = 0
+    if (!anchorIdRef.current || !scrollRef.current) return
+    const scrollEl = scrollRef.current
+    const anchorEl = scrollEl.querySelector(`[data-imgid="${anchorIdRef.current}"]`)
+    if (anchorEl) {
+      scrollAdjustingRef.current = true
+      const ar = (anchorEl as HTMLElement).getBoundingClientRect()
+      const sr = scrollEl.getBoundingClientRect()
+      const newOffset = ar.top - sr.top
+      // Shift scrollTop so the anchor is back at the same viewport offset it was before
+      scrollEl.scrollTop += newOffset - anchorOffsetRef.current
     }
+    anchorIdRef.current = null
+    // Clear the scroll-event guard after a frame — enough time for the browser to
+    // process the scrollTop assignment's resulting scroll event.
+    requestAnimationFrame(() => { scrollAdjustingRef.current = false })
   })
 
   // Poll DB for processing items every 15 s — background cron keeps status updated
@@ -955,7 +1012,11 @@ export default function ImagePage() {
               }
               updated.splice(placeholderIdxs[0]!, 1, ...newImgs)
             } else if (newImgs.length > 0) {
-              updated.push(...newImgs)
+              // Only add images whose IDs don't already exist (prevents duplicates when
+              // a completed history item appears in both the initial load and the poll)
+              const existingIds = new Set(updated.map(img => img.id))
+              const dedupedImgs = newImgs.filter(img => !existingIds.has(img.id))
+              if (dedupedImgs.length > 0) updated.push(...dedupedImgs)
             }
           }
 
@@ -1348,20 +1409,24 @@ export default function ImagePage() {
         .prompt-editor .img-pill:hover { background: #e6e600; }
       `}</style>
 
-      {/* ── Scroll area ── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      {/* Load-more indicator — sticky overlay at top, outside scroll container so it doesn't affect scrollHeight */}
+      {isLoadingMore && (
+        <div className="absolute top-[64px] left-1/2 -translate-x-1/2 z-10">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0c0c0e]/90 border border-white/[0.08]" style={{ backdropFilter: 'blur(12px)' }}>
+            <div className="w-3 h-3 rounded-full border-[1.5px] border-white/20 border-t-white/70 animate-spin" />
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Loading</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Scroll area — overflow-anchor:none prevents the browser from double-adjusting
+           scroll position when we prepend content (we handle it ourselves in useLayoutEffect) ── */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ overflowAnchor: 'none' }}>
         <div className="max-w-[1400px] mx-auto px-4 sm:px-8 pt-[88px]">
 
 
           {/* Initial skeleton — shown while history is loading */}
           {isInitialLoading && <SkeletonGrid />}
-
-          {/* Load-more spinner — shown at top while fetching older items */}
-          {isLoadingMore && (
-            <div className="flex justify-center py-4">
-              <div className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white/40 animate-spin" />
-            </div>
-          )}
 
           {/* Empty state — only after history has loaded */}
           {!isInitialLoading && images.length === 0 && !anyGenerating && (

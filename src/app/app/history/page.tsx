@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
 import { toast } from "sonner"
@@ -49,12 +49,15 @@ export default function HistoryPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null)
+  const loadingRef = useRef(false)
 
   const loadHistory = async (reset = false) => {
+    if (loadingRef.current) return  // synchronous guard prevents concurrent calls
+    loadingRef.current = true
     if (!reset) setLoadingMore(true)
     try {
       const params = new URLSearchParams()
-      params.set('limit', '24')
+      params.set('limit', '60')
       if (!reset && cursor) {
         params.set('cursor', cursor)
       }
@@ -80,14 +83,11 @@ export default function HistoryPage() {
     } finally {
       setLoading(false)
       setLoadingMore(false)
+      loadingRef.current = false
     }
   }
 
-  const TWELVE_DAYS_MS = 12 * 24 * 60 * 60 * 1000
-  const displayedItems = useMemo(
-    () => items.filter(item => Date.now() - new Date(item.createdAt).getTime() < TWELVE_DAYS_MS),
-    [items]
-  )
+  const displayedItems = items
 
   useEffect(() => {
     if (!user) return
@@ -220,7 +220,7 @@ export default function HistoryPage() {
               {/* Retention notice */}
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.07] w-fit">
                 <span className="w-1.5 h-1.5 rounded-full bg-white/30 flex-shrink-0" />
-                <p className="text-[11px] text-white/40 tracking-wide">Media outputs expire <span className="text-white/60 font-medium">10 days</span> after creation</p>
+                <p className="text-[11px] text-white/40 tracking-wide">Media outputs expire <span className="text-white/60 font-medium">30 days</span> after creation</p>
               </div>
             </div>
             <button

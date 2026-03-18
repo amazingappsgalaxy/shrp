@@ -26,9 +26,21 @@ export async function GET(request: NextRequest) {
     const page_name = url.searchParams.get('page_name')
     const orderAsc = url.searchParams.get('order') === 'asc'
     // Allow higher limit for page-specific fetches (up to 200 tasks)
-    const maxLimit = page_name ? 200 : 50
+    const maxLimit = page_name ? 200 : 100
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '24'), maxLimit)
-    const cursor = url.searchParams.get('cursor')
+    const cursorRaw = url.searchParams.get('cursor')
+    // Cursor can be either a plain ISO timestamp (legacy) or a JSON compound cursor {ts, id}
+    let cursorTs: string | null = null
+    let cursorId: string | null = null
+    if (cursorRaw) {
+      try {
+        const parsed = JSON.parse(cursorRaw) as { ts: string; id: string }
+        cursorTs = parsed.ts
+        cursorId = parsed.id
+      } catch {
+        cursorTs = cursorRaw  // legacy plain timestamp
+      }
+    }
     const ids = url.searchParams.get('ids') // Support fetching specific items by ID
 
     if (!config.database.supabaseUrl || !config.database.supabaseServiceKey) {
@@ -63,9 +75,20 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: orderAsc })
         .limit(limit)
 
-      if (cursor) {
-        if (orderAsc) query = query.gt('created_at', cursor)
-        else query = query.lt('created_at', cursor)
+      if (cursorTs) {
+        if (cursorId) {
+          // Compound cursor: items where (created_at, id) < (cursorTs, cursorId) for desc
+          // Supabase doesn't do tuple comparisons, so we simulate:
+          // (created_at < cursorTs) OR (created_at = cursorTs AND id < cursorId)
+          if (orderAsc) {
+            query = query.or(`created_at.gt.${cursorTs},and(created_at.eq.${cursorTs},id.gt.${cursorId})`)
+          } else {
+            query = query.or(`created_at.lt.${cursorTs},and(created_at.eq.${cursorTs},id.lt.${cursorId})`)
+          }
+        } else {
+          if (orderAsc) query = query.gt('created_at', cursorTs)
+          else query = query.lt('created_at', cursorTs)
+        }
       }
     }
 
@@ -104,11 +127,17 @@ export async function GET(request: NextRequest) {
       settings: (item.settings as Record<string, unknown>) ?? {},
     }))
 
-    const nextCursor = items.length === limit ? items[items.length - 1]?.createdAt : null
+    // hasMore and cursor are derived from the RAW (unfiltered) data so that
+    // expired items filtering doesn't falsely truncate pagination.
+    const hasMore = data.length === limit
+    const lastItem = data[data.length - 1]
+    const nextCursor = hasMore && lastItem
+      ? JSON.stringify({ ts: lastItem.created_at, id: lastItem.id })
+      : null
 
     return NextResponse.json({
       items,
-      hasMore: items.length === limit,
+      hasMore,
       nextCursor
     })
   } catch (error) {
