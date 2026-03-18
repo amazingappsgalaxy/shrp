@@ -17,24 +17,37 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayIso = today.toISOString()
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
 
-    // Fetch failed tasks (up to 200 most recent)
+    // Accurate counts from DB (last 30 days)
+    const [
+      { count: totalFailed30d },
+      { count: failedToday },
+      { count: totalTasks30d },
+    ] = await Promise.all([
+      supabase.from('history_items').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', thirtyDaysAgo),
+      supabase.from('history_items').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', todayStart),
+      supabase.from('history_items').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+    ])
+
+    const errorRate = totalTasks30d && totalTasks30d > 0
+      ? Math.round(((totalFailed30d || 0) / totalTasks30d) * 1000) / 10
+      : 0
+
+    // Fetch last 200 failed tasks for log and aggregations (last 30 days)
     const { data: failedTasks, error } = await supabase
       .from('history_items')
       .select('id, user_id, model_name, error_message, created_at')
       .eq('status', 'failed')
+      .gte('created_at', thirtyDaysAgo)
       .order('created_at', { ascending: false })
       .limit(200)
 
     if (error) throw error
 
     const taskList = failedTasks || []
-
-    // failed today count
-    const failedToday = taskList.filter((t) => t.created_at >= todayIso).length
 
     // Fetch user emails
     const userIds = [...new Set(taskList.map((t) => t.user_id))]
@@ -49,7 +62,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Error log (what page calls error_log)
+    // Error log
     const errorLog = taskList.map((t) => ({
       id: t.id,
       user_email: emailByUser[t.user_id] || t.user_id,
@@ -58,7 +71,7 @@ export async function GET(request: NextRequest) {
       created_at: t.created_at,
     }))
 
-    // error_rate_by_model
+    // error_rate_by_model (failure counts from sample)
     const modelFailCounts: Record<string, number> = {}
     for (const t of taskList) {
       const m = t.model_name || 'unknown'
@@ -70,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     const mostProblematicModel = errorRateByModel[0]?.model || '—'
 
-    // common_errors (key: snippet)
+    // common_errors
     const messageCounts: Record<string, number> = {}
     for (const t of taskList) {
       if (!t.error_message) continue
@@ -82,26 +95,10 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
 
-    // Overall error rate
-    let errorRate = 0
-    if (taskList.length > 0) {
-      const oldest = taskList[taskList.length - 1]?.created_at as string | undefined
-      if (oldest) {
-        const { count: totalInRange } = await supabase
-          .from('history_items')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', oldest)
-
-        if (totalInRange && totalInRange > 0) {
-          errorRate = Math.round((taskList.length / totalInRange) * 1000) / 10
-        }
-      }
-    }
-
     return NextResponse.json({
       kpis: {
-        total_failed: taskList.length,
-        failed_today: failedToday,
+        total_failed: totalFailed30d || 0,
+        failed_today: failedToday || 0,
         error_rate: errorRate,
         most_problematic_model: mostProblematicModel,
       },

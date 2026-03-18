@@ -127,14 +127,14 @@ export async function GET(request: NextRequest) {
     // Revenue by plan (succeeded + USD, in period)
     const { data: paymentRows } = await supabase
       .from('payments')
-      .select('amount, plan_name')
-      .eq('status', 'succeeded')
+      .select('amount, plan')
+      .eq('status', 'completed')
       .eq('currency', 'USD')
       .gte('created_at', since)
 
     const planRevenue: Record<string, number> = {}
     for (const p of paymentRows || []) {
-      const plan = p.plan_name || 'unknown'
+      const plan = p.plan || 'unknown'
       planRevenue[plan] = (planRevenue[plan] || 0) + (p.amount || 0)
     }
     const revenueByPlan = Object.entries(planRevenue)

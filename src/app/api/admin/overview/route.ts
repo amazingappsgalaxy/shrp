@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const { data: allPayments } = await supabase
       .from('payments')
       .select('amount, created_at')
-      .eq('status', 'succeeded')
+      .eq('status', 'completed')
       .eq('currency', 'USD')
       .gte('created_at', thirtyDaysAgo)
 

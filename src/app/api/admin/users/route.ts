@@ -77,20 +77,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch active subscriptions for plan_name
+    // Fetch active subscriptions for plan
     const planByUser: Record<string, string> = {}
     if (userIds.length > 0) {
       const { data: subData } = await supabase
         .from('subscriptions')
-        .select('user_id, plan_name, status, current_period_end')
+        .select('user_id, plan, status, next_billing_date')
         .in('user_id', userIds)
         .in('status', ['active', 'pending_cancellation'])
-        .order('current_period_end', { ascending: false })
+        .order('next_billing_date', { ascending: false })
 
       // Keep only the latest active sub per user
       for (const row of subData || []) {
         if (!planByUser[row.user_id]) {
-          planByUser[row.user_id] = row.plan_name || ''
+          planByUser[row.user_id] = row.plan || ''
         }
       }
     }
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       last_login_at: u.last_login_at,
       credit_balance: creditsByUser[u.id] || 0,
       task_count: tasksByUser[u.id] || 0,
-      plan_name: planByUser[u.id] || null,
+      plan: planByUser[u.id] || null,
     }))
 
     const total = count || 0

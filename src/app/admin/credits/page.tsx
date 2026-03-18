@@ -7,17 +7,7 @@ interface UserSuggestion {
   id: string
   email: string
   name: string
-  credits_total: number
   credit_balance: number
-}
-
-interface RecentOperation {
-  id: string
-  user_email: string
-  amount: number
-  type: string
-  description: string
-  created_at: string
 }
 
 export default function CreditsPage() {
@@ -31,21 +21,8 @@ export default function CreditsPage() {
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [recentOps, setRecentOps] = useState<RecentOperation[]>([])
-  const [recentLoading, setRecentLoading] = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Fetch recent credit operations
-  useEffect(() => {
-    fetch('/api/admin/users?limit=20', { headers: getAdminHeaders() })
-      .then((r) => r.json())
-      .then((d) => {
-        // Collect recent transactions from users if available
-        setRecentLoading(false)
-      })
-      .catch(() => setRecentLoading(false))
-  }, [])
 
   // User search
   useEffect(() => {
@@ -167,7 +144,7 @@ export default function CreditsPage() {
                   >
                     <div className="text-white text-sm">{user.email}</div>
                     <div className="text-white/40 text-xs mt-0.5">
-                      {user.name || 'No name'} · {(user.credit_balance ?? user.credits_total ?? 0).toLocaleString()} credits
+                      {user.name || 'No name'} · {(user.credit_balance ?? 0).toLocaleString()} credits
                     </div>
                   </button>
                 ))}
@@ -177,7 +154,7 @@ export default function CreditsPage() {
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span className="w-2 h-2 rounded-full bg-green-400" />
                 <span className="text-green-400">Selected: {selectedUser.email}</span>
-                <span className="text-white/30">· {(selectedUser.credit_balance ?? selectedUser.credits_total ?? 0).toLocaleString()} credits currently</span>
+                <span className="text-white/30">· {(selectedUser.credit_balance ?? 0).toLocaleString()} credits currently</span>
               </div>
             )}
           </div>

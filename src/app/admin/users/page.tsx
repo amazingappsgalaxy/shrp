@@ -9,8 +9,8 @@ interface User {
   email: string
   name: string
   subscription_status: string
-  credits_total: number
-  tasks_count: number
+  credit_balance: number
+  task_count: number
   plan: string
   created_at: string
 }
@@ -139,9 +139,9 @@ export default function UsersPage() {
                         <StatusBadge status={user.subscription_status || 'free'} />
                       </td>
                       <td className="px-4 py-3 text-right text-white/80 text-xs">
-                        {(user.credits_total ?? 0).toLocaleString()}
+                        {(user.credit_balance ?? 0).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right text-white/60 text-xs">{user.tasks_count ?? 0}</td>
+                      <td className="px-4 py-3 text-right text-white/60 text-xs">{user.task_count ?? 0}</td>
                       <td className="px-4 py-3 text-white/60 text-xs capitalize">{user.plan || 'free'}</td>
                       <td className="px-4 py-3 text-white/40 text-xs">
                         {new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
