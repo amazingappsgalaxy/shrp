@@ -110,22 +110,27 @@ export default function HistoryPage() {
         const fresh: HistoryListItem[] = data.items || []
         if (fresh.length === 0) return
 
+        // Only prepend brand-new items if the user is already at (or near) the top.
+        // If they're scrolled down, silently skip the prepend — they stay on their
+        // current content and new items will appear naturally next time they scroll
+        // to the top or click Refresh. Statuses are always updated regardless.
+        const isAtTop = window.scrollY < 150
+
         setItems(prev => {
           const freshMap = new Map(fresh.map(f => [f.id, f]))
           let changed = false
           const updated = prev.map(item => {
             const f = freshMap.get(item.id)
             if (!f) return item
-            // Update if status changed OR if outputUrls were added (e.g. completed but urls were empty)
             const statusChanged = f.status !== item.status
             const urlsAdded = f.outputUrls?.length > 0 && item.outputUrls?.length === 0
             if (statusChanged || urlsAdded) { changed = true; return { ...item, ...f } }
             return item
           })
           const existingIds = new Set(prev.map(i => i.id))
-          const brandNew = fresh.filter(f => !existingIds.has(f.id))
+          const brandNew = isAtTop ? fresh.filter(f => !existingIds.has(f.id)) : []
           if (brandNew.length === 0 && !changed) return prev
-          return [...brandNew, ...updated]
+          return brandNew.length > 0 ? [...brandNew, ...updated] : updated
         })
 
         // Also re-fetch any processing items that weren't covered by the top-20
