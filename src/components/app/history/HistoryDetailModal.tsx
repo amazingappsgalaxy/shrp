@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, ChevronRight, Download, Maximize2, Sparkles, AlertCircle } from "lucide-react";
 import { generateMediaFilename, downloadMedia } from "@/lib/media-filename";
-import { IconWand, IconBadgeHd } from '@tabler/icons-react';
+import { IconWand, IconBadgeHd, IconCopy, IconCheck, IconVideo } from '@tabler/icons-react';
 import { cn } from "@/lib/utils";
 import { EditModal } from '@/components/app/edit/EditModal';
 
@@ -40,11 +41,19 @@ interface HistoryDetailModalProps {
 }
 
 export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: HistoryDetailModalProps) {
+    const router = useRouter();
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [meta, setMeta] = useState<{ width?: number; height?: number; size?: string }>({});
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editImageUrl, setEditImageUrl] = useState<string | null>(null);
     const [isUpscaling, setIsUpscaling] = useState(false);
+    const [promptCopied, setPromptCopied] = useState(false);
+
+    const handleAnimate = useCallback((url: string, type: 'image' | 'video') => {
+        try { localStorage.setItem('sharpii_animate_input', JSON.stringify({ type, url, ts: Date.now() })) } catch {}
+        router.push('/app/video');
+        onClose();
+    }, [router, onClose]);
 
     // Reset index when item opens
     useEffect(() => {
@@ -237,6 +246,12 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                                 <IconWand className="w-4 h-4" /> Edit Image
                                             </button>
                                             <button
+                                                onClick={() => handleAnimate(currentOutput.url, 'image')}
+                                                className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
+                                            >
+                                                <IconVideo className="w-4 h-4" /> Animate
+                                            </button>
+                                            <button
                                                 onClick={() => handleUpscale(currentOutput.url)}
                                                 disabled={isUpscaling}
                                                 className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -245,6 +260,14 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                                 {isUpscaling ? 'Starting…' : 'Upscale'}
                                             </button>
                                         </>
+                                    )}
+                                    {item.status !== 'failed' && currentOutput && currentOutput.type === 'video' && (
+                                        <button
+                                            onClick={() => handleAnimate(currentOutput.url, 'video')}
+                                            className="w-full bg-white/[0.09] text-white/80 font-semibold h-10 rounded-md hover:bg-white/[0.15] hover:text-white transition-colors flex items-center justify-center gap-2 text-sm border border-white/10"
+                                        >
+                                            <IconVideo className="w-4 h-4" /> Use as Motion Input
+                                        </button>
                                     )}
                                     {item.status !== 'failed' && currentOutput && (
                                         <button
@@ -291,7 +314,21 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                                 <Sparkles className="w-3 h-3" /> configuration
                                             </h3>
                                             <div className="grid gap-3">
-                                                <DetailRow label="Prompt" value={item.settings?.prompt} />
+                                                {item.settings?.prompt && (
+                                                    <div className="flex justify-between items-start group">
+                                                        <span className="text-sm text-white/50 group-hover:text-white/70 transition-colors">Prompt</span>
+                                                        <div className="flex items-start gap-1.5 max-w-[180px]">
+                                                            <span className="text-sm text-white/90 font-medium text-right break-words">{item.settings.prompt}</span>
+                                                            <button
+                                                                onClick={() => { navigator.clipboard.writeText(item.settings!.prompt!).catch(() => {}); setPromptCopied(true); setTimeout(() => setPromptCopied(false), 2000) }}
+                                                                className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-white/30 hover:text-white/70 transition-colors mt-0.5"
+                                                                title="Copy prompt"
+                                                            >
+                                                                {promptCopied ? <IconCheck className="w-3 h-3 text-green-400" /> : <IconCopy className="w-3 h-3" />}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <DetailRow label="Aspect Ratio" value={item.settings?.aspect_ratio} />
                                                 <DetailRow label="Count" value={item.settings?.count} />
                                                 <DetailRow label="Style" value={item.settings?.style} />

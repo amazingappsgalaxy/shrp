@@ -1,6 +1,7 @@
 "use client"
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { track } from "@/lib/analytics"
@@ -9,7 +10,7 @@ import { CreditIcon } from "@/components/ui/CreditIcon"
 import {
   IconArrowUp, IconSparkles,
   IconDownload, IconRefresh, IconX, IconPlus, IconChevronDown, IconCheck, IconBug, IconWand,
-  IconDots, IconBadgeHd,
+  IconDots, IconBadgeHd, IconCopy, IconVideo,
 } from "@tabler/icons-react"
 import { getImageModels } from "@/services/models"
 import { uploadImageToCdn } from "@/lib/upload-image"
@@ -162,7 +163,7 @@ function AspectShape({ aspect, active }: { aspect: Aspect; active: boolean }) {
 
 // ─── Image modal ──────────────────────────────────────────────────────────────
 function ImageModal({
-  images, index, onClose, onNavigate, onAddImage, onAddLoadingImage, onUpscale,
+  images, index, onClose, onNavigate, onAddImage, onAddLoadingImage, onUpscale, onAnimate,
 }: {
   images: GridImage[]
   index: number | null
@@ -171,6 +172,7 @@ function ImageModal({
   onAddImage?: (imageUrl: string, historyId: string, mode: string, prompt: string, aspect: Aspect) => void
   onAddLoadingImage?: (historyId: string, mode: string, aspect: Aspect) => void
   onUpscale?: (imageUrl: string, aspect: Aspect) => void
+  onAnimate?: (imageUrl: string) => void
 }) {
   const img = index !== null ? images[index] ?? null : null
 
@@ -180,6 +182,7 @@ function ImageModal({
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [promptCopied, setPromptCopied] = useState(false)
 
   // Memoize callbacks to prevent infinite re-renders in EditModal
   const handleGenerationStart = useCallback((historyId: string, mode: string) => {
@@ -332,7 +335,16 @@ function ImageModal({
           <div className="flex-1 p-6 space-y-5 overflow-y-auto">
             {img.prompt && (
               <div>
-                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Prompt</p>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Prompt</p>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(img.prompt!).catch(() => {}); setPromptCopied(true); setTimeout(() => setPromptCopied(false), 2000) }}
+                    className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 transition-colors"
+                    title="Copy prompt"
+                  >
+                    {promptCopied ? <IconCheck size={11} className="text-green-400" /> : <IconCopy size={11} />}
+                  </button>
+                </div>
                 <p className="text-xs text-white/70 leading-relaxed">{img.prompt}</p>
               </div>
             )}
@@ -364,6 +376,14 @@ function ImageModal({
             >
               <IconWand size={13} /> Edit Image
             </button>
+            {onAnimate && (
+              <button
+                onClick={() => { onAnimate(img.url); onClose() }}
+                className="flex items-center justify-center gap-2 w-full h-11 bg-white/[0.09] text-white/80 text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.12] hover:text-white transition-all mb-2"
+              >
+                <IconVideo size={13} /> Animate
+              </button>
+            )}
             {onUpscale && (
               <button
                 onClick={() => onUpscale(img.url, img.aspect)}
@@ -398,7 +418,7 @@ function ImageModal({
 
 // ─── Justified grid ───────────────────────────────────────────────────────────
 function JustifiedGrid({
-  images, generatedIds, onOpen, onVary, onEdit, onUpscale, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy,
+  images, generatedIds, onOpen, onVary, onEdit, onUpscale, onAnimate, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy,
 }: {
   images: GridImage[]
   generatedIds: Set<string>
@@ -406,6 +426,7 @@ function JustifiedGrid({
   onVary: (img: GridImage) => void
   onEdit: (img: GridImage) => void
   onUpscale: (imageUrl: string, aspect: Aspect) => void
+  onAnimate?: (imageUrl: string) => void
   selectedIds: string[]
   onToggleSelect: (img: GridImage) => void
   showSelectButton: boolean
@@ -513,7 +534,7 @@ function JustifiedGrid({
                     >
                       <button
                         onClick={e => { e.stopPropagation(); setOpenDropdownId(isDropdownOpen ? null : img.id) }}
-                        className="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        className="w-6 h-6 flex items-center justify-center text-white hover:text-white/70 transition-colors"
                         title="More options"
                       >
                         <IconDots size={14} />
@@ -539,6 +560,17 @@ function JustifiedGrid({
                             <IconWand size={12} className="shrink-0" /> Edit Image
                           </button>
                           <div style={{ height: 1, margin: '0 10px', background: 'rgba(255,255,255,0.06)' }} />
+                          {onAnimate && (
+                            <>
+                              <button
+                                onClick={() => { setOpenDropdownId(null); onAnimate(img.url) }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white hover:bg-white/[0.07] transition-colors text-left"
+                              >
+                                <IconVideo size={12} className="shrink-0" /> Animate
+                              </button>
+                              <div style={{ height: 1, margin: '0 10px', background: 'rgba(255,255,255,0.06)' }} />
+                            </>
+                          )}
                           <button
                             onClick={() => { setOpenDropdownId(null); onUpscale(img.url, img.aspect) }}
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[11px] font-medium text-white hover:bg-white/[0.07] transition-colors text-left rounded-b-[10px]"
@@ -670,12 +702,25 @@ function SkeletonGrid() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ImagePage() {
   const { mutate } = useSWRConfig()
+  const router = useRouter()
 
   const [count,        setCount]        = useState<Count>(1)
-  const [aspect,       setAspect]       = useState<Aspect>("1:1")
-  const [resolution,   setResolution]   = useState<Resolution>("1K")
-  const [style,        setStyle]        = useState("None")
-  const [modelId,      setModelId]      = useState(DEFAULT_MODEL.id)
+  const [aspect,       setAspect]       = useState<Aspect>(() => {
+    if (typeof window === 'undefined') return '1:1'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return (ASPECTS as string[]).includes(d.aspect) ? d.aspect as Aspect : '1:1' } catch { return '1:1' }
+  })
+  const [resolution,   setResolution]   = useState<Resolution>(() => {
+    if (typeof window === 'undefined') return '1K'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return (['1K','2K','3K','4K'] as Resolution[]).includes(d.resolution) ? d.resolution : '1K' } catch { return '1K' }
+  })
+  const [style,        setStyle]        = useState(() => {
+    if (typeof window === 'undefined') return 'None'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return STYLES.includes(d.style) ? d.style : 'None' } catch { return 'None' }
+  })
+  const [modelId,      setModelId]      = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_MODEL.id
+    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return IMAGE_MODELS.find(m => m.id === d.modelId) ? d.modelId : DEFAULT_MODEL.id } catch { return DEFAULT_MODEL.id }
+  })
   const [prompt,       setPrompt]       = useState("")
   const [images,       setImages]       = useState<GridImage[]>([])
   const [modalIndex,   setModalIndex]   = useState<number | null>(null)
@@ -783,6 +828,11 @@ export default function ImagePage() {
     document.addEventListener("mousedown", fn)
     return () => document.removeEventListener("mousedown", fn)
   }, [openPicker])
+
+  // Persist key settings to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('sharpii_image_prefs', JSON.stringify({ v: 1, modelId, aspect, resolution, style })) } catch {}
+  }, [modelId, aspect, resolution, style])
 
   // ── loadMore: fetches older history and prepends to the grid ──────────────────
   async function loadMore() {
@@ -1331,6 +1381,10 @@ export default function ImagePage() {
             onVary={handleVary}
             onEdit={img => setGridEditImg(img)}
             onUpscale={handleUpscaleImage}
+            onAnimate={(imageUrl) => {
+              try { localStorage.setItem('sharpii_animate_input', JSON.stringify({ type: 'image', url: imageUrl, ts: Date.now() })) } catch {}
+              router.push('/app/video')
+            }}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             showSelectButton={modelSupportsRef}
@@ -1349,6 +1403,10 @@ export default function ImagePage() {
         onAddImage={handleAddEditedImage}
         onAddLoadingImage={handleAddLoadingImage}
         onUpscale={handleUpscaleImage}
+        onAnimate={(imageUrl) => {
+          try { localStorage.setItem('sharpii_animate_input', JSON.stringify({ type: 'image', url: imageUrl, ts: Date.now() })) } catch {}
+          router.push('/app/video')
+        }}
       />
 
       {/* Direct edit from grid dropdown — bypasses lightbox */}

@@ -7,7 +7,6 @@ import { ElegantLoading } from "@/components/ui/elegant-loading"
 import { useCredits } from "@/lib/hooks/use-credits"
 import { APP_DATA_KEY } from "@/lib/hooks/use-app-data"
 import { CreditIcon } from "@/components/ui/CreditIcon"
-import { VideoModal } from "@/components/ui/VideoPlayer"
 import { GenerationAnimation } from "@/components/ui/GenerationAnimation"
 import { PillRangeSlider } from "@/components/ui/pill-range-slider"
 import { getVideoModels } from "@/services/models"
@@ -15,8 +14,9 @@ import type { ModelConfig } from "@/services/models"
 import {
   IconUpload, IconLoader2, IconSparkles, IconTrash, IconVideo, IconPhoto,
   IconChevronDown, IconMinus, IconCamera, IconWand, IconTransfer,
-  IconPlayerPlay, IconVolume, IconVolumeOff, IconDownload,
-  IconPlus, IconClock, IconX, IconArrowUp,
+  IconPlayerPlay, IconPlayerPause, IconVolume, IconVolumeOff, IconDownload,
+  IconPlus, IconClock, IconX, IconArrowUp, IconMaximize, IconMinimize,
+  IconCheck, IconCopy,
 } from "@tabler/icons-react"
 import { createPortal } from "react-dom"
 import { startSmartProgress, type TaskEntry } from "@/lib/task-progress"
@@ -34,6 +34,8 @@ interface VideoResult {
   loading: boolean
   prompt?: string
   model?: string
+  variant?: string
+  dimensions?: string
   taskId?: string
   error?: string
 }
@@ -78,6 +80,17 @@ const ASPECT_LABELS: Record<string, string> = {
 }
 
 const VIDEO_TASK_DURATION_SECS = 120
+
+function getVideoDimensions(aspect: string, quality: '720p' | '1080p'): string {
+  const s = quality === '1080p' ? 1080 : 720
+  const l = quality === '1080p' ? 1920 : 1280
+  const map: Record<string, string> = {
+    '16:9': `${l}×${s}`, '9:16': `${s}×${l}`, '1:1': `${s}×${s}`,
+    '4:3': quality === '1080p' ? '1440×1080' : '960×720',
+    '3:4': quality === '1080p' ? '1080×1440' : '720×960',
+  }
+  return map[aspect] ?? `${l}×${s}`
+}
 
 const TAG_COLORS: Record<string, string> = {
   Fast: 'bg-green-500/15 text-green-400',
@@ -929,6 +942,197 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ─── Video Info Modal ──────────────────────────────────────────────────────────
+
+function VideoInfoModal({ video, isOpen, onClose, onUseAsMotionSource, onUseAsEditInput }: {
+  video: VideoResult | null
+  isOpen: boolean
+  onClose: () => void
+  onUseAsMotionSource?: (url: string) => void
+  onUseAsEditInput?: (url: string) => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (isOpen && videoRef.current) {
+      videoRef.current.play().catch(() => {
+        if (videoRef.current) { videoRef.current.muted = true; setIsMuted(true); videoRef.current.play().catch(() => {}) }
+      })
+      setIsPlaying(true)
+    }
+    if (!isOpen && videoRef.current) {
+      videoRef.current.pause()
+      setIsPlaying(false)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    const fn = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', fn)
+    return () => document.removeEventListener('fullscreenchange', fn)
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', fn)
+    return () => window.removeEventListener('keydown', fn)
+  }, [isOpen, onClose])
+
+  const togglePlay = useCallback(() => {
+    if (!videoRef.current) return
+    if (isPlaying) { videoRef.current.pause(); setIsPlaying(false) }
+    else { videoRef.current.play().catch(() => {}); setIsPlaying(true) }
+  }, [isPlaying])
+
+  const toggleMute = useCallback(() => {
+    if (!videoRef.current) return
+    const next = !isMuted; videoRef.current.muted = next; setIsMuted(next)
+  }, [isMuted])
+
+  const toggleFullscreen = useCallback(async () => {
+    if (!videoRef.current) return
+    if (!document.fullscreenElement) await videoRef.current.requestFullscreen().catch(() => {})
+    else await document.exitFullscreen().catch(() => {})
+  }, [])
+
+  const copyPrompt = useCallback(() => {
+    if (!video?.prompt) return
+    navigator.clipboard.writeText(video.prompt).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [video?.prompt])
+
+  if (!isOpen || !mounted || !video) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10002] flex items-center justify-center p-4 sm:p-8">
+      <div className="absolute inset-0 bg-black/90" style={{ backdropFilter: 'blur(20px)' }} onClick={onClose} />
+      <button onClick={onClose} className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.08] border border-white/[0.12] text-white/50 hover:text-white hover:bg-white/[0.15] transition-all">
+        <IconX className="w-3.5 h-3.5" />
+      </button>
+      <div className="relative z-10 flex w-full max-w-5xl bg-[#0c0c0e] border border-white/[0.08] rounded-xl overflow-hidden shadow-[0_40px_120px_rgba(0,0,0,0.9)]" style={{ height: '80vh', maxHeight: '800px', minHeight: '400px' }}>
+        {/* Video pane */}
+        <div className="flex-1 relative flex items-center justify-center bg-black min-h-[280px] group cursor-pointer" onClick={togglePlay}>
+          {video.url ? (
+            <>
+              <video
+                ref={videoRef}
+                src={video.url}
+                loop playsInline muted={isMuted}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                className="max-w-full max-h-full object-contain select-none"
+                style={{ maxHeight: 'calc(88vh - 4rem)' }}
+              />
+              {/* Hover controls */}
+              <div className="absolute inset-0 flex items-end justify-between p-3 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={togglePlay} className="w-8 h-8 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
+                    {isPlaying ? <IconPlayerPause className="w-3.5 h-3.5 fill-white" /> : <IconPlayerPlay className="w-3.5 h-3.5 fill-white ml-0.5" />}
+                  </button>
+                  <button onClick={toggleMute} className="w-8 h-8 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
+                    {isMuted ? <IconVolumeOff className="w-3.5 h-3.5" /> : <IconVolume className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <button onClick={toggleFullscreen} className="w-8 h-8 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center text-white hover:bg-black/80 transition-colors">
+                  {isFullscreen ? <IconMinimize className="w-3.5 h-3.5" /> : <IconMaximize className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              {/* Pause overlay */}
+              {!isPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center">
+                    <IconPlayerPlay className="w-7 h-7 fill-white text-white ml-1" />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-white/30 text-sm">No video available</div>
+          )}
+        </div>
+        {/* Info sidebar */}
+        <div className="w-[280px] shrink-0 border-l border-white/[0.06] flex flex-col">
+          <div className="flex-1 p-5 space-y-4 overflow-y-auto">
+            {/* Model (with variant merged) */}
+            {video.model && (
+              <div>
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Model</p>
+                <p className="text-xs text-white/80 font-medium">
+                  {video.variant ? `${video.model.replace('- Replicate', '').trim()} — ${video.variant}` : video.model}
+                </p>
+              </div>
+            )}
+            {/* Aspect ratio */}
+            {video.aspect && (
+              <div>
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Aspect Ratio</p>
+                <p className="text-xs text-white/70">{video.aspect}</p>
+              </div>
+            )}
+            {/* Resolution */}
+            {video.dimensions && (
+              <div>
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Resolution</p>
+                <p className="text-xs text-white/70">{video.dimensions}</p>
+              </div>
+            )}
+            {/* Prompt — scrollable if long */}
+            {video.prompt && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Prompt</p>
+                  <button onClick={copyPrompt} className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 transition-colors" title="Copy prompt">
+                    {copied ? <IconCheck className="w-3 h-3 text-green-400" /> : <IconCopy className="w-3 h-3" />}
+                  </button>
+                </div>
+                <div className="max-h-[140px] overflow-y-auto pr-0.5">
+                  <p className="text-xs text-white/70 leading-relaxed">{video.prompt}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-5 border-t border-white/[0.06] space-y-2">
+            {onUseAsMotionSource && video.url && (
+              <button
+                onClick={() => { onUseAsMotionSource(video.url!); onClose() }}
+                className="flex items-center justify-center gap-2 w-full h-11 bg-white/[0.09] text-[#FFFF00] text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.12] transition-all"
+              >
+                <IconTransfer className="w-3.5 h-3.5" /> Use as Motion Input
+              </button>
+            )}
+            {onUseAsEditInput && video.url && (
+              <button
+                onClick={() => { onUseAsEditInput(video.url!); onClose() }}
+                className="flex items-center justify-center gap-2 w-full h-11 bg-white/[0.09] text-[#FFFF00] text-xs font-black uppercase tracking-wider rounded-lg hover:bg-white/[0.12] transition-all"
+              >
+                <IconWand className="w-3.5 h-3.5" /> Edit Video
+              </button>
+            )}
+            {video.url && (
+              <button
+                onClick={() => downloadMedia(video.url!, generateMediaFilename('mp4', video.prompt))}
+                className="flex items-center justify-center gap-2 w-full h-11 bg-[#FFFF00] text-black text-xs font-black uppercase tracking-wider rounded-lg hover:bg-[#e6e600] transition-all"
+              >
+                <IconDownload className="w-3.5 h-3.5" /> Download
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Video duration helper ─────────────────────────────────────────────────────
 
 function getVideoDuration(file: File): Promise<number> {
@@ -949,10 +1153,20 @@ function VideoPageContent() {
   const { mutate } = useSWRConfig()
   const { total: creditBalance, isLoading: creditsLoading } = useCredits()
 
-  const [activeTab, setActiveTab] = useState<VideoTab>('generate')
-  const [generateModel, setGenerateModel] = useState(GENERATE_MODELS[0]?.id ?? '')
+  // ── Persisted settings (localStorage) ───────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<VideoTab>(() => {
+    if (typeof window === 'undefined') return 'generate'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_video_prefs') ?? '{}'); return (['generate', 'edit', 'motion'] as VideoTab[]).includes(d.activeTab) ? d.activeTab : 'generate' } catch { return 'generate' }
+  })
+  const [generateModel, setGenerateModel] = useState(() => {
+    if (typeof window === 'undefined') return GENERATE_MODELS[0]?.id ?? ''
+    try { const d = JSON.parse(localStorage.getItem('sharpii_video_prefs') ?? '{}'); return GENERATE_MODELS.find(m => m.id === d.generateModel) ? d.generateModel : (GENERATE_MODELS[0]?.id ?? '') } catch { return GENERATE_MODELS[0]?.id ?? '' }
+  })
   const editModel = EDIT_MODELS[0]?.id ?? 'kling-effects'
-  const [motionModel, setMotionModel] = useState(MOTION_MODELS[0]?.id ?? 'kling-o3-reference-to-video')
+  const [motionModel, setMotionModel] = useState(() => {
+    if (typeof window === 'undefined') return MOTION_MODELS[0]?.id ?? 'kling-o3-reference-to-video'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_video_prefs') ?? '{}'); return MOTION_MODELS.find(m => m.id === d.motionModel) ? d.motionModel : (MOTION_MODELS[0]?.id ?? 'kling-o3-reference-to-video') } catch { return MOTION_MODELS[0]?.id ?? 'kling-o3-reference-to-video' }
+  })
   const [miraiSubModel, setMiraiSubModel] = useState<'Action' | 'Portrait' | 'Inhuman'>('Action')
   const [miraiImagePreview, setMiraiImagePreview] = useState<string | null>(null)
   const [miraiImageCdnUrl, setMiraiImageCdnUrl] = useState<string | null>(null)
@@ -963,10 +1177,19 @@ function VideoPageContent() {
   const [showMiraiAdvanced, setShowMiraiAdvanced] = useState(false)
 
   // Generate settings
-  const [genAspect, setGenAspect] = useState('16:9')
-  const [genDuration, setGenDuration] = useState(5)
+  const [genAspect, setGenAspect] = useState(() => {
+    if (typeof window === 'undefined') return '16:9'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_video_prefs') ?? '{}'); return typeof d.genAspect === 'string' ? d.genAspect : '16:9' } catch { return '16:9' }
+  })
+  const [genDuration, setGenDuration] = useState(() => {
+    if (typeof window === 'undefined') return 5
+    try { const d = JSON.parse(localStorage.getItem('sharpii_video_prefs') ?? '{}'); return typeof d.genDuration === 'number' ? d.genDuration : 5 } catch { return 5 }
+  })
   const [genAudio, setGenAudio] = useState(false)
-  const [videoQuality, setVideoQuality] = useState<'720p' | '1080p'>('720p')
+  const [videoQuality, setVideoQuality] = useState<'720p' | '1080p'>(() => {
+    if (typeof window === 'undefined') return '720p'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_video_prefs') ?? '{}'); return d.videoQuality === '1080p' ? '1080p' : '720p' } catch { return '720p' }
+  })
   const [cameraFixed, setCameraFixed] = useState(false)
   const [seed, setSeed] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -1086,6 +1309,38 @@ function VideoPageContent() {
       taskIntervalsRef.current.forEach(clearInterval)
       pollIntervalsRef.current.forEach(clearInterval)
     }
+  }, [])
+
+  // Save key settings to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('sharpii_video_prefs', JSON.stringify({ v: 1, activeTab, generateModel, genAspect, genDuration, videoQuality, motionModel }))
+    } catch { /* ignore quota errors */ }
+  }, [activeTab, generateModel, genAspect, genDuration, videoQuality, motionModel])
+
+  // On mount: read cross-page animate payload (from image/history pages)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('sharpii_animate_input')
+      if (!raw) return
+      const data = JSON.parse(raw)
+      localStorage.removeItem('sharpii_animate_input')
+      if (!data.url || Date.now() - data.ts > 60000) return
+      if (data.type === 'image') {
+        // Load image as first frame in the Create tab
+        setFirstFramePreview(data.url)
+        setFirstFrameCdnUrl(data.url)
+        setActiveTab('generate')
+      } else if (data.type === 'video') {
+        setMotionSourcePreview(data.url)
+        setMotionSourceCdnUrl(data.url)
+        setActiveTab('motion')
+      } else if (data.type === 'edit-video') {
+        setEditVideoPreview(data.url); setEditVideoCdnUrl(data.url)
+        setActiveTab('edit')
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Resume polling for any in-progress tasks that were restored from localStorage on refresh
@@ -1344,7 +1599,14 @@ function VideoPageContent() {
       showToast('Mirai Motion models are currently in high demand. Please expect a slightly longer wait.', 'info', 4500)
     }
 
-    setVideos(prev => [{ id: localId, url: null, aspect: currentAspect, loading: true, prompt: prompt.trim(), model: selectedModel?.label }, ...prev])
+    const isMiraiTab = resolvedMotionModelId.startsWith('mirai-motion') && activeTab === 'motion'
+    setVideos(prev => [{
+      id: localId, url: null, aspect: currentAspect, loading: true,
+      prompt: prompt.trim(),
+      model: selectedModel?.label,
+      variant: isMiraiTab ? miraiSubModel : undefined,
+      dimensions: getVideoDimensions(currentAspect, videoQuality),
+    }, ...prev])
     setActiveTasks(prev => {
       const m = new Map(prev)
       m.set(localId, { id: localId, progress: 0, status: 'loading', message: 'Generating video…', createdAt: Date.now(), inputImage: '' })
@@ -2455,12 +2717,21 @@ function VideoPageContent() {
         </div>
       )}
 
-      {/* Video Modal */}
-      <VideoModal
-        url={modalVideo?.url ?? ''}
+      {/* Video Info Modal */}
+      <VideoInfoModal
+        video={modalVideo}
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setModalVideo(null) }}
-        prompt={modalVideo?.prompt}
+        onUseAsMotionSource={(url) => {
+          setMotionSourcePreview(url)
+          setMotionSourceCdnUrl(url)
+          setActiveTab('motion')
+        }}
+        onUseAsEditInput={(url) => {
+          setEditVideoPreview(url)
+          setEditVideoCdnUrl(url)
+          setActiveTab('edit')
+        }}
       />
 
       {/* Done/error popup only — spinner hidden during generation */}

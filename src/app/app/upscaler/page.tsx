@@ -66,17 +66,35 @@ function UpscalerContent() {
   const [imageMetadata, setImageMetadata] = useState({ width: 1024, height: 1024 })
 
   // ── Model selection ──────────────────────────────────────────────────────
-  const [selectedModel, setSelectedModel] = useState<UpscalerModel>('pro-upscaler')
+  const [selectedModel, setSelectedModel] = useState<UpscalerModel>(() => {
+    if (typeof window === 'undefined') return 'pro-upscaler'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_upscaler_prefs') ?? '{}'); return (['pro-upscaler','smart-upscaler','crisp-upscaler'] as UpscalerModel[]).includes(d.selectedModel) ? d.selectedModel : 'pro-upscaler' } catch { return 'pro-upscaler' }
+  })
 
   // ── Smart Upscaler settings ──────────────────────────────────────────────
-  const [smartResolution, setSmartResolution] = useState<'4k' | '8k'>('4k')
+  const [smartResolution, setSmartResolution] = useState<'4k' | '8k'>(() => {
+    if (typeof window === 'undefined') return '4k'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_upscaler_prefs') ?? '{}'); return d.smartResolution === '8k' ? '8k' : '4k' } catch { return '4k' }
+  })
 
   // ── Pro Upscaler settings ────────────────────────────────────────────────
-  const [portrait, setPortrait] = useState(true)
-  const [skinPreset, setSkinPreset] = useState<SkinPreset>('Subtle')
+  const [portrait, setPortrait] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try { const d = JSON.parse(localStorage.getItem('sharpii_upscaler_prefs') ?? '{}'); return typeof d.portrait === 'boolean' ? d.portrait : true } catch { return true }
+  })
+  const [skinPreset, setSkinPreset] = useState<SkinPreset>(() => {
+    if (typeof window === 'undefined') return 'Subtle'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_upscaler_prefs') ?? '{}'); return d.skinPreset ?? 'Subtle' } catch { return 'Subtle' }
+  })
   const [customPrompt, setCustomPrompt] = useState('')
-  const [maxmode, setMaxmode] = useState(false)
-  const [maxResolution, setMaxResolution] = useState<'4k' | '8k'>('4k')
+  const [maxmode, setMaxmode] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try { const d = JSON.parse(localStorage.getItem('sharpii_upscaler_prefs') ?? '{}'); return typeof d.maxmode === 'boolean' ? d.maxmode : false } catch { return false }
+  })
+  const [maxResolution, setMaxResolution] = useState<'4k' | '8k'>(() => {
+    if (typeof window === 'undefined') return '4k'
+    try { const d = JSON.parse(localStorage.getItem('sharpii_upscaler_prefs') ?? '{}'); return d.maxResolution === '8k' ? '8k' : '4k' } catch { return '4k' }
+  })
 
   // Credit balance — from shared SWR cache, auto-refreshed after task completion
   const { total: creditBalance, isLoading: creditsLoading } = useCredits()
@@ -121,6 +139,11 @@ function UpscalerContent() {
       pollIntervalsRef.current.forEach(clearInterval)
     }
   }, [])
+
+  // Persist key settings to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('sharpii_upscaler_prefs', JSON.stringify({ v: 1, selectedModel, smartResolution, portrait, skinPreset, maxmode, maxResolution })) } catch {}
+  }, [selectedModel, smartResolution, portrait, skinPreset, maxmode, maxResolution])
 
   const openPlansPopup = () => window.dispatchEvent(new CustomEvent('sharpii:open-plans'))
 
