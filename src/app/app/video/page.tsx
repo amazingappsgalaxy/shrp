@@ -474,9 +474,10 @@ interface VideoUploadBoxProps {
   uploading: boolean
   onFile: (file: File) => Promise<void>
   onClear: () => void
+  tall?: boolean
 }
 
-function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: VideoUploadBoxProps) {
+function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear, tall }: VideoUploadBoxProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -494,7 +495,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
       <div
         className={cn(
           "relative rounded-lg border overflow-hidden transition-all cursor-pointer",
-          "h-28",
+          tall ? "h-36" : "h-28",
           dragging ? "border-[#FFFF00]/50 bg-[#1a1a00]" : "",
           preview
             ? "border-[#333333] bg-black"
@@ -513,7 +514,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
         )}
         {!uploading && preview ? (
           <>
-            <video src={preview} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+            <video src={preview} className="absolute inset-0 w-full h-full object-contain" muted playsInline autoPlay loop />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity">
               <IconUpload className="w-5 h-5 text-white" />
               <span className="text-xs text-white font-medium">Replace</span>
@@ -529,7 +530,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <IconVideo className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
-            {hint && <p className="text-[9px] text-white/45">{hint}</p>}
+            {hint && <p className="text-[9px] text-white/45 text-center px-2">{hint}</p>}
           </div>
         )}
       </div>
@@ -549,21 +550,23 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear }: Vi
 interface ImageUploadBoxProps {
   label: string
   optional?: boolean
+  required?: boolean
   hint?: string
   preview: string | null
   uploading: boolean
   onFile: (file: File) => Promise<void>
   onClear: () => void
+  tall?: boolean
 }
 
-function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onClear }: ImageUploadBoxProps) {
+function ImageUploadBox({ label, optional, required, hint, preview, uploading, onFile, onClear, tall }: ImageUploadBoxProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-black text-white/65 uppercase tracking-wider">{label}</span>
+          <span className={cn("text-[10px] font-black uppercase tracking-wider", required ? "text-white" : "text-white/65")}>{label}</span>
           {optional && <span className="text-[9px] text-white/30 italic">(optional)</span>}
         </div>
       )}
@@ -571,7 +574,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
       <div
         className={cn(
           "relative rounded-lg border overflow-hidden cursor-pointer transition-all group",
-          "h-24",
+          tall ? "h-36" : "h-24",
           preview ? "border-[#333333] bg-black" : "border-dashed border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#0a0a0a]"
         )}
         onClick={() => !preview && inputRef.current?.click()}
@@ -584,7 +587,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
         )}
         {!uploading && preview ? (
           <>
-            <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={preview} alt="" className="absolute inset-0 w-full h-full object-contain" />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity">
               <IconUpload className="w-5 h-5 text-white" />
               <span className="text-xs text-white font-medium">Replace</span>
@@ -600,7 +603,7 @@ function ImageUploadBox({ label, optional, hint, preview, uploading, onFile, onC
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
             <IconPhoto className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
-            {hint && <p className="text-[9px] text-white/45">{hint}</p>}
+            {hint && <p className="text-[9px] text-white/45 text-center px-2">{hint}</p>}
           </div>
         )}
       </div>
@@ -1337,8 +1340,8 @@ function VideoPageContent() {
     const localId = `vtask-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
     // Mirai Motion: show a brief demand notice
-    if (isMiraiModel) {
-      setTimeout(() => showToast('Mirai Motion models are currently in high demand. Please expect a slightly longer wait.', 'info', 4500), 300)
+    if (resolvedMotionModelId.startsWith('mirai-motion') && activeTab === 'motion') {
+      showToast('Mirai Motion models are currently in high demand. Please expect a slightly longer wait.', 'info', 4500)
     }
 
     setVideos(prev => [{ id: localId, url: null, aspect: currentAspect, loading: true, prompt: prompt.trim(), model: selectedModel?.label }, ...prev])
@@ -2095,40 +2098,50 @@ function VideoPageContent() {
                 )}
               </div>
 
-              {/* Reference Video upload */}
+              {/* Video + Character Image uploads */}
               <div className="px-5 py-5 border-b border-white/5">
-                <VideoUploadBox
-                  label="Reference Video"
-                  hint={isMiraiModel ? "MP4 / MOV · Max 10s · Required" : "MP4 / MOV · ≥3s · Required"}
-                  preview={motionSourcePreview}
-                  uploading={motionSourceUploading}
-                  onFile={async (f) => {
-                    if (isMiraiMotionGroup) {
-                      const dur = await getVideoDuration(f)
-                      if (dur > 10) {
-                        showToast('Video must be 10 seconds or shorter for Mirai Motion. Please trim your clip and try again.', 'error')
-                        return
-                      }
-                    }
-                    uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)
-                  }}
-                  onClear={() => { setMotionSourcePreview(null); setMotionSourceCdnUrl(null) }}
-                />
-              </div>
-
-              {/* Mirai Motion: Character Image upload */}
-              {isMiraiModel && (
-                <div className="px-5 py-4 border-b border-white/5">
-                  <ImageUploadBox
-                    label="Character Image"
-                    hint="Subject / character to apply motion to"
-                    preview={miraiImagePreview}
-                    uploading={miraiImageUploading}
-                    onFile={(f) => uploadImage(f, setMiraiImagePreview, setMiraiImageCdnUrl, setMiraiImageUploading)}
-                    onClear={() => { setMiraiImagePreview(null); setMiraiImageCdnUrl(null) }}
+                {isMiraiModel ? (
+                  /* Mirai: 2-column grid — video left, character image right */
+                  <div className="grid grid-cols-2 gap-3">
+                    <VideoUploadBox
+                      label="Motion Video"
+                      hint="MP4/MOV · Max 10s"
+                      tall
+                      preview={motionSourcePreview}
+                      uploading={motionSourceUploading}
+                      onFile={async (f) => {
+                        const dur = await getVideoDuration(f)
+                        if (dur > 10) {
+                          showToast('Video must be 10 seconds or shorter for Mirai Motion. Please trim your clip and try again.', 'error')
+                          return
+                        }
+                        uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)
+                      }}
+                      onClear={() => { setMotionSourcePreview(null); setMotionSourceCdnUrl(null) }}
+                    />
+                    <ImageUploadBox
+                      label="Character"
+                      required
+                      hint="Subject to apply motion to"
+                      tall
+                      preview={miraiImagePreview}
+                      uploading={miraiImageUploading}
+                      onFile={(f) => uploadImage(f, setMiraiImagePreview, setMiraiImageCdnUrl, setMiraiImageUploading)}
+                      onClear={() => { setMiraiImagePreview(null); setMiraiImageCdnUrl(null) }}
+                    />
+                  </div>
+                ) : (
+                  /* Kling: single full-width video upload */
+                  <VideoUploadBox
+                    label="Reference Video"
+                    hint="MP4 / MOV · ≥3s · Required"
+                    preview={motionSourcePreview}
+                    uploading={motionSourceUploading}
+                    onFile={(f) => uploadVideo(f, setMotionSourcePreview, setMotionSourceCdnUrl, setMotionSourceUploading)}
+                    onClear={() => { setMotionSourcePreview(null); setMotionSourceCdnUrl(null) }}
                   />
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Mirai Action/Portrait: Smart Recreate + Portrait mode */}
               {isMiraiModel && !isMiraiInhuman && (
