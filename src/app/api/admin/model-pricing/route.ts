@@ -1,14 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  ModelPricingEngine,
+  MODEL_PRICING_CONFIGS,
   ModelPricingConfiguration,
-  ResolutionBasePricing,
-  SettingPriceIncrement
 } from '@/lib/model-pricing-config'
+import { MODEL_REGISTRY } from '@/services/models'
 
 function checkAdminAuth(request: NextRequest): boolean {
   const adminEmail = request.headers.get('x-admin-email')
   return !!(adminEmail && adminEmail.toLowerCase() === (process.env.ADMIN_EMAIL || '').toLowerCase())
+}
+
+export interface UnifiedModelEntry {
+  modelId: string
+  modelName: string
+  type: 'image' | 'video'
+  provider: 'runninghub' | 'synvow' | 'unknown'
+  enabled: boolean
+  pricingType: 'tiered' | 'flat'
+  // For flat pricing (Synvow/video)
+  flatCredits?: number
+  costUsd?: number
+  tag?: string
+  description?: string
+  // For tiered pricing (RunningHub)
+  config?: ModelPricingConfiguration
 }
 
 export async function GET(request: NextRequest) {
@@ -17,213 +32,64 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const allConfigs = ModelPricingEngine.getAvailableModels()
-    const modelIds = allConfigs.map((c) => c.modelId)
-    const configs: Record<string, ModelPricingConfiguration> = {}
-    for (const c of allConfigs) {
-      configs[c.modelId] = c
-    }
-    return NextResponse.json({ models: modelIds, configs })
-  } catch (error) {
-    console.error('Error fetching model pricing configurations:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch model pricing configurations' },
-      { status: 500 }
-    )
-  }
-}
+    const unified: UnifiedModelEntry[] = []
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { action, modelId, data } = body
-
-    switch (action) {
-      case 'update_model_config':
-        if (!modelId || !data) {
-          return NextResponse.json(
-            { error: 'Missing modelId or data for model config update' },
-            { status: 400 }
-          )
-        }
-
-        const success = ModelPricingEngine.updateModelConfig(modelId, data)
-        if (!success) {
-          return NextResponse.json(
-            { error: 'Model not found or update failed' },
-            { status: 404 }
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'Model configuration updated successfully',
-          updatedConfig: ModelPricingEngine.getModelConfig(modelId)
-        })
-
-      case 'add_resolution_tier':
-        if (!modelId || !data) {
-          return NextResponse.json(
-            { error: 'Missing modelId or data for resolution tier' },
-            { status: 400 }
-          )
-        }
-
-        const addResolutionSuccess = ModelPricingEngine.addResolutionTier(modelId, data)
-        if (!addResolutionSuccess) {
-          return NextResponse.json(
-            { error: 'Model not found or failed to add resolution tier' },
-            { status: 404 }
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'Resolution tier added successfully',
-          updatedConfig: ModelPricingEngine.getModelConfig(modelId)
-        })
-
-      case 'add_setting_increment':
-        if (!modelId || !data) {
-          return NextResponse.json(
-            { error: 'Missing modelId or data for setting increment' },
-            { status: 400 }
-          )
-        }
-
-        const addSettingSuccess = ModelPricingEngine.addSettingIncrement(modelId, data)
-        if (!addSettingSuccess) {
-          return NextResponse.json(
-            { error: 'Model not found or failed to add setting increment' },
-            { status: 404 }
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'Setting increment added successfully',
-          updatedConfig: ModelPricingEngine.getModelConfig(modelId)
-        })
-
-      case 'update_setting_increment':
-        if (!modelId || !data?.settingKey || !data?.updates) {
-          return NextResponse.json(
-            { error: 'Missing modelId, settingKey, or updates for setting increment update' },
-            { status: 400 }
-          )
-        }
-
-        const updateSettingSuccess = ModelPricingEngine.updateSettingIncrement(
-          modelId,
-          data.settingKey,
-          data.updates
-        )
-        if (!updateSettingSuccess) {
-          return NextResponse.json(
-            { error: 'Model or setting not found, or update failed' },
-            { status: 404 }
-          )
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'Setting increment updated successfully',
-          updatedConfig: ModelPricingEngine.getModelConfig(modelId)
-        })
-
-      case 'calculate_preview':
-        if (!modelId || !data?.width || !data?.height) {
-          return NextResponse.json(
-            { error: 'Missing modelId, width, or height for pricing preview' },
-            { status: 400 }
-          )
-        }
-
-        try {
-          const pricingResult = ModelPricingEngine.calculateCredits(
-            data.width,
-            data.height,
-            modelId,
-            data.settings || {}
-          )
-
-          return NextResponse.json({
-            success: true,
-            pricing: pricingResult
-          })
-        } catch (error) {
-          return NextResponse.json(
-            { error: `Failed to calculate pricing: ${error instanceof Error ? error.message : 'Unknown error'}` },
-            { status: 400 }
-          )
-        }
-
-      case 'get_pricing_preview':
-        if (!modelId || !data?.scenarios) {
-          return NextResponse.json(
-            { error: 'Missing modelId or scenarios for pricing preview' },
-            { status: 400 }
-          )
-        }
-
-        try {
-          const preview = ModelPricingEngine.getPricingPreview(modelId, data.scenarios)
-          return NextResponse.json({
-            success: true,
-            preview
-          })
-        } catch (error) {
-          return NextResponse.json(
-            { error: `Failed to generate pricing preview: ${error instanceof Error ? error.message : 'Unknown error'}` },
-            { status: 400 }
-          )
-        }
-
-      default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        )
-    }
-  } catch (error) {
-    console.error('Error in model pricing API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { modelId, config } = body
-
-    if (!modelId || !config) {
-      return NextResponse.json(
-        { error: 'Missing modelId or config' },
-        { status: 400 }
-      )
+    // 1. RunningHub models with tiered pricing from model-pricing-config.ts
+    const rhProviders = new Set(['synvow', 'runninghub', 'evolink'])
+    for (const [modelId, config] of Object.entries(MODEL_PRICING_CONFIGS)) {
+      unified.push({
+        modelId,
+        modelName: config.modelName,
+        type: 'image',
+        provider: 'runninghub',
+        enabled: config.enabled,
+        pricingType: 'tiered',
+        description: config.description,
+        config,
+      })
     }
 
-    const success = ModelPricingEngine.updateModelConfig(modelId, config)
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Model not found or update failed' },
-        { status: 404 }
-      )
+    // Track which model IDs are already covered by RunningHub tiered configs
+    const coveredIds = new Set(Object.keys(MODEL_PRICING_CONFIGS))
+
+    // 2. Synvow/video models with flat pricing from MODEL_REGISTRY
+    for (const [modelId, mc] of Object.entries(MODEL_REGISTRY)) {
+      if (coveredIds.has(modelId)) continue
+      unified.push({
+        modelId,
+        modelName: mc.label,
+        type: mc.type,
+        provider: mc.providers.includes('synvow') ? 'synvow' : 'unknown',
+        enabled: true,
+        pricingType: 'flat',
+        flatCredits: mc.credits,
+        costUsd: mc.costUsd,
+        tag: mc.tag,
+        description: mc.description,
+      })
     }
+
+    // Sort: tiered first, then by type (image, video), then by credits desc
+    unified.sort((a, b) => {
+      if (a.pricingType !== b.pricingType) return a.pricingType === 'tiered' ? -1 : 1
+      if (a.type !== b.type) return a.type === 'image' ? -1 : 1
+      const aCredits = a.flatCredits ?? a.config?.resolutionPricing?.[0]?.baseCredits ?? 0
+      const bCredits = b.flatCredits ?? b.config?.resolutionPricing?.[0]?.baseCredits ?? 0
+      return bCredits - aCredits
+    })
+
+    // Summary stats
+    const totalModels = unified.length
+    const imageModels = unified.filter((m) => m.type === 'image').length
+    const videoModels = unified.filter((m) => m.type === 'video').length
+    const tieredModels = unified.filter((m) => m.pricingType === 'tiered').length
 
     return NextResponse.json({
-      success: true,
-      message: 'Model configuration updated successfully',
-      updatedConfig: ModelPricingEngine.getModelConfig(modelId)
+      models: unified,
+      stats: { totalModels, imageModels, videoModels, tieredModels },
     })
   } catch (error) {
-    console.error('Error updating model pricing configuration:', error)
-    return NextResponse.json(
-      { error: 'Failed to update model pricing configuration' },
-      { status: 500 }
-    )
+    console.error('Error fetching model pricing:', error)
+    return NextResponse.json({ error: 'Failed to fetch model pricing' }, { status: 500 })
   }
 }
