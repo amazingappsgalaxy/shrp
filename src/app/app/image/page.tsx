@@ -364,10 +364,6 @@ function ImageModal({
                 <p className="text-sm text-white font-semibold">{dims.w} × {dims.h}</p>
               </div>
             )}
-            <div>
-              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Scroll to zoom</p>
-              <p className="text-[11px] text-white/30">Drag to pan when zoomed in</p>
-            </div>
           </div>
           <div className="p-5 border-t border-white/[0.06]">
             <button

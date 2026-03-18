@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,6 +47,10 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
     const [editImageUrl, setEditImageUrl] = useState<string | null>(null);
     const [isUpscaling, setIsUpscaling] = useState(false);
     const [promptCopied, setPromptCopied] = useState(false);
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
 
     const handleAnimate = useCallback((url: string, type: 'image' | 'video') => {
         try { localStorage.setItem('sharpii_animate_input', JSON.stringify({ type, url, ts: Date.now() })) } catch {}
@@ -54,10 +58,45 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
         onClose();
     }, [router, onClose]);
 
-    // Reset index when item opens
+    // Reset index and zoom when item opens or image changes
     useEffect(() => {
         if (isOpen) setSelectedIndex(0);
     }, [isOpen, item]);
+
+    useEffect(() => {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }, [selectedIndex, item?.id]);
+
+    function handleImgWheel(e: React.WheelEvent) {
+        e.preventDefault();
+        setZoom(prev => {
+            const next = prev - e.deltaY * 0.003;
+            const clamped = Math.min(5, Math.max(1, next));
+            if (clamped === 1) setPan({ x: 0, y: 0 });
+            return clamped;
+        });
+    }
+
+    function handleImgMouseDown(e: React.MouseEvent) {
+        if (zoom <= 1) return;
+        e.preventDefault();
+        setIsDragging(true);
+        dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+    }
+
+    function handleImgMouseMove(e: React.MouseEvent) {
+        if (!isDragging || !dragStart.current) return;
+        setPan({
+            x: dragStart.current.px + (e.clientX - dragStart.current.mx),
+            y: dragStart.current.py + (e.clientY - dragStart.current.my),
+        });
+    }
+
+    function handleImgMouseUp() {
+        setIsDragging(false);
+        dragStart.current = null;
+    }
 
     // Clamp index to valid range — outputUrls can change after the modal opens (e.g. poll update)
     const safeIndex = Math.max(0, Math.min(selectedIndex, (item?.outputUrls?.length ?? 1) - 1))
@@ -159,7 +198,15 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                         <div className="flex-1 relative bg-black/50 flex flex-col">
 
                             {/* Main Image/Video */}
-                            <div className="flex-1 flex items-center justify-center p-8 overflow-hidden relative group">
+                            <div
+                                className="flex-1 flex items-center justify-center p-8 overflow-hidden relative group"
+                                style={{ cursor: !isVideo && zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                                onWheel={!isVideo ? handleImgWheel : undefined}
+                                onMouseDown={!isVideo ? handleImgMouseDown : undefined}
+                                onMouseMove={!isVideo ? handleImgMouseMove : undefined}
+                                onMouseUp={!isVideo ? handleImgMouseUp : undefined}
+                                onMouseLeave={!isVideo ? handleImgMouseUp : undefined}
+                            >
                                 {currentOutput ? (
                                     isVideo ? (
                                         <video
@@ -171,11 +218,23 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                             playsInline
                                         />
                                     ) : (
-                                        <img
-                                            src={currentOutput.url}
-                                            alt="Output"
-                                            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-transform duration-500 hover:scale-[1.02]"
-                                        />
+                                        <>
+                                            <img
+                                                src={currentOutput.url}
+                                                alt="Output"
+                                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+                                                draggable={false}
+                                                style={{
+                                                    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                                                    transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                                                }}
+                                            />
+                                            {zoom > 1 && (
+                                                <div className="absolute top-3 left-3 px-2 py-1 rounded-md bg-black/60 text-white/50 text-[10px] font-mono pointer-events-none">
+                                                    {Math.round(zoom * 100)}%
+                                                </div>
+                                            )}
+                                        </>
                                     )
                                 ) : (
                                     <div className="text-white/30">No output available</div>

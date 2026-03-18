@@ -68,6 +68,7 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
 
     return (
         <motion.div
+            data-history-id={item.id}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, delay: Math.min(index, 15) * 0.03 }}

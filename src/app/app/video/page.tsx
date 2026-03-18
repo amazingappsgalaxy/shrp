@@ -543,7 +543,7 @@ function VideoUploadBox({ label, hint, preview, uploading, onFile, onClear, tall
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <IconVideo className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
+            <IconVideo className="w-5 h-5 text-[#606060] group-hover:text-[#909090] transition-colors" />
             {hint && <p className="text-[9px] text-white/45 text-center px-2">{hint}</p>}
           </div>
         )}
@@ -616,7 +616,7 @@ function ImageUploadBox({ label, optional, required, hint, preview, uploading, o
           </>
         ) : !uploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-            <IconPhoto className="w-5 h-5 text-white/40 group-hover:text-white/65 transition-colors" />
+            <IconPhoto className="w-5 h-5 text-[#606060] group-hover:text-[#909090] transition-colors" />
             {hint && <p className="text-[9px] text-white/45 text-center px-2">{hint}</p>}
           </div>
         )}

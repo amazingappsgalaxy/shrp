@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useAuth } from "@/lib/auth-client-simple"
 import { ElegantLoading } from "@/components/ui/elegant-loading"
 import { toast } from "sonner"
@@ -23,19 +23,43 @@ type HistoryDetail = {
   status: string
   generationTimeMs: number | null
   settings: {
-    // Editor / upscaler fields
     style?: string | null
     mode?: string | null
     transformationStrength?: number | null
     skinTextureSize?: number | null
     detailLevel?: number | null
-    // Image generation fields (app/image)
     prompt?: string | null
     aspect_ratio?: string | null
     count?: number | null
     failure_reason?: string
   }
   createdAt: string
+}
+
+/** Returns column count matching the CSS grid breakpoints */
+function getGridCols(): number {
+  if (typeof window === 'undefined') return 4
+  const w = window.innerWidth
+  if (w >= 1280) return 5
+  if (w >= 1024) return 4
+  if (w >= 640) return 3
+  return 2
+}
+
+/**
+ * Finds the first grid card that's at or below the top of the viewport and
+ * returns its id plus its absolute Y position (relative to document top).
+ * Used to anchor scroll position before/after a prepend.
+ */
+function findScrollAnchor(): { id: string; docTop: number } | null {
+  const cards = document.querySelectorAll<HTMLElement>('[data-history-id]')
+  for (const card of Array.from(cards)) {
+    const rect = card.getBoundingClientRect()
+    if (rect.bottom > 0) {
+      return { id: card.getAttribute('data-history-id')!, docTop: rect.top + window.scrollY }
+    }
+  }
+  return null
 }
 
 export default function HistoryPage() {
@@ -51,13 +75,41 @@ export default function HistoryPage() {
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null)
   const loadingRef = useRef(false)
 
+  // Keeps a live copy of items so the polling closure never reads stale state
+  const itemsRef = useRef<HistoryListItem[]>([])
+  useEffect(() => { itemsRef.current = items }, [items])
+
+  // When we're about to prepend items, we save the scroll anchor here.
+  // useLayoutEffect below reads it after the DOM has been updated.
+  const scrollAnchorRef = useRef<{ id: string; docTop: number } | null>(null)
+
+  // Runs synchronously after every items change, before the browser paints.
+  // If we stored an anchor before the update, scroll back to it now.
+  useLayoutEffect(() => {
+    if (!scrollAnchorRef.current) return
+    const { id, docTop: savedDocTop } = scrollAnchorRef.current
+    scrollAnchorRef.current = null
+
+    const el = document.querySelector<HTMLElement>(`[data-history-id="${id}"]`)
+    if (!el) return
+
+    const newDocTop = el.getBoundingClientRect().top + window.scrollY
+    const diff = newDocTop - savedDocTop
+    if (Math.abs(diff) > 1) {
+      window.scrollTo({ top: window.scrollY + diff, behavior: 'instant' })
+    }
+  }, [items])
+
   const loadHistory = async (reset = false) => {
-    if (loadingRef.current) return  // synchronous guard prevents concurrent calls
+    if (loadingRef.current) return
     loadingRef.current = true
     if (!reset) setLoadingMore(true)
     try {
       const params = new URLSearchParams()
-      params.set('limit', '60')
+      // Initial load: exactly 6 rows (cols × 6) so the grid always ends on a full row.
+      // Load More: same page size for consistency.
+      const cols = getGridCols()
+      params.set('limit', String(cols * 6))
       if (!reset && cursor) {
         params.set('cursor', cursor)
       }
@@ -87,18 +139,12 @@ export default function HistoryPage() {
     }
   }
 
-  const displayedItems = items
-
   useEffect(() => {
     if (!user) return
     loadHistory(true)
   }, [user])
 
-  // Single polling function: fetches top 20 items every 4s.
-  // - Prepends any brand-new items (e.g. a generation just started)
-  // - Updates status of existing items (e.g. processing → completed)
-  // Runs immediately on mount AND on the 4s interval.
-  // Uses setItems(prev => ...) to always operate on fresh state, not a stale closure.
+  // Polling: fetches top 20 items every 4s to catch new generations and status changes.
   useEffect(() => {
     if (!user) return
 
@@ -110,11 +156,14 @@ export default function HistoryPage() {
         const fresh: HistoryListItem[] = data.items || []
         if (fresh.length === 0) return
 
-        // Only prepend brand-new items if the user is already at (or near) the top.
-        // If they're scrolled down, silently skip the prepend — they stay on their
-        // current content and new items will appear naturally next time they scroll
-        // to the top or click Refresh. Statuses are always updated regardless.
-        const isAtTop = window.scrollY < 150
+        // Pre-check using itemsRef (never stale) whether we'll be prepending new items.
+        // If yes, capture the scroll anchor BEFORE calling setItems so useLayoutEffect
+        // can restore the position after the DOM updates.
+        const existingIds = new Set(itemsRef.current.map(i => i.id))
+        const hasBrandNew = fresh.some(f => !existingIds.has(f.id))
+        if (hasBrandNew) {
+          scrollAnchorRef.current = findScrollAnchor()
+        }
 
         setItems(prev => {
           const freshMap = new Map(fresh.map(f => [f.id, f]))
@@ -127,8 +176,8 @@ export default function HistoryPage() {
             if (statusChanged || urlsAdded) { changed = true; return { ...item, ...f } }
             return item
           })
-          const existingIds = new Set(prev.map(i => i.id))
-          const brandNew = isAtTop ? fresh.filter(f => !existingIds.has(f.id)) : []
+          const ids = new Set(prev.map(i => i.id))
+          const brandNew = fresh.filter(f => !ids.has(f.id))
           if (brandNew.length === 0 && !changed) return prev
           return brandNew.length > 0 ? [...brandNew, ...updated] : updated
         })
@@ -137,7 +186,6 @@ export default function HistoryPage() {
         setItems(prev => {
           const processingNotFetched = prev.filter(i => i.status === 'processing' && !fresh.find(f => f.id === i.id))
           if (processingNotFetched.length === 0) return prev
-          // Fire a targeted fetch for those IDs (fire-and-forget, result applied via setItems)
           const ids = processingNotFetched.map(i => i.id).join(',')
           fetch(`/api/history/list?ids=${ids}`, { cache: 'no-store' })
             .then(r => r.json())
@@ -153,19 +201,17 @@ export default function HistoryPage() {
               }))
             })
             .catch(() => {})
-          return prev  // return unchanged for now; second setItems will update
+          return prev
         })
       } catch {}
     }
 
-    // Fire immediately to catch items added before this page loaded
     void refresh()
     const interval = setInterval(refresh, 4000)
     return () => clearInterval(interval)
   }, [user])
 
   const openDetail = async (id: string) => {
-    // Open modal immediately with data we already have
     const basicItem = items.find(i => i.id === id)
     if (basicItem) {
       setSelected({
@@ -185,7 +231,6 @@ export default function HistoryPage() {
       setLoadingItemId(id)
     }
 
-    // Load full details in background
     try {
       const res = await fetch(`/api/history/item?id=${id}`, { cache: 'no-store' })
       if (!res.ok) {
@@ -222,7 +267,6 @@ export default function HistoryPage() {
           <div className="flex items-end justify-between">
             <div className="space-y-2">
               <h1 className="text-3xl font-bold text-white">History</h1>
-              {/* Retention notice */}
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.07] w-fit">
                 <span className="w-1.5 h-1.5 rounded-full bg-white/30 flex-shrink-0" />
                 <p className="text-[11px] text-white/40 tracking-wide">Media outputs expire <span className="text-white/60 font-medium">30 days</span> after creation</p>
@@ -243,7 +287,7 @@ export default function HistoryPage() {
             <div className="flex items-center justify-center py-24">
               <ElegantLoading message="Loading history..." />
             </div>
-          ) : displayedItems.length === 0 ? (
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-32 text-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-2">
                 <span className="text-2xl">📜</span>
@@ -252,7 +296,7 @@ export default function HistoryPage() {
               <button onClick={() => window.location.href = '/app/skineditor'} className="text-[#FFFF00] text-sm hover:underline">Start Creating</button>
             </div>
           ) : (
-            <HistoryGrid items={displayedItems} onSelect={openDetail} loadingItemId={loadingItemId} />
+            <HistoryGrid items={items} onSelect={openDetail} loadingItemId={loadingItemId} />
           )}
 
           {hasMore && !loading && (

@@ -198,19 +198,6 @@ export function ImageModal({ beforeImage, afterImage, title, description, onClos
               />
             </motion.div>
 
-            {/* Zoom Instructions */}
-            {zoomLevel === 1 && (
-              <motion.div
-                className="absolute top-4 left-4 px-3 py-2 glass rounded-lg border border-glass-border"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-              >
-                <p className="text-sm text-text-secondary">
-                  Scroll to zoom • Click and drag to pan
-                </p>
-              </motion.div>
-            )}
 
             {/* Before/After Toggle */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
