@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { isAdminAuthenticated, getAdminEmail, adminLogout } from '@/lib/admin-client-auth'
 
@@ -18,18 +18,20 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const router = useRouter()
   const [email, setEmail] = useState('')
-  const [mounted, setMounted] = useState(false)
+  // Synchronous auth check — sessionStorage is available immediately on the client
+  const [isAuth] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null
+    return isAdminAuthenticated()
+  })
 
   useEffect(() => {
-    setMounted(true)
-    if (!isAdminAuthenticated()) {
+    if (isAuth === false) {
       window.location.href = '/admin/login'
-      return
+    } else if (isAuth === true) {
+      setEmail(getAdminEmail())
     }
-    setEmail(getAdminEmail())
-  }, [])
+  }, [isAuth])
 
   const handleLogout = () => {
     adminLogout()
@@ -41,15 +43,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return <>{children}</>
   }
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-[#0d0d0f] flex items-center justify-center">
-        <div className="animate-pulse bg-white/10 rounded h-8 w-32" />
-      </div>
-    )
-  }
-
-  if (!isAdminAuthenticated()) {
+  // SSR or not authenticated — render nothing (redirect handled in useEffect)
+  if (!isAuth) {
     return null
   }
 

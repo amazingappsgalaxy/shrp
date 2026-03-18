@@ -1278,12 +1278,41 @@ function VideoPageContent() {
     const completed = videos.filter(v => v.url && !v.loading)
     const inProgress = videos.filter(v => v.loading && v.taskId)
     const toSave = [...inProgress, ...completed].slice(0, 50)
-    if (toSave.length > 0) {
-      try {
+    try {
+      if (toSave.length > 0) {
         localStorage.setItem('sharpii_videos', JSON.stringify(toSave))
-      } catch { /* ignore quota errors */ }
-    }
+      }
+    } catch { /* ignore quota errors */ }
   }, [videos])
+
+  // DB sync fallback: when localStorage has no completed videos, fetch from history API
+  useEffect(() => {
+    if (!user) return
+    const hasCompleted = videos.some(v => v.url && !v.loading)
+    if (hasCompleted) return
+    type HistoryApiItem = { id: string; outputUrls: Array<{ type: string; url: string }>; status: string }
+    fetch('/api/history/list?limit=50', { cache: 'no-store' })
+      .then((r): Promise<{ items: HistoryApiItem[] } | null> => r.ok ? r.json() : Promise.resolve(null))
+      .then((data) => {
+        if (!data?.items) return
+        const dbVideos: VideoResult[] = data.items
+          .filter((item) => item.status === 'completed' && item.outputUrls?.some((o) => o.type === 'video'))
+          .map((item) => {
+            const videoOutput = item.outputUrls.find((o) => o.type === 'video')!
+            return { id: item.id, url: videoOutput.url, aspect: '16:9', loading: false, taskId: item.id }
+          })
+        if (dbVideos.length > 0) {
+          setVideos((prev) => {
+            const existingIds = new Set(prev.map((v) => v.id))
+            const newOnes = dbVideos.filter((v) => !existingIds.has(v.id))
+            return newOnes.length > 0 ? [...prev, ...newOnes] : prev
+          })
+        }
+      })
+      .catch(() => {})
+  // Only run on mount after user is available
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   // Clamp duration + reset model-specific state when model changes
   useEffect(() => {
