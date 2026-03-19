@@ -957,11 +957,17 @@ export default function ImagePage() {
     requestAnimationFrame(() => { scrollAdjustingRef.current = false })
   })
 
-  // Poll DB for processing items every 15 s — background cron keeps status updated
+  // Poll DB for processing items every 5s + actively trigger RunningHub processing
   useEffect(() => {
     if (processingDbIds.length === 0) return
     const timer = setInterval(async () => {
       try {
+        // Kick server-side RunningHub poll so tasks complete without waiting for the 60s cron
+        void fetch('/api/tasks/process-mine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskIds: processingDbIds }),
+        })
         const r = await fetch(`/api/history/list?ids=${processingDbIds.join(',')}`)
         const data = await r.json() as HistoryApiResp
         if (!data.items?.length) return
@@ -1315,6 +1321,14 @@ export default function ImagePage() {
           placeholders.some(p => p.id === img.id) ? { ...img, taskId: data.taskId! } : img
         ))
         setProcessingDbIds(prev => [...new Set([...prev, data.taskId!])])
+        // Kick process-mine immediately for RunningHub tasks (don't wait for the 5s interval)
+        setTimeout(() => {
+          void fetch('/api/tasks/process-mine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskIds: [data.taskId!] }),
+          })
+        }, 2000)
       })
       .catch(err => {
         const msg = err instanceof Error ? err.message : "Generation failed"
