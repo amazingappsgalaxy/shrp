@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
-import { uploadBuffer, uploadFromUrl, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail } from '@/lib/bunny'
+import { uploadBuffer, uploadFromUrlWithBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnailFromBuffer } from '@/lib/bunny'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
 import { MODEL_REGISTRY } from '@/services/models'
@@ -192,8 +192,8 @@ export async function POST(request: NextRequest) {
     const rawOutputUrl = result.immediateOutput
     const ext = extFromUrl(rawOutputUrl) || 'jpg'
     const outputPath = getOutputPath(userId, ext)
-    const outputUrl = await uploadFromUrl(outputPath, rawOutputUrl, mimeFromExt(ext))
-    const thumbnailUrl = await generateAndUploadThumbnail(outputPath, outputUrl)
+    const { url: outputUrl, buffer: outputBuffer } = await uploadFromUrlWithBuffer(outputPath, rawOutputUrl, mimeFromExt(ext))
+    const thumbnailUrl = await generateAndUploadThumbnailFromBuffer(outputPath, outputBuffer)
     const generationMs = Date.now() - startTime
 
     // ── Mark history record as completed ─────────────────────────────────────

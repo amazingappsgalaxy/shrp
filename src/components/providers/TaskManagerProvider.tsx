@@ -210,6 +210,9 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
 
   const addWatchedTask = useCallback((historyId: string, label?: string) => {
     setTasks(prev => {
+      const existing = prev.get(historyId)
+      // Don't overwrite a task that's already completed or failed — it would reset it to processing
+      if (existing && existing.status !== 'processing') return prev
       const next = new Map(prev)
       next.set(historyId, { historyId, label, addedAt: Date.now(), status: 'processing', notified: false })
       return next

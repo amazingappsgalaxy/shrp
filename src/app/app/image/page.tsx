@@ -720,22 +720,10 @@ export default function ImagePage() {
   const router = useRouter()
 
   const [count,        setCount]        = useState<Count>(1)
-  const [aspect,       setAspect]       = useState<Aspect>(() => {
-    if (typeof window === 'undefined') return '1:1'
-    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return (ASPECTS as string[]).includes(d.aspect) ? d.aspect as Aspect : '1:1' } catch { return '1:1' }
-  })
-  const [resolution,   setResolution]   = useState<Resolution>(() => {
-    if (typeof window === 'undefined') return '1K'
-    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return (['1K','2K','3K','4K'] as Resolution[]).includes(d.resolution) ? d.resolution : '1K' } catch { return '1K' }
-  })
-  const [style,        setStyle]        = useState(() => {
-    if (typeof window === 'undefined') return 'None'
-    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return STYLES.includes(d.style) ? d.style : 'None' } catch { return 'None' }
-  })
-  const [modelId,      setModelId]      = useState(() => {
-    if (typeof window === 'undefined') return DEFAULT_MODEL.id
-    try { const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}'); return IMAGE_MODELS.find(m => m.id === d.modelId) ? d.modelId : DEFAULT_MODEL.id } catch { return DEFAULT_MODEL.id }
-  })
+  const [aspect,       setAspect]       = useState<Aspect>('1:1')
+  const [resolution,   setResolution]   = useState<Resolution>('1K')
+  const [style,        setStyle]        = useState('None')
+  const [modelId,      setModelId]      = useState(DEFAULT_MODEL.id)
   const [prompt,       setPrompt]       = useState("")
   const [images,       setImages]       = useState<GridImage[]>([])
   const [modalIndex,   setModalIndex]   = useState<number | null>(null)
@@ -850,6 +838,18 @@ export default function ImagePage() {
     document.addEventListener("mousedown", fn)
     return () => document.removeEventListener("mousedown", fn)
   }, [openPicker])
+
+  // Restore preferences from localStorage after hydration (must be in useEffect to avoid SSR mismatch)
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem('sharpii_image_prefs') ?? '{}')
+      if (IMAGE_MODELS.find(m => m.id === d.modelId)) setModelId(d.modelId)
+      if ((ASPECTS as string[]).includes(d.aspect)) setAspect(d.aspect as Aspect)
+      if ((['1K','2K','3K','4K'] as Resolution[]).includes(d.resolution)) setResolution(d.resolution)
+      if (STYLES.includes(d.style)) setStyle(d.style)
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Persist key settings to localStorage
   useEffect(() => {
