@@ -185,7 +185,7 @@ export async function generateAndUploadThumbnailFromBuffer(
 ): Promise<string | null> {
   try {
     const thumbBuffer = await sharp(imageBuffer)
-      .resize({ width: 400, withoutEnlargement: true })
+      .resize({ width: 600, withoutEnlargement: true })
       .png({ compressionLevel: 6 })
       .toBuffer()
 

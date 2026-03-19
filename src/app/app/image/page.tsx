@@ -31,6 +31,8 @@ interface GridImage {
   url: string
   thumbnailUrl?: string
   aspect: Aspect
+  /** Detected actual pixel ratio (w/h) — overrides aspect map in the grid layout */
+  actualRatio?: number
   loading: boolean
   prompt?: string
   model?: string
@@ -123,10 +125,11 @@ function buildRows(images: GridImage[], containerW: number, targetH: number): JR
 
   const flush = (last: boolean) => {
     if (rowImgs.length === 0) return
+    const ratio = (img: GridImage) => img.actualRatio ?? ASPECT_NUM[img.aspect]
     const scale = last ? 1 : (containerW - GAP * (rowImgs.length - 1)) /
-      rowImgs.reduce((s, img) => s + targetH * ASPECT_NUM[img.aspect], 0)
+      rowImgs.reduce((s, img) => s + targetH * ratio(img), 0)
     const height = Math.round(targetH * scale)
-    const widths = rowImgs.map(img => Math.round(targetH * ASPECT_NUM[img.aspect] * scale))
+    const widths = rowImgs.map(img => Math.round(targetH * ratio(img) * scale))
     if (!last) {
       const drift = containerW - widths.reduce((s, w) => s + w, 0) - GAP * (widths.length - 1)
       if (Math.abs(drift) <= widths.length) widths[widths.length - 1]! += drift
@@ -137,7 +140,7 @@ function buildRows(images: GridImage[], containerW: number, targetH: number): JR
   }
 
   for (const img of images) {
-    const natW = targetH * ASPECT_NUM[img.aspect]
+    const natW = targetH * (img.actualRatio ?? ASPECT_NUM[img.aspect])
     if (rowImgs.length > 0 && rowNatW + GAP + natW > containerW * 1.05) flush(false)
     rowImgs.push(img)
     rowNatW += (rowImgs.length > 1 ? GAP : 0) + natW
@@ -415,7 +418,7 @@ function ImageModal({
 
 // ─── Justified grid ───────────────────────────────────────────────────────────
 function JustifiedGrid({
-  images, generatedIds, onOpen, onVary, onEdit, onUpscale, onAnimate, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy,
+  images, generatedIds, onOpen, onVary, onEdit, onUpscale, onAnimate, selectedIds, onToggleSelect, showSelectButton, refsAtMax, isBusy, onRatioDetected,
 }: {
   images: GridImage[]
   generatedIds: Set<string>
@@ -429,6 +432,7 @@ function JustifiedGrid({
   showSelectButton: boolean
   refsAtMax: boolean
   isBusy: boolean
+  onRatioDetected?: (id: string, ratio: number) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerW, setContainerW] = useState(0)
@@ -500,7 +504,16 @@ function JustifiedGrid({
                 <div style={{ position: "absolute", inset: 0, borderRadius: 8, overflow: "hidden" }}>
                   {img.loading ? <GenerationAnimation /> : (
                     <img src={img.thumbnailUrl || img.url} alt="" className="block w-full h-full object-cover select-none"
-                      style={{ animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined }} />
+                      style={{ animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined }}
+                      onLoad={e => {
+                        const el = e.currentTarget
+                        if (el.naturalWidth && el.naturalHeight && onRatioDetected && !img.actualRatio) {
+                          const r = el.naturalWidth / el.naturalHeight
+                          const expected = img.actualRatio ?? ASPECT_NUM[img.aspect]
+                          if (Math.abs(r - expected) > 0.02) onRatioDetected(img.id, r)
+                        }
+                      }}
+                    />
                   )}
                 </div>
 
@@ -1469,6 +1482,7 @@ export default function ImagePage() {
             showSelectButton={modelSupportsRef}
             refsAtMax={refsAtMax}
             isBusy={anyGenerating}
+            onRatioDetected={(id, ratio) => setImages(prev => prev.map(img => img.id === id ? { ...img, actualRatio: ratio } : img))}
           />
           <div ref={endRef} />
         </div>
