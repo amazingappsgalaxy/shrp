@@ -47,7 +47,8 @@ export function useTaskManager() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const POLL_INTERVAL_MS = 5000
+const POLL_INTERVAL_MS = 5000       // DB status check — fast
+const PROCESS_INTERVAL_MS = 10000   // Trigger server-side RunningHub poll — reduces cron 60s wait
 
 function playSuccessSound() {
   if (typeof window === 'undefined') return
@@ -83,6 +84,7 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
   // Ref always holds the latest tasks — prevents stale closures in the poll interval
   const tasksRef = useRef<Map<string, WatchedTask>>(new Map())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const processIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const dismissTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   // Track previous task statuses so we can detect completions without polling
   const prevTaskStatusRef = useRef<Map<string, TaskStatus>>(new Map())
@@ -112,6 +114,16 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
     )
     if (needsRefresh) void mutate(APP_DATA_KEY)
   }, [tasks, mutate])
+
+  // ── Trigger server-side processing — kicks RunningHub poll + Bunny upload ──
+  // Replaces the 60s cron gap with near-instant completion from the browser.
+  const triggerProcessing = useCallback(async () => {
+    const hasRunningHub = Array.from(tasksRef.current.values()).some(t => t.status === 'processing')
+    if (!hasRunningHub) return
+    try {
+      await fetch('/api/tasks/process-mine', { method: 'POST' })
+    } catch {}
+  }, [])
 
   // ── Poll — reads from tasksRef so it is NEVER stale ───────────────────────
   // No deps on tasks/state — always up-to-date via tasksRef.current
@@ -161,19 +173,28 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
       if (!intervalRef.current) {
         intervalRef.current = setInterval(() => { void poll() }, POLL_INTERVAL_MS)
       }
+      if (!processIntervalRef.current) {
+        // Trigger immediately on first processing task, then every PROCESS_INTERVAL_MS
+        void triggerProcessing()
+        processIntervalRef.current = setInterval(() => { void triggerProcessing() }, PROCESS_INTERVAL_MS)
+      }
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
+      if (processIntervalRef.current) {
+        clearInterval(processIntervalRef.current)
+        processIntervalRef.current = null
+      }
     }
-    // poll is stable (no deps), so this effect only re-runs when `tasks` changes
-  }, [tasks, poll])
+  }, [tasks, poll, triggerProcessing])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
+      if (processIntervalRef.current) clearInterval(processIntervalRef.current)
       dismissTimers.current.forEach(t => clearTimeout(t))
     }
   }, [])
@@ -186,9 +207,12 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
       next.set(historyId, { historyId, label, addedAt: Date.now(), status: 'processing', notified: false })
       return next
     })
-    // Trigger an immediate poll after tasksRef has been updated (next render cycle)
-    setTimeout(() => { void poll() }, 300)
-  }, [poll])
+    // Trigger an immediate poll + processing kick after tasksRef has been updated (next render cycle)
+    setTimeout(() => {
+      void poll()
+      void triggerProcessing()
+    }, 300)
+  }, [poll, triggerProcessing])
 
   // Immediately mark a task as completed (called when the API returns success directly)
   const resolveTask = useCallback((historyId: string) => {

@@ -20,7 +20,7 @@ import { RunningHubProvider } from '../../../../services/ai-providers/runninghub
 import { getEvolinkProvider } from '../../../../services/ai-providers/evolink'
 import { getSynvowProvider } from '../../../../services/ai-providers/synvow'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
-import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail } from '@/lib/bunny'
+import { uploadFromUrl, uploadFromUrlWithBuffer, generateAndUploadThumbnailFromBuffer, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
 
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
@@ -321,9 +321,9 @@ async function processPendingTask(
             const ext = extFromUrl(item.url) || (item.type === 'video' ? 'mp4' : 'jpg')
             const taskPrompt = (settings.prompt as string | undefined) || undefined
             const outputPath = getOutputPath(task.user_id, ext, generateMediaFilename(ext, taskPrompt))
-            const bunnyUrl = await uploadFromUrl(outputPath, item.url, mimeFromExt(ext))
+            const { url: bunnyUrl, buffer: imgBuffer } = await uploadFromUrlWithBuffer(outputPath, item.url, mimeFromExt(ext))
             console.log(`✅ Bunny: output uploaded — ${bunnyUrl}`)
-            const thumbnailUrl = item.type === 'image' ? await generateAndUploadThumbnail(outputPath, bunnyUrl) : null
+            const thumbnailUrl = item.type === 'image' ? await generateAndUploadThumbnailFromBuffer(outputPath, imgBuffer) : null
             return { ...item, url: bunnyUrl, original_url: item.url, ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}) }
           } catch (err) {
             console.error(`❌ Bunny: failed to upload output ${item.url}:`, err)

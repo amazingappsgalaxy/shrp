@@ -97,6 +97,27 @@ export async function uploadFromUrl(
   return uploadBuffer(path, buffer, ct)
 }
 
+/**
+ * Download a remote URL, upload it to Bunny, and return both the CDN URL and the buffer.
+ * Use this when you also need to generate a thumbnail — avoids re-fetching from CDN
+ * (which may not have propagated yet) by reusing the already-downloaded buffer.
+ */
+export async function uploadFromUrlWithBuffer(
+  path: string,
+  sourceUrl: string,
+  contentType?: string
+): Promise<{ url: string; buffer: Buffer }> {
+  const response = await fetch(sourceUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch source URL (${response.status}): ${sourceUrl}`)
+  }
+
+  const ct = contentType || response.headers.get('content-type') || 'application/octet-stream'
+  const buffer = Buffer.from(await response.arrayBuffer())
+  const url = await uploadBuffer(path, buffer, ct)
+  return { url, buffer }
+}
+
 // ─── Delete helpers ───────────────────────────────────────────────────────────
 
 /**

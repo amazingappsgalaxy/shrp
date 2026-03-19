@@ -7,7 +7,7 @@ import { ProviderType } from '../../../../services/ai-providers/common/types'
 import { RunningHubProvider } from '../../../../services/ai-providers/runninghub/runninghub-provider'
 import { getSession } from '@/lib/auth-simple'
 import { UnifiedCreditsService } from '@/lib/unified-credits'
-import { uploadFromUrl, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail } from '@/lib/bunny'
+import { uploadFromUrlWithBuffer, generateAndUploadThumbnailFromBuffer, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
 
 type EnhancementOutputItem = { type: 'image' | 'video'; url: string }
@@ -112,9 +112,9 @@ export async function GET(request: NextRequest) {
             const ext = extFromUrl(out.url) || (out.type === 'video' ? 'mp4' : 'jpg')
             const taskPrompt = (settings as Record<string, unknown>)?.prompt as string | undefined
             const outputPath = getOutputPath(userId, ext, generateMediaFilename(ext, taskPrompt))
-            const bunnyUrl = await uploadFromUrl(outputPath, out.url, mimeFromExt(ext))
+            const { url: bunnyUrl, buffer: imgBuffer } = await uploadFromUrlWithBuffer(outputPath, out.url, mimeFromExt(ext))
             console.log(`✅ Bunny (enhance-poll): uploaded — ${bunnyUrl}`)
-            const thumbnailUrl = out.type === 'image' ? await generateAndUploadThumbnail(outputPath, bunnyUrl) : null
+            const thumbnailUrl = out.type === 'image' ? await generateAndUploadThumbnailFromBuffer(outputPath, imgBuffer) : null
             return { ...out, url: bunnyUrl, original_url: out.url, ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}) }
           } catch (err) {
             console.error(`❌ Bunny (enhance-poll): upload failed for ${out.url}, using provider URL:`, err)
