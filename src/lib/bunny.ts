@@ -168,14 +168,14 @@ const VIDEO_EXTS = new Set(['mp4', 'webm', 'mov', 'm4v'])
 
 /**
  * Derives thumbnail storage path from an original output path.
- * e.g. outputs/2026-03-18/userId/image.png → outputs/2026-03-18/userId/image_thumb.webp
+ * e.g. outputs/2026-03-18/userId/image.png → outputs/2026-03-18/userId/image_smallthumbnail.png
  */
 export function getThumbnailPath(originalPath: string): string {
-  return originalPath.replace(/\.[^.]+$/, '_thumb.webp')
+  return originalPath.replace(/\.[^.]+$/, '_smallthumbnail.png')
 }
 
 /**
- * Resizes a buffer to a max 400px wide WebP thumbnail and uploads to Bunny CDN.
+ * Resizes a buffer to a max 400px wide PNG thumbnail and uploads to Bunny CDN.
  * Returns the CDN URL, or null on any failure.
  * Never throws — thumbnail failure must never block the main upload flow.
  */
@@ -186,11 +186,11 @@ export async function generateAndUploadThumbnailFromBuffer(
   try {
     const thumbBuffer = await sharp(imageBuffer)
       .resize({ width: 400, withoutEnlargement: true })
-      .webp({ quality: 75 })
+      .png({ compressionLevel: 6 })
       .toBuffer()
 
     const thumbPath = getThumbnailPath(outputPath)
-    const thumbUrl = await uploadBuffer(thumbPath, thumbBuffer, 'image/webp')
+    const thumbUrl = await uploadBuffer(thumbPath, thumbBuffer, 'image/png')
     console.log(`✅ Thumbnail uploaded — ${thumbUrl}`)
     return thumbUrl
   } catch (err) {
