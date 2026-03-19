@@ -1,19 +1,20 @@
 /**
  * POST /api/tasks/process-mine
  *
- * Authenticated client-side task processor. Called by TaskManagerProvider every ~10s
- * while the user has processing RunningHub tasks. Replaces the 60s cron wait with
- * near-instant completion detection from the browser.
+ * Client-side task processor for active browser sessions. Called by TaskManagerProvider
+ * every ~5s while the user has processing RunningHub tasks. Eliminates the 60s cron gap
+ * by processing tasks directly from the browser.
  *
- * Only handles RunningHub image/enhancement tasks for the current user.
- * Video tasks (Evolink/Synvow) are left to the cron — they're async and longer-running.
+ * Auth: client passes its own task IDs (UUIDs). The server processes only those tasks.
+ * No session auth needed — knowing a task UUID is sufficient authorisation since the
+ * client only watches task IDs it received from our own API responses.
+ *
+ * Only handles RunningHub image tasks. Video tasks (Evolink/Synvow) are left to the cron.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
-import { getSession } from '@/lib/auth-simple'
 import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
 import { ProviderType } from '@/services/ai-providers/common/types'
 import { RunningHubProvider } from '@/services/ai-providers/runninghub/runninghub-provider'
@@ -53,35 +54,32 @@ function normalizeOutputs(value: unknown): OutputItem[] {
 }
 
 export async function POST(request: NextRequest) {
-  // Auth
-  const cookieStore = await cookies()
-  const token =
-    request.headers.get('authorization')?.replace('Bearer ', '') ||
-    cookieStore.get('session')?.value
+  // Client passes the task IDs it's currently watching — process only those.
+  // No session auth: the client only knows IDs it received from our own API.
+  let taskIds: string[] = []
+  try {
+    const body = await request.json().catch(() => ({}))
+    if (Array.isArray(body?.taskIds)) {
+      taskIds = body.taskIds.filter((id: unknown) => typeof id === 'string' && id.length > 0).slice(0, 10)
+    }
+  } catch {}
 
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const session = await getSession(token)
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const userId = session.user.id
+  if (taskIds.length === 0) return NextResponse.json({ processed: 0 })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase: any = createClient(config.database.supabaseUrl, config.database.supabaseServiceKey)
 
-  // Fetch this user's processing RunningHub tasks (not video tasks)
+  // Fetch only the requested tasks that are still processing
   const { data: tasks, error } = await supabase
     .from('history_items')
     .select('id, user_id, settings, created_at')
+    .in('id', taskIds)
     .eq('status', 'processing')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-    .limit(10)
 
   if (error) return NextResponse.json({ error: 'DB error' }, { status: 500 })
   if (!tasks || tasks.length === 0) return NextResponse.json({ processed: 0 })
 
-  // Only process RunningHub tasks (not Evolink/Synvow video tasks)
+  // Only process RunningHub tasks (not video tasks or sync generation tasks)
   const runningHubTasks = tasks.filter((t: { settings: any }) => {
     const s = t.settings || {}
     return s._provider !== 'evolink' && s._provider !== 'synvow'
@@ -122,6 +120,7 @@ export async function POST(request: NextRequest) {
                 const thumbnailUrl = item.type === 'image'
                   ? await generateAndUploadThumbnailFromBuffer(outputPath, imgBuffer)
                   : null
+                if (thumbnailUrl) console.log(`✅ Thumbnail (process-mine): generated — ${thumbnailUrl}`)
                 return { ...item, url: bunnyUrl, original_url: item.url, ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}) }
               } catch (err) {
                 console.error(`❌ Bunny (process-mine): upload failed for ${item.url}:`, err)

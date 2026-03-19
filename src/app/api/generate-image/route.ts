@@ -8,7 +8,7 @@ import { config } from '@/lib/config'
 import { getModel } from '@/services/models'
 import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import type { SynvowGenerateRequest } from '@/services/ai-providers/synvow'
-import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail, generateAndUploadThumbnailFromBuffer } from '@/lib/bunny'
+import { uploadFromUrl, uploadBuffer, uploadFromUrlWithBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnailFromBuffer } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
 import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
 import { ProviderType } from '@/services/ai-providers/common/types'
@@ -320,6 +320,9 @@ export async function POST(request: NextRequest) {
         status: 'completed',
         output_urls: outputItems,
         updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        generation_time_ms: Date.now() - new Date(now).getTime(),
+        credits_used: actualCredits,
         settings: {
           prompt: prompt.trim(),
           aspect_ratio: aspect_ratio ?? null,
@@ -353,9 +356,11 @@ export async function POST(request: NextRequest) {
             if (!isOurCdn(item.url)) {
               const ext = extFromUrl(item.url) || 'jpg'
               const outputPath = getOutputPath(userId, ext, generateMediaFilename(ext, prompt))
-              bunnyUrl = await uploadFromUrl(outputPath, item.url, mimeFromExt(ext))
+              // Download once — use same buffer for Bunny upload AND thumbnail (avoids CDN propagation re-fetch)
+              const { url: cdnUrl, buffer: imgBuffer } = await uploadFromUrlWithBuffer(outputPath, item.url, mimeFromExt(ext))
+              bunnyUrl = cdnUrl
               console.log(`✅ Bunny (generate-image): output uploaded — ${bunnyUrl}`)
-              thumbnailUrl = await generateAndUploadThumbnail(outputPath, bunnyUrl)
+              thumbnailUrl = await generateAndUploadThumbnailFromBuffer(outputPath, imgBuffer)
             } else {
               // Already on CDN (data URI path) — thumbnail was pre-generated from buffer
               thumbnailUrl = preThumbs.get(bunnyUrl) ?? null

@@ -47,8 +47,8 @@ export function useTaskManager() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const POLL_INTERVAL_MS = 5000       // DB status check — fast
-const PROCESS_INTERVAL_MS = 10000   // Trigger server-side RunningHub poll — reduces cron 60s wait
+const POLL_INTERVAL_MS = 5000      // DB status check — fast
+const PROCESS_INTERVAL_MS = 5000   // Trigger server-side RunningHub poll — reduces cron 60s wait
 
 function playSuccessSound() {
   if (typeof window === 'undefined') return
@@ -117,11 +117,18 @@ export function TaskManagerProvider({ children }: { children: React.ReactNode })
 
   // ── Trigger server-side processing — kicks RunningHub poll + Bunny upload ──
   // Replaces the 60s cron gap with near-instant completion from the browser.
+  // Passes task IDs explicitly — no session auth required on the server.
   const triggerProcessing = useCallback(async () => {
-    const hasRunningHub = Array.from(tasksRef.current.values()).some(t => t.status === 'processing')
-    if (!hasRunningHub) return
+    const processingIds = Array.from(tasksRef.current.values())
+      .filter(t => t.status === 'processing')
+      .map(t => t.historyId)
+    if (processingIds.length === 0) return
     try {
-      await fetch('/api/tasks/process-mine', { method: 'POST' })
+      await fetch('/api/tasks/process-mine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskIds: processingIds }),
+      })
     } catch {}
   }, [])
 
