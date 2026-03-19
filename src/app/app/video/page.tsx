@@ -298,7 +298,7 @@ const GROUP_LOGOS: Record<string, string> = {
   'Google Veo':    '/images/google_logo.webp',
   'OpenAI Sora':   '/images/openai_sora.webp',
   'ByteDance':     '/images/bytedance_logo.webp',
-  'Mirai Motion':  '/images/mirai_logo.webp',
+  'Mirai Motion':  '/images/mirai_logo.webm',
 }
 
 // ─── Model picker (premium side-panel via portal) ──────────────────────────────
@@ -391,7 +391,9 @@ function ModelPicker({
                         {/* Provider logo badge */}
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden bg-[#0e0e0e]">
                           {logoSrc
-                            ? <img src={logoSrc} alt={group.label} className="w-6 h-6 object-contain" />
+                            ? /\.(mp4|webm)$/.test(logoSrc)
+                              ? <video src={logoSrc} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                              : <img src={logoSrc} alt={group.label} className="w-6 h-6 object-contain" />
                             : <div className="w-2 h-2 rounded-full bg-white/30" />
                           }
                         </div>
@@ -444,7 +446,9 @@ function ModelPicker({
         {/* Provider logo */}
         <div className="w-10 h-10 rounded-xl bg-[#161616] flex items-center justify-center flex-shrink-0 overflow-hidden">
           {selectedGroupLogo
-            ? <img src={selectedGroupLogo} alt="" className="w-7 h-7 object-contain" />
+            ? /\.(mp4|webm)$/.test(selectedGroupLogo)
+              ? <video src={selectedGroupLogo} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+              : <img src={selectedGroupLogo} alt="" className="w-7 h-7 object-contain" />
             : <div className="w-2 h-2 rounded-full bg-white/30" />
           }
         </div>

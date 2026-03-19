@@ -62,7 +62,7 @@ const MODEL_LOGO: Record<string, string> = {
   'gemini-3.1-flash-image-preview':      '/images/google_logo.webp',
   'doubao-seedream-5-0-260128':          '/images/bytedance_logo.webp',
   'doubao-seedream-4-5-251128':          '/images/bytedance_logo.webp',
-  'soul-2':                              '/images/mirai_logo.webp',
+  'soul-2':                              '/images/mirai_logo.webm',
 }
 
 // De-duplicated list for the model picker — show one entry per quality group
@@ -1980,7 +1980,10 @@ export default function ImagePage() {
                                 >
                                   {logo ? (
                                     <div className="w-9 h-9 rounded-lg bg-[#0e0e0e] flex items-center justify-center shrink-0 overflow-hidden">
-                                      <img src={logo} alt="" className="w-5 h-5 object-contain" />
+                                      {/\.(mp4|webm)$/.test(logo)
+                                        ? <video src={logo} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                                        : <img src={logo} alt="" className="w-5 h-5 object-contain" />
+                                      }
                                     </div>
                                   ) : (
                                     <div className="w-9 h-9 rounded-lg bg-[#0e0e0e] shrink-0" />
