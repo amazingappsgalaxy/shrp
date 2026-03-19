@@ -993,8 +993,9 @@ export default function ImagePage() {
             const newImgs: GridImage[] = []
             item.outputUrls.forEach((out, urlIdx) => {
               const url = typeof out === 'string' ? out : out.url
+              const thumbnailUrl = typeof out === 'string' ? undefined : out.thumbnail_url
               if (!url) return
-              newImgs.push({ id: `hist-${item.id}-${urlIdx}`, url, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined, taskId: item.id })
+              newImgs.push({ id: `hist-${item.id}-${urlIdx}`, url, thumbnailUrl, aspect, loading: false, prompt: item.settings?.prompt, model: item.modelName ?? undefined, taskId: item.id })
             })
 
             // Find ALL placeholder images linked to this taskId

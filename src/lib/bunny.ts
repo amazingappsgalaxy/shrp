@@ -154,6 +154,31 @@ export function getThumbnailPath(originalPath: string): string {
 }
 
 /**
+ * Resizes a buffer to a max 400px wide WebP thumbnail and uploads to Bunny CDN.
+ * Returns the CDN URL, or null on any failure.
+ * Never throws — thumbnail failure must never block the main upload flow.
+ */
+export async function generateAndUploadThumbnailFromBuffer(
+  outputPath: string,
+  imageBuffer: Buffer
+): Promise<string | null> {
+  try {
+    const thumbBuffer = await sharp(imageBuffer)
+      .resize({ width: 400, withoutEnlargement: true })
+      .webp({ quality: 75 })
+      .toBuffer()
+
+    const thumbPath = getThumbnailPath(outputPath)
+    const thumbUrl = await uploadBuffer(thumbPath, thumbBuffer, 'image/webp')
+    console.log(`✅ Thumbnail uploaded — ${thumbUrl}`)
+    return thumbUrl
+  } catch (err) {
+    console.error(`❌ Thumbnail generation failed for ${outputPath}:`, err)
+    return null
+  }
+}
+
+/**
  * Fetches sourceUrl, resizes to max 400px wide WebP thumbnail, uploads to Bunny CDN.
  * Returns the CDN URL of the thumbnail, or null on any failure.
  * Never throws — thumbnail failure must never block the main upload flow.
@@ -167,18 +192,15 @@ export async function generateAndUploadThumbnail(
     if (VIDEO_EXTS.has(ext)) return null
 
     const response = await fetch(sourceUrl)
-    if (!response.ok) return null
+    if (!response.ok) {
+      console.error(`❌ Thumbnail fetch failed (${response.status}) for ${sourceUrl}`)
+      return null
+    }
 
     const buffer = Buffer.from(await response.arrayBuffer())
-    const thumbBuffer = await sharp(buffer)
-      .resize({ width: 400, withoutEnlargement: true })
-      .webp({ quality: 75 })
-      .toBuffer()
-
-    const thumbPath = getThumbnailPath(outputPath)
-    const thumbUrl = await uploadBuffer(thumbPath, thumbBuffer, 'image/webp')
-    return thumbUrl
-  } catch {
+    return await generateAndUploadThumbnailFromBuffer(outputPath, buffer)
+  } catch (err) {
+    console.error(`❌ Thumbnail fetch/process error for ${sourceUrl}:`, err)
     return null
   }
 }

@@ -8,7 +8,7 @@ import { config } from '@/lib/config'
 import { getModel } from '@/services/models'
 import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import type { SynvowGenerateRequest } from '@/services/ai-providers/synvow'
-import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail } from '@/lib/bunny'
+import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail, generateAndUploadThumbnailFromBuffer } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
 import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
 import { ProviderType } from '@/services/ai-providers/common/types'
@@ -245,6 +245,8 @@ export async function POST(request: NextRequest) {
     const provider = getSynvowProvider()
 
     const outputUrls: string[] = []
+    // Pre-generated thumbnail URLs for data URI outputs (avoids CDN re-fetch in the upload pass)
+    const preThumbs = new Map<string, string>()
     let firstError: string | null = null
 
     // Generate `count` images sequentially (Synvow is synchronous per request)
@@ -263,8 +265,12 @@ export async function POST(request: NextRequest) {
               const base64 = match[2]!
               const buf = Buffer.from(base64, 'base64')
               const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : mime.includes('gif') ? 'gif' : 'jpg'
-              finalUrl = await uploadBuffer(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), buf, mime)
+              const outputPath = getOutputPath(userId, ext, generateMediaFilename(ext, prompt))
+              finalUrl = await uploadBuffer(outputPath, buf, mime)
               console.log(`✅ Bunny (generate-image): base64 output uploaded — ${finalUrl}`)
+              // Generate thumbnail from buffer (already in memory — no CDN round-trip)
+              const thumbUrl = await generateAndUploadThumbnailFromBuffer(outputPath, buf)
+              if (thumbUrl) preThumbs.set(finalUrl, thumbUrl)
             }
           }
 
@@ -343,17 +349,17 @@ export async function POST(request: NextRequest) {
         outputItems.map(async (item) => {
           try {
             let bunnyUrl = item.url
-            let outputPath: string | null = null
+            let thumbnailUrl: string | null = null
             if (!isOurCdn(item.url)) {
               const ext = extFromUrl(item.url) || 'jpg'
-              outputPath = getOutputPath(userId, ext, generateMediaFilename(ext, prompt))
+              const outputPath = getOutputPath(userId, ext, generateMediaFilename(ext, prompt))
               bunnyUrl = await uploadFromUrl(outputPath, item.url, mimeFromExt(ext))
               console.log(`✅ Bunny (generate-image): output uploaded — ${bunnyUrl}`)
+              thumbnailUrl = await generateAndUploadThumbnail(outputPath, bunnyUrl)
             } else {
-              // Already on CDN (data URI path) — derive path from URL for thumbnail
-              outputPath = bunnyUrl.replace(/^https?:\/\/[^/]+\//, '')
+              // Already on CDN (data URI path) — thumbnail was pre-generated from buffer
+              thumbnailUrl = preThumbs.get(bunnyUrl) ?? null
             }
-            const thumbnailUrl = await generateAndUploadThumbnail(outputPath, bunnyUrl)
             return { ...item, url: bunnyUrl, ...(item.url !== bunnyUrl ? { original_url: item.url } : {}), ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}) }
           } catch (err) {
             console.error(`❌ Bunny (generate-image): failed to upload ${item.url}:`, err)
