@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-simple'
-import { uploadBuffer, uploadFromUrl, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
+import { uploadBuffer, uploadFromUrl, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail } from '@/lib/bunny'
 import { createClient } from '@supabase/supabase-js'
 import { config } from '@/lib/config'
 import { MODEL_REGISTRY } from '@/services/models'
@@ -191,12 +191,16 @@ export async function POST(request: NextRequest) {
     // ── Upload output to Bunny CDN (Synvow URLs expire in ~1 day) ─────────────
     const rawOutputUrl = result.immediateOutput
     const ext = extFromUrl(rawOutputUrl) || 'jpg'
-    const outputUrl = await uploadFromUrl(getOutputPath(userId, ext), rawOutputUrl, mimeFromExt(ext))
+    const outputPath = getOutputPath(userId, ext)
+    const outputUrl = await uploadFromUrl(outputPath, rawOutputUrl, mimeFromExt(ext))
+    const thumbnailUrl = await generateAndUploadThumbnail(outputPath, outputUrl)
     const generationMs = Date.now() - startTime
 
     // ── Mark history record as completed ─────────────────────────────────────
+    const outputItem: Record<string, unknown> = { type: 'image', url: outputUrl }
+    if (thumbnailUrl) outputItem.thumbnail_url = thumbnailUrl
     await supabase.from('history_items').update({
-      output_urls: [{ type: 'image', url: outputUrl }],
+      output_urls: [outputItem],
       status: 'completed',
       generation_time_ms: generationMs,
     }).eq('id', historyId)

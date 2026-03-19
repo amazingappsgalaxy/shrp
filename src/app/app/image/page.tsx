@@ -29,6 +29,7 @@ type PickerType = "ratio" | "style" | "model" | "resolution" | null
 interface GridImage {
   id: string
   url: string
+  thumbnailUrl?: string
   aspect: Aspect
   loading: boolean
   prompt?: string
@@ -498,7 +499,7 @@ function JustifiedGrid({
                 {/* Inner clip wrapper — rounds image corners without clipping dropdown */}
                 <div style={{ position: "absolute", inset: 0, borderRadius: 8, overflow: "hidden" }}>
                   {img.loading ? <GenerationAnimation /> : (
-                    <img src={img.url} alt="" className="block w-full h-full object-cover select-none"
+                    <img src={img.thumbnailUrl || img.url} alt="" className="block w-full h-full object-cover select-none"
                       style={{ animation: isGenerated ? "fadeIn 0.5s ease-out both" : undefined }} />
                   )}
                 </div>
@@ -633,7 +634,7 @@ function JustifiedGrid({
 // ─── History helpers ───────────────────────────────────────────────────────────
 interface HistoryItem {
   id: string
-  outputUrls: Array<{ type: string; url: string } | string>
+  outputUrls: Array<{ type: string; url: string; thumbnail_url?: string } | string>
   status: string
   createdAt: string
   modelName?: string | null
@@ -655,11 +656,13 @@ function parseHistItems(items: HistoryItem[]): { images: GridImage[]; pendingIds
     if (item.status === 'completed') {
       item.outputUrls.forEach((out, index) => {
         const url = typeof out === 'string' ? out : out.url
+        const thumbnailUrl = typeof out === 'string' ? undefined : out.thumbnail_url
         if (!url) return
         // Use index to ensure unique keys even if URLs are similar
         images.push({
           id: `hist-${item.id}-${index}`,
           url,
+          thumbnailUrl,
           aspect,
           loading: false,
           prompt: item.settings?.prompt,

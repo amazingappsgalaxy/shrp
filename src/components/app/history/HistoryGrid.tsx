@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 
 type Item = {
     id: string;
-    outputUrls: Array<{ type: 'image' | 'video'; url: string }>;
+    outputUrls: Array<{ type: 'image' | 'video'; url: string; thumbnail_url?: string }>;
     status: string;
     createdAt: string;
 };
@@ -61,7 +61,9 @@ export function HistoryGrid({ items, onSelect, onDelete, loadingItemId }: Histor
 }
 
 function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelect: (id: string) => void; index: number; isLoading?: boolean }) {
-    const primary = item.outputUrls?.find((o) => o.type === "image")?.url || item.outputUrls?.[0]?.url;
+    const primaryOutput = item.outputUrls?.find((o) => o.type === "image") || item.outputUrls?.[0];
+    const primary = primaryOutput?.url;
+    const primaryThumb = primaryOutput?.thumbnail_url || primary;
     const isVideo = item.outputUrls?.some((o) => o.type === "video");
     const isProcessing = item.status === "processing";
     const isFailed = item.status === "failed";
@@ -93,7 +95,7 @@ function HistoryCard({ item, onSelect, index, isLoading }: { item: Item; onSelec
                         />
                     ) : (
                         <img
-                            src={primary}
+                            src={primaryThumb}
                             alt="History Item"
                             className="w-full h-full object-cover transition-transform duration-700"
                         />

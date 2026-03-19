@@ -9,7 +9,7 @@ import { HistoryDetailModal } from "@/components/app/history/HistoryDetailModal"
 
 export type HistoryListItem = {
   id: string
-  outputUrls: Array<{ type: 'image' | 'video'; url: string }>
+  outputUrls: Array<{ type: 'image' | 'video'; url: string; thumbnail_url?: string }>
   status: string
   createdAt: string
 }
@@ -17,7 +17,7 @@ export type HistoryListItem = {
 type HistoryDetail = {
   id: string
   taskId: string
-  outputUrls: Array<{ type: 'image' | 'video'; url: string }>
+  outputUrls: Array<{ type: 'image' | 'video'; url: string; thumbnail_url?: string }>
   modelName: string
   pageName: string
   status: string

@@ -8,7 +8,7 @@ import { config } from '@/lib/config'
 import { getModel } from '@/services/models'
 import { getSynvowProvider } from '@/services/ai-providers/synvow'
 import type { SynvowGenerateRequest } from '@/services/ai-providers/synvow'
-import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt } from '@/lib/bunny'
+import { uploadFromUrl, uploadBuffer, getInputPath, getOutputPath, extFromUrl, mimeFromExt, generateAndUploadThumbnail } from '@/lib/bunny'
 import { generateMediaFilename } from '@/lib/media-filename'
 import { AIProviderFactory } from '@/services/ai-providers/provider-factory'
 import { ProviderType } from '@/services/ai-providers/common/types'
@@ -337,16 +337,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Upload outputs to Bunny CDN ─────────────────────────────────────────
+    // ── Upload outputs to Bunny CDN + generate thumbnails ──────────────────
     try {
       const bunnyItems = await Promise.all(
         outputItems.map(async (item) => {
-          if (isOurCdn(item.url)) return item
           try {
-            const ext = extFromUrl(item.url) || 'jpg'
-            const bunnyUrl = await uploadFromUrl(getOutputPath(userId, ext, generateMediaFilename(ext, prompt)), item.url, mimeFromExt(ext))
-            console.log(`✅ Bunny (generate-image): output uploaded — ${bunnyUrl}`)
-            return { ...item, url: bunnyUrl, original_url: item.url }
+            let bunnyUrl = item.url
+            let outputPath: string | null = null
+            if (!isOurCdn(item.url)) {
+              const ext = extFromUrl(item.url) || 'jpg'
+              outputPath = getOutputPath(userId, ext, generateMediaFilename(ext, prompt))
+              bunnyUrl = await uploadFromUrl(outputPath, item.url, mimeFromExt(ext))
+              console.log(`✅ Bunny (generate-image): output uploaded — ${bunnyUrl}`)
+            } else {
+              // Already on CDN (data URI path) — derive path from URL for thumbnail
+              outputPath = bunnyUrl.replace(/^https?:\/\/[^/]+\//, '')
+            }
+            const thumbnailUrl = await generateAndUploadThumbnail(outputPath, bunnyUrl)
+            return { ...item, url: bunnyUrl, ...(item.url !== bunnyUrl ? { original_url: item.url } : {}), ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}) }
           } catch (err) {
             console.error(`❌ Bunny (generate-image): failed to upload ${item.url}:`, err)
             return item

@@ -11,7 +11,7 @@ import { EditModal } from '@/components/app/edit/EditModal';
 type HistoryDetail = {
     id: string;
     taskId: string;
-    outputUrls: Array<{ type: 'image' | 'video'; url: string }>;
+    outputUrls: Array<{ type: 'image' | 'video'; url: string; thumbnail_url?: string }>;
     modelName: string;
     pageName: string;
     status: string;
@@ -274,7 +274,7 @@ export function HistoryDetailModal({ isOpen, onClose, item, detailsLoading }: Hi
                                             {output.type === 'video' ? (
                                                 <video src={output.url} className="w-full h-full object-cover pointer-events-none" />
                                             ) : (
-                                                <img src={output.url} alt="Thumbnail" className="w-full h-full object-cover" />
+                                                <img src={output.thumbnail_url || output.url} alt="Thumbnail" className="w-full h-full object-cover" />
                                             )}
                                         </button>
                                     ))}

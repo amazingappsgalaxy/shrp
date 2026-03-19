@@ -10,6 +10,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
+import sharp from 'sharp'
 
 // ─── Config helpers ─────────────────────────────────────────────────────────
 
@@ -138,4 +139,46 @@ export function extFromUrl(url: string): string {
 
 export function mimeFromExt(ext: string): string {
   return EXT_MIME[ext] ?? 'application/octet-stream'
+}
+
+// ─── Thumbnail helpers ────────────────────────────────────────────────────────
+
+const VIDEO_EXTS = new Set(['mp4', 'webm', 'mov', 'm4v'])
+
+/**
+ * Derives thumbnail storage path from an original output path.
+ * e.g. outputs/2026-03-18/userId/image.png → outputs/2026-03-18/userId/image_thumb.webp
+ */
+export function getThumbnailPath(originalPath: string): string {
+  return originalPath.replace(/\.[^.]+$/, '_thumb.webp')
+}
+
+/**
+ * Fetches sourceUrl, resizes to max 400px wide WebP thumbnail, uploads to Bunny CDN.
+ * Returns the CDN URL of the thumbnail, or null on any failure.
+ * Never throws — thumbnail failure must never block the main upload flow.
+ */
+export async function generateAndUploadThumbnail(
+  outputPath: string,
+  sourceUrl: string
+): Promise<string | null> {
+  try {
+    const ext = extFromUrl(sourceUrl)
+    if (VIDEO_EXTS.has(ext)) return null
+
+    const response = await fetch(sourceUrl)
+    if (!response.ok) return null
+
+    const buffer = Buffer.from(await response.arrayBuffer())
+    const thumbBuffer = await sharp(buffer)
+      .resize({ width: 400, withoutEnlargement: true })
+      .webp({ quality: 75 })
+      .toBuffer()
+
+    const thumbPath = getThumbnailPath(outputPath)
+    const thumbUrl = await uploadBuffer(thumbPath, thumbBuffer, 'image/webp')
+    return thumbUrl
+  } catch {
+    return null
+  }
 }
