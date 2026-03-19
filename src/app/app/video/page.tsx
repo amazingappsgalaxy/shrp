@@ -958,8 +958,19 @@ function VideoInfoModal({ video, isOpen, onClose, onUseAsMotionSource, onUseAsEd
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [fileSizeMb, setFileSizeMb] = useState<string | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (!isOpen || !video?.url) { setFileSizeMb(null); return }
+    fetch(video.url, { method: 'HEAD' })
+      .then(r => {
+        const cl = r.headers.get('content-length')
+        if (cl) setFileSizeMb((parseInt(cl) / (1024 * 1024)).toFixed(1) + ' MB')
+      })
+      .catch(() => {})
+  }, [isOpen, video?.url])
 
   useEffect(() => {
     if (isOpen && videoRef.current) {
@@ -1068,7 +1079,10 @@ function VideoInfoModal({ video, isOpen, onClose, onUseAsMotionSource, onUseAsEd
               <div>
                 <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Model</p>
                 <p className="text-xs text-white/80 font-medium">
-                  {video.variant ? `${video.model.replace('- Replicate', '').trim()} — ${video.variant}` : video.model}
+                  {(() => {
+                    const base = video.model.replace(/\s*-\s*Replicate\s*$/i, '').trim()
+                    return video.variant ? `${base} — ${video.variant}` : base
+                  })()}
                 </p>
               </div>
             )}
@@ -1084,6 +1098,13 @@ function VideoInfoModal({ video, isOpen, onClose, onUseAsMotionSource, onUseAsEd
               <div>
                 <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Resolution</p>
                 <p className="text-xs text-white/70">{video.dimensions}</p>
+              </div>
+            )}
+            {/* File size */}
+            {fileSizeMb && (
+              <div>
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5">File Size</p>
+                <p className="text-xs text-white/70">{fileSizeMb}</p>
               </div>
             )}
             {/* Prompt — scrollable if long */}
@@ -1651,11 +1672,14 @@ function VideoPageContent() {
     }
 
     const isMiraiTab = resolvedMotionModelId.startsWith('mirai-motion') && activeTab === 'motion'
+    const videoVariant = selectedModel?.variantGroupId === 'mirai-motion-replicate'
+      ? (isMiraiTab ? miraiSubModel : (selectedModel?.variantTier ?? undefined))
+      : undefined
     setVideos(prev => [{
       id: localId, url: null, aspect: currentAspect, loading: true,
       prompt: prompt.trim(),
       model: selectedModel?.label,
-      variant: isMiraiTab ? miraiSubModel : undefined,
+      variant: videoVariant,
       dimensions: getVideoDimensions(currentAspect, videoQuality),
     }, ...prev])
     setActiveTasks(prev => {
